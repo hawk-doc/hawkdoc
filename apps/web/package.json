@@ -1,0 +1,44 @@
+
+{
+  "name": "@hawkdoc/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lexical/code": "^0.17.1",
+    "@lexical/history": "^0.17.1",
+    "@lexical/link": "^0.17.1",
+    "@lexical/list": "^0.17.1",
+    "@lexical/markdown": "^0.17.1",
+    "@lexical/react": "^0.17.1",
+    "@lexical/rich-text": "^0.17.1",
+    "@lexical/selection": "^0.17.1",
+    "@lexical/utils": "^0.17.1",
+    "@react-pdf/renderer": "^3.4.4",
+    "@tanstack/react-virtual": "^3.8.1",
+    "lexical": "^0.17.1",
+    "lucide-react": "^0.576.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^9.8.0",
+    "postcss": "^8.4.40",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.5"
+  }
+}

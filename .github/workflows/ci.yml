@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check (web)
+        run: npm run typecheck --workspace=apps/web
+
+      - name: Type check (api)
+        run: npm run typecheck --workspace=apps/api
+
+      - name: Lint
+        run: npm run lint --workspace=apps/web
+
+      - name: Build
+        run: npm run build

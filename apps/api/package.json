@@ -1,0 +1,31 @@
+{
+  "name": "@hawkdoc/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hocuspocus/server": "^2.13.5",
+    "bcrypt": "^5.1.1",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0",
+    "yjs": "^13.6.29",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^22.1.0",
+    "@types/pg": "^8.11.6",
+    "tsx": "^4.17.0",
+    "typescript": "^5.5.3"
+  }
+}

@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply font-sans text-notion-text bg-notion-bg antialiased;
+  }
+}
+
+@layer components {
+  /* ─── Editor content ─── */
+  .editor-content {
+    @apply outline-none min-h-[480px] text-[16px] leading-[1.75] text-notion-text;
+  }
+
+  .editor-content p {
+    @apply my-0.5 min-h-[1.75em];
+  }
+
+  /* Headings */
+  .editor-h1 {
+    @apply text-[2em] font-bold mt-8 mb-2 leading-tight tracking-tight text-notion-text;
+  }
+  .editor-h2 {
+    @apply text-[1.5em] font-semibold mt-6 mb-1.5 leading-tight text-notion-text;
+  }
+  .editor-h3 {
+    @apply text-[1.2em] font-semibold mt-4 mb-1 leading-snug text-notion-text;
+  }
+
+  /* Lists */
+  .editor-ul {
+    @apply list-disc pl-6 my-1;
+  }
+  .editor-ol {
+    @apply list-decimal pl-6 my-1;
+  }
+  .editor-li {
+    @apply my-0.5;
+  }
+
+  /* Quote */
+  .editor-quote {
+    @apply border-l-[3px] border-notion-muted pl-4 text-notion-muted italic my-3;
+  }
+
+  /* Inline code */
+  .editor-inline-code {
+    @apply font-mono bg-[#f0f0f0] text-[#c7254e] rounded px-1.5 py-0.5 text-[0.85em] align-middle;
+  }
+
+  /* Block code — dark dev-toolkit style */
+  .editor-code {
+    @apply font-mono text-[0.875em] my-3 block overflow-x-auto;
+    background: #1a1b26;
+    color: #a9b1d6;
+    padding: 1em 1.25em;
+    line-height: 1.65;
+    /* Top radius removed — the CodeBlockPlugin header sits above with its own top radius */
+    border-radius: 0 0 8px 8px;
+  }
+
+  /* Links */
+  .editor-link {
+    @apply text-notion-accent underline cursor-pointer hover:text-blue-700 transition-colors;
+  }
+
+  /* Horizontal rule */
+  .editor-content hr {
+    @apply border-none border-t border-notion-border my-5;
+  }
+
+  /* ─── Placeholder ─── */
+  .editor-placeholder {
+    @apply absolute top-0 left-0 text-notion-muted pointer-events-none select-none flex items-center gap-1.5;
+  }
+
+  /* Keyboard hint */
+  .editor-kbd {
+    @apply inline-flex items-center px-1 py-0.5 rounded text-[10px] font-mono
+           bg-notion-hover border border-notion-border text-notion-muted leading-none;
+  }
+
+  /* ─── Template variable chip ─── */
+  .template-variable {
+    @apply inline-flex items-center bg-blue-50 text-blue-600 rounded px-1.5 py-0.5
+           text-[0.85em] font-mono border border-blue-200 cursor-default select-none
+           mx-0.5 align-middle;
+  }
+
+  /* ─── Slash command menu ─── */
+  .slash-menu {
+    @apply absolute z-50 bg-white rounded-xl shadow-2xl border border-notion-border
+           w-72 py-1 overflow-hidden;
+  }
+
+  .slash-menu-item {
+    @apply flex items-center gap-3 px-3 py-2 cursor-pointer text-sm text-notion-text
+           hover:bg-notion-hover transition-colors;
+  }
+
+  .slash-menu-item.selected {
+    @apply bg-notion-hover;
+  }
+
+  .slash-menu-item-icon {
+    @apply w-8 h-8 flex items-center justify-center rounded-lg bg-notion-border
+           text-notion-muted font-bold text-sm flex-shrink-0 font-mono;
+  }
+
+  /* ─── Toolbar (legacy helpers) ─── */
+  .toolbar {
+    @apply flex items-center gap-0.5 flex-wrap;
+  }
+
+  .toolbar-btn {
+    @apply w-7 h-7 flex items-center justify-center rounded text-notion-muted
+           hover:bg-notion-hover hover:text-notion-text transition-colors text-sm font-medium
+           cursor-pointer;
+  }
+
+  .toolbar-btn.active {
+    @apply bg-notion-hover text-notion-text;
+  }
+
+  .toolbar-divider {
+    @apply w-px h-5 bg-notion-border mx-0.5;
+  }
+}
