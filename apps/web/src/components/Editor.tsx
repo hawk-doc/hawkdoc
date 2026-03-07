@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, createElement } from 'react';
+import { pdf } from '@react-pdf/renderer';
 import {
   $getRoot,
   $getSelection,
@@ -24,12 +25,13 @@ import { ListNode, ListItemNode } from '@lexical/list';
 import { CodeNode, CodeHighlightNode } from '@lexical/code';
 import { LinkNode, AutoLinkNode } from '@lexical/link';
 import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
-import LexicalErrorBoundary from '@lexical/react/LexicalErrorBoundary';
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 
 import { EditorToolbar } from './EditorToolbar';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { BubbleMenu } from './BubbleMenu';
 import { CodeBlockPlugin } from './CodeBlockPlugin';
+import { DocumentPDF } from './DocumentPDF';
 import { TemplateVariableNode, $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { useAutoSave, loadAutoSave } from '../hooks/useAutoSave';
 
@@ -142,7 +144,6 @@ export function Editor({ title, onTitleChange }: EditorProps) {
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const workerRef = useRef<Worker | null>(null);
 
   const [initialContent] = useState<string | null>(() => loadAutoSave()?.content ?? null);
 
@@ -156,39 +157,32 @@ export function Editor({ title, onTitleChange }: EditorProps) {
     return text.trim() ? text.trim().split(/\s+/).length : 0;
   }, [editorState]);
 
-  // PDF export via Web Worker
-  const handleExportPDF = useCallback(() => {
+  // PDF export — runs on main thread for MVP reliability
+  const handleExportPDF = useCallback(async () => {
     if (!editorState || isExporting) return;
     setIsExporting(true);
-
-    if (!workerRef.current) {
-      workerRef.current = new Worker(
-        new URL('../workers/pdfExport.worker.ts', import.meta.url),
-        { type: 'module' },
-      );
-    }
-
-    const worker = workerRef.current;
-    worker.onmessage = (event: MessageEvent<{ type: string; blobUrl?: string; error?: string }>) => {
+    try {
+      const element = createElement(DocumentPDF, {
+        editorState: editorState.toJSON(),
+        title,
+        watermark: 'HawkDoc',
+      });
+      const blob = await pdf(element).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title || 'document'}.pdf`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
       setIsExporting(false);
-      if (event.data.type === 'success' && event.data.blobUrl) {
-        const a = document.createElement('a');
-        a.href = event.data.blobUrl;
-        a.download = `${title || 'document'}.pdf`;
-        a.click();
-        URL.revokeObjectURL(event.data.blobUrl);
-      }
-    };
-
-    worker.postMessage({
-      type: 'export',
-      editorStateJSON: JSON.stringify(editorState.toJSON()),
-      title,
-      watermark: 'HawkDoc',
-    });
+    }
   }, [editorState, title, isExporting]);
-
-  useEffect(() => () => { workerRef.current?.terminate(); }, []);
 
   const initialConfig = {
     namespace: 'HawkDoc',
