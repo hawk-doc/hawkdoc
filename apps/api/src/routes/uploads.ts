@@ -32,6 +32,7 @@ const upload = multer({
 
 export const uploadsRouter = Router();
 
+// TODO: add requireAuth once auth UI is built
 uploadsRouter.post('/', upload.single('image'), (req: Request, res: Response) => {
   if (!req.file) {
     res.status(400).json({ error: 'No file uploaded' });

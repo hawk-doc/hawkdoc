@@ -44,6 +44,7 @@ import {
   Check,
   Globe,
   ImageIcon,
+  Loader2,
 } from 'lucide-react';
 
 type BlockType = 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'number' | 'quote' | 'code';
@@ -79,6 +80,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
   const [blockOpen, setBlockOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const blockRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +94,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
       const formData = new FormData();
       formData.append('image', file);
 
+      setIsUploading(true);
       try {
         const res = await fetch(
           `${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/api/uploads`,
@@ -106,6 +109,8 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
         });
       } catch (err) {
         console.error('Image upload failed:', err);
+      } finally {
+        setIsUploading(false);
       }
     },
     [editor],
@@ -286,8 +291,14 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
         <Btn title="Link" active={format.link} onMouseDown={toggleLink}>
           <Link size={14} />
         </Btn>
-        <Btn title="Insert image" onMouseDown={() => imageInputRef.current?.click()}>
-          <ImageIcon size={14} />
+        <Btn
+          title={isUploading ? 'Uploading…' : 'Insert image'}
+          onMouseDown={() => { if (!isUploading) imageInputRef.current?.click(); }}
+        >
+          {isUploading
+            ? <Loader2 size={14} className="animate-spin" />
+            : <ImageIcon size={14} />
+          }
         </Btn>
         <input
           ref={imageInputRef}

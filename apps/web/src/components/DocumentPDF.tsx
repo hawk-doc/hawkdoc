@@ -63,6 +63,7 @@ interface Node {
   format?: number;
   src?: string;
   alt?: string;
+  variableName?: string;
 }
 
 interface EditorRoot {
@@ -71,6 +72,7 @@ interface EditorRoot {
 
 function extractText(node: Node): string {
   if (node.type === 'text') return node.text ?? '';
+  if (node.type === 'template-variable') return `{{${node.variableName ?? ''}}}`;
   if (node.children) return node.children.map(extractText).join('');
   return '';
 }

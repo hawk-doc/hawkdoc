@@ -67,6 +67,12 @@ function ImageComponent({ src, alt, nodeKey }: { src: string; alt: string; nodeK
         if (!e.shiftKey) clearSelection();
         setSelected(true);
       }}
+      onError={(e) => {
+        const img = e.currentTarget;
+        img.style.opacity = '0.4';
+        img.style.filter = 'grayscale(1)';
+        img.title = 'Image failed to load';
+      }}
     />
   );
 }

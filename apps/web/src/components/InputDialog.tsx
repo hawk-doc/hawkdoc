@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -20,6 +20,7 @@ export function InputDialog({
   onCancel,
 }: InputDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -28,7 +29,12 @@ export function InputDialog({
 
   const submit = () => {
     const val = inputRef.current?.value.trim() ?? '';
-    if (val) onConfirm(val);
+    if (!val) {
+      setError(true);
+      inputRef.current?.focus();
+      return;
+    }
+    onConfirm(val);
   };
 
   return createPortal(
@@ -50,12 +56,20 @@ export function InputDialog({
           type="text"
           defaultValue={defaultValue}
           placeholder={placeholder}
-          className="w-full px-3 py-2 text-sm border border-notion-border rounded-lg outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 mb-3"
+          className={`w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 mb-1 transition-colors
+            ${error
+              ? 'border-red-400 focus:ring-red-500/20 focus:border-red-400'
+              : 'border-notion-border focus:ring-violet-500/20 focus:border-violet-400'
+            }`}
+          onChange={() => { if (error) setError(false); }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') submit();
             if (e.key === 'Escape') onCancel();
           }}
         />
+        <p className={`text-xs text-red-500 mb-2 transition-opacity ${error ? 'opacity-100' : 'opacity-0'}`}>
+          This field is required.
+        </p>
         <div className="flex gap-2 justify-end">
           <button
             type="button"
