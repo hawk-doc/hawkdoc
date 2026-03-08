@@ -2,6 +2,7 @@ import express from 'express';
 import { env } from './env.js';
 import { authRouter } from './routes/auth.js';
 import { documentsRouter } from './routes/documents.js';
+import { uploadsRouter, UPLOADS_DIR } from './routes/uploads.js';
 import { hocuspocusServer } from './hocuspocus.js';
 import { startFlushScheduler } from './redis.js';
 import { query } from './db.js';
@@ -17,9 +18,13 @@ app.use((_req, res, next) => {
   next();
 });
 
+// Static file serving for uploaded images
+app.use('/uploads', express.static(UPLOADS_DIR));
+
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api/documents', documentsRouter);
+app.use('/api/uploads', uploadsRouter);
 
 app.get('/healthz', (_req, res) => {
   res.json({ status: 'ok', ts: new Date().toISOString() });

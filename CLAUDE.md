@@ -52,6 +52,7 @@ hawkdoc/
 - Editable document title
 - Code block with copy-to-clipboard (`CodeBlockPlugin.tsx`)
 - `InputDialog.tsx` — reusable modal for link and variable name input (replaces `window.prompt`)
+- Image upload — toolbar button uploads to backend via multer, inserts as `ImageNode` (block-level DecoratorNode). Click to select, Backspace/Delete to remove. Persists after refresh. Included in PDF export.
 
 ### Backend (skeleton — not production ready)
 - JWT auth middleware (`middleware/auth.ts`)
@@ -66,7 +67,6 @@ hawkdoc/
 - Document list / workspace
 - DOCX import/export
 - Version history
-- Image upload support
 - User auth UI
 
 ## Critical Rules — Read Before Writing Any Code
@@ -172,6 +172,19 @@ const server = Server.configure({
 });
 ```
 
+### Image upload pattern (toolbar → backend → ImageNode)
+```typescript
+// Frontend: POST multipart to /api/uploads, get back { url }
+const formData = new FormData();
+formData.append('image', file);
+const { url } = await fetch(`${VITE_API_URL}/api/uploads`, { method: 'POST', body: formData }).then(r => r.json());
+const src = `${VITE_API_URL}${url}`;
+editor.update(() => { $insertNodeToNearestRoot($createImageNode(src, file.name)); });
+
+// ImageNode uses useLexicalNodeSelection for click-to-select and Backspace/Delete to remove
+// Do NOT store base64 in ImageNode — store URL only
+```
+
 ### PDF export pattern (main thread)
 ```typescript
 const blob = await pdf(createElement(DocumentPDF, { editorState, title, watermark })).toBlob();
@@ -224,7 +237,19 @@ Use **Conventional Commits** for every commit message.
 ### Branch Strategy
 - `main` — always stable, always deployable. Protected — no direct commits
 - `dev` — integration branch, all PRs target here first
-- Feature branches off `dev`: `feat/slash-commands`, `fix/autosave-lag`
+- All feature/fix branches are off `dev` and PR back to `dev`
+
+**Branch prefixes:**
+- `feature/` — new features (e.g. `feature/image-upload`)
+- `enhancement/` — improvements to existing features (e.g. `enhancement/toolbar-ux`)
+- `bug/` or `bugs/` — bug fixes (e.g. `bug/backspace-delete`, `bugs/autosave-lag`)
+- `add/` — adding assets, configs, docs (e.g. `add/screenshot`)
+
+## Infrastructure Notes
+
+### File Storage
+- **MVP**: multer with local disk storage (`apps/api/uploads/`). Served via `express.static`.
+- **Production**: Replace disk storage with `multer-s3` (AWS S3, Cloudflare R2, or similar). Frontend URL stays the same — only the storage adapter changes. CDN in front for edge delivery.
 
 ## Reference Docs
 - Lexical: https://lexical.dev/docs/intro

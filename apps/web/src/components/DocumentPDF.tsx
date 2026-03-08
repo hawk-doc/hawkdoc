@@ -3,6 +3,7 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
 } from '@react-pdf/renderer';
 
@@ -60,6 +61,8 @@ interface Node {
   children?: Node[];
   text?: string;
   format?: number;
+  src?: string;
+  alt?: string;
 }
 
 interface EditorRoot {
@@ -73,6 +76,17 @@ function extractText(node: Node): string {
 }
 
 function renderNode(node: Node, index: number): React.ReactElement | null {
+  if (node.type === 'image') {
+    if (!node.src) return null;
+    return (
+      <Image
+        key={index}
+        src={node.src}
+        style={{ maxWidth: '100%', marginVertical: 8 }}
+      />
+    );
+  }
+
   const text = extractText(node);
   if (!text.trim()) return null;
 
