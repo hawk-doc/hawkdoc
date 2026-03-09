@@ -37,9 +37,9 @@ export function useAutoSave(editorState: EditorState | null, title: string): boo
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       } catch {
         // ignore storage errors
-      } finally {
-        setIsSaving(false);
       }
+      // localStorage is synchronous — delay the flip so React renders "Saving…" first
+      setTimeout(() => setIsSaving(false), 600);
     }, DEBOUNCE_MS);
 
     return () => {
