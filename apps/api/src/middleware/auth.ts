@@ -16,7 +16,7 @@ export function requireAuth(
   res: Response,
   next: NextFunction,
 ): void {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.header('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Missing or malformed Authorization header' });
     return;

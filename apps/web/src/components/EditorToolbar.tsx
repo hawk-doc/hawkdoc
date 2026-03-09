@@ -20,8 +20,9 @@ import {
   INSERT_ORDERED_LIST_COMMAND,
   INSERT_UNORDERED_LIST_COMMAND,
 } from '@lexical/list';
-import { $getNearestNodeOfType } from '@lexical/utils';
+import { $getNearestNodeOfType, $insertNodeToNearestRoot } from '@lexical/utils';
 import { $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import { $createImageNode } from '../nodes/ImageNode';
 import {
   Bold,
   Italic,
@@ -41,6 +42,7 @@ import {
   Redo2,
   Check,
   Globe,
+  ImagePlus,
 } from 'lucide-react';
 
 type BlockType = 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'number' | 'quote' | 'code';
@@ -78,6 +80,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const blockRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -172,6 +175,25 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
     download(`${title || 'document'}.html`, html, 'text/html');
     setExportOpen(false);
   }, [editor, title]);
+
+  const handleImageUpload = useCallback(
+    async (file: File) => {
+      const apiUrl =
+        (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001';
+      const formData = new FormData();
+      formData.append('image', file);
+      try {
+        const res = await fetch(`${apiUrl}/api/uploads`, { method: 'POST', body: formData });
+        const { url } = (await res.json()) as { url: string };
+        editor.update(() => {
+          $insertNodeToNearestRoot($createImageNode(`${apiUrl}${url}`, file.name));
+        });
+      } catch (err) {
+        console.error('Image upload failed:', err);
+      }
+    },
+    [editor],
+  );
 
   const currentLabel = BLOCK_TYPES.find((b) => b.type === blockType)?.label ?? 'Paragraph';
 
@@ -270,6 +292,24 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
         <Btn title="Justify" onMouseDown={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify')}>
           <AlignJustify size={14} />
         </Btn>
+
+        <Sep />
+
+        {/* Image upload */}
+        <Btn title="Upload image" onMouseDown={() => fileInputRef.current?.click()}>
+          <ImagePlus size={14} />
+        </Btn>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImageUpload(file);
+            e.target.value = '';
+          }}
+        />
 
         {/* Spacer */}
         <div className="flex-1" />

@@ -1,13 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import type { EditorState } from 'lexical';
 
-const AUTO_SAVE_DELAY_MS = 800;
-const STORAGE_KEY = 'hawkdoc_autosave';
+const STORAGE_KEY = 'hawkdoc-autosave';
+const DEBOUNCE_MS = 800;
 
-interface AutoSaveState {
-  content: string;
+interface AutoSaveData {
   title: string;
-  savedAt: number;
+  content: string;
+}
+
+export function loadAutoSave(): AutoSaveData | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as AutoSaveData;
+  } catch {
+    return null;
+  }
 }
 
 export function useAutoSave(editorState: EditorState | null, title: string): boolean {
@@ -16,39 +25,27 @@ export function useAutoSave(editorState: EditorState | null, title: string): boo
 
   useEffect(() => {
     if (!editorState) return;
-
-    setIsSaving(true);
-
-    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    if (timerRef.current) clearTimeout(timerRef.current);
 
     timerRef.current = setTimeout(() => {
+      setIsSaving(true);
       try {
-        const state: AutoSaveState = {
-          content: JSON.stringify(editorState.toJSON()),
+        const data: AutoSaveData = {
           title,
-          savedAt: Date.now(),
+          content: JSON.stringify(editorState.toJSON()),
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       } catch {
-        // localStorage may be unavailable
+        // ignore storage errors
       }
-      setIsSaving(false);
-    }, AUTO_SAVE_DELAY_MS);
+      // localStorage is synchronous — delay the flip so React renders "Saving…" first
+      setTimeout(() => setIsSaving(false), 600);
+    }, DEBOUNCE_MS);
 
     return () => {
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [editorState, title]);
 
   return isSaving;
-}
-
-export function loadAutoSave(): AutoSaveState | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as AutoSaveState;
-  } catch {
-    return null;
-  }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InputDialog } from './InputDialog';
 import {
   $getSelection,
@@ -198,11 +198,15 @@ export function SlashCommandMenu({
   const [varDialogOpen, setVarDialogOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const filtered = COMMANDS.filter(
-    (cmd) =>
-      query === '' ||
-      cmd.label.toLowerCase().includes(query.toLowerCase()) ||
-      cmd.id.toLowerCase().includes(query.toLowerCase()),
+  const filtered = useMemo(
+    () =>
+      COMMANDS.filter(
+        (cmd) =>
+          query === '' ||
+          cmd.label.toLowerCase().includes(query.toLowerCase()) ||
+          cmd.id.toLowerCase().includes(query.toLowerCase()),
+      ),
+    [query],
   );
 
   const removeSlashText = useCallback(() => {

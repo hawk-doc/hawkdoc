@@ -33,6 +33,7 @@ import { BubbleMenu } from './BubbleMenu';
 import { CodeBlockPlugin } from './CodeBlockPlugin';
 import { DocumentPDF } from './DocumentPDF';
 import { TemplateVariableNode, $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
+import { ImageNode } from '../nodes/ImageNode';
 import { useAutoSave, loadAutoSave } from '../hooks/useAutoSave';
 
 const TEMPLATE_VAR_REGEX = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/;
@@ -220,6 +221,7 @@ export function Editor({ title, onTitleChange }: EditorProps) {
       AutoLinkNode,
       HorizontalRuleNode,
       TemplateVariableNode,
+      ImageNode,
     ],
     onError: (error: Error) => {
       console.error('Lexical error:', error);

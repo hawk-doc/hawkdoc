@@ -47,6 +47,7 @@ The project is currently **MVP stage**. The core editor is functional. The colla
 - Auto-save with 800ms debounce
 - Editable document title
 - Code block with copy-to-clipboard
+- Image upload — persists after refresh, included in PDF export
 
 ---
 
@@ -56,17 +57,29 @@ The project is currently **MVP stage**. The core editor is functional. The colla
 git clone https://github.com/hawk-doc/hawkdoc.git
 cd hawkdoc
 
+# Install dependencies
+npm install
+
 # Start PostgreSQL and Redis
 docker compose up -d
 
-# Install and run
-npm install
+# Copy environment files
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+
+# Generate a JWT secret and paste it into apps/api/.env
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Start both servers
 npm run dev
 ```
 
-Frontend: `http://localhost:5173` - API: `http://localhost:3001`
+| Server | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| API | http://localhost:3001 |
 
-Copy `.env.example` to `.env` in both `apps/web` and `apps/api` and fill in the values before starting.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup guide, Windows instructions, and common errors.
 
 ---
 
@@ -95,11 +108,12 @@ Copy `.env.example` to `.env` in both `apps/web` and `apps/api` and fill in the 
 | Markdown export | Working |
 | HTML export | Working |
 | Template variables | Working |
+| Image upload | Working |
 | Auto-save (localStorage) | Working |
 | Backend API (Express) | Skeleton |
+| Auth (JWT backend) | Skeleton |
 | Real-time collaboration (Yjs) | Planned |
 | DOCX import/export | Planned |
-| Auth (JWT) | Skeleton |
 
 The UI is intentionally minimal at this stage. Design improvements will come later.
 
@@ -108,11 +122,10 @@ The UI is intentionally minimal at this stage. Design improvements will come lat
 ## Roadmap
 
 - [ ] Real-time collaboration (Hocuspocus + Yjs)
-- [ ] User auth (JWT)
+- [ ] User auth UI (JWT backend is ready)
 - [ ] Document list and workspace
 - [ ] DOCX import/export
 - [ ] Version history
-- [ ] Image upload support
 
 ---
 
