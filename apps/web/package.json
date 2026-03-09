@@ -28,6 +28,12 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "*",
+    "@rollup/rollup-darwin-x64": "*",
+    "@rollup/rollup-darwin-arm64": "*",
+    "@rollup/rollup-win32-x64-msvc": "*"
+  },
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

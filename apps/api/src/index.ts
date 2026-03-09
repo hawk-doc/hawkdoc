@@ -12,9 +12,9 @@ const app = express();
 // CORS — must be the very first middleware so every response (including
 // errors from body-parser, multer, auth) carries the correct headers.
 function setCors(res: Response): void {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
 }
 
 app.use((req, res, next) => {
@@ -51,7 +51,6 @@ startFlushScheduler(async (docId, update) => {
 
 // Global error handler — CORS headers must also be set here because Express
 // error handlers bypass all previous middleware when called via next(err).
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   setCors(res);
   console.error(err.message);
