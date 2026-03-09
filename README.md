@@ -14,8 +14,12 @@
 </p>
 
 > ⚠️ HawkDoc is currently in MVP stage. Feedback and contributions are welcome.
+---
+
+> 🚧 Latest changes are on the [`dev`](https://github.com/hawk-doc/hawkdoc/tree/dev) branch and not yet merged to `main`.
 
 ---
+
 
 ## Screenshot
 
