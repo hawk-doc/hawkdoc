@@ -35,7 +35,7 @@ import { CodeBlockPlugin } from './CodeBlockPlugin';
 import { DocumentPDF } from './DocumentPDF';
 import { TemplateVariableNode, $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { ImageNode } from '../nodes/ImageNode';
-import { TablePlugin } from '../plugins/TablePlugin';
+import { TablePlugin } from './TablePlugin';
 import { useAutoSave, loadAutoSave } from '../hooks/useAutoSave';
 
 const TEMPLATE_VAR_REGEX = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/;

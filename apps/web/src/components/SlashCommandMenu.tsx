@@ -24,7 +24,7 @@ import { $insertNodeToNearestRoot } from '@lexical/utils';
 import { $createCodeNode } from '@lexical/code';
 import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
-import { INSERT_TABLE_COMMAND } from '../plugins/TablePlugin';
+import { INSERT_TABLE_COMMAND } from '@lexical/table';
 
 interface SlashCommand {
   id: string;

@@ -9,12 +9,9 @@ import {
   $deleteTableColumn__EXPERIMENTAL,
   $deleteTableRow__EXPERIMENTAL,
   $isTableRowNode,
-  INSERT_TABLE_COMMAND,
 } from '@lexical/table';
 import { $getSelection, $isRangeSelection } from 'lexical';
 import { Plus, Trash2 } from 'lucide-react';
-
-export { INSERT_TABLE_COMMAND };
 
 function TableActionMenuPlugin(): JSX.Element | null {
   const [editor] = useLexicalComposerContext();
