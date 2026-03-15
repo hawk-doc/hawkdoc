@@ -20,11 +20,6 @@ import { HorizontalRulePlugin } from '@lexical/react/LexicalHorizontalRulePlugin
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { TRANSFORMERS } from '@lexical/markdown';
-import { HeadingNode, QuoteNode } from '@lexical/rich-text';
-import { ListNode, ListItemNode } from '@lexical/list';
-import { CodeNode, CodeHighlightNode } from '@lexical/code';
-import { LinkNode, AutoLinkNode } from '@lexical/link';
-import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 
 import { EditorToolbar } from './EditorToolbar';
@@ -32,16 +27,12 @@ import { SlashCommandMenu } from './SlashCommandMenu';
 import { BubbleMenu } from './BubbleMenu';
 import { CodeBlockPlugin } from './CodeBlockPlugin';
 import { DocumentPDF } from './DocumentPDF';
-import { TemplateVariableNode, $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
-import { ImageNode } from '../nodes/ImageNode';
+import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { useAutoSave, loadAutoSave } from '../hooks/useAutoSave';
+import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES } from '../constants/editor';
+import type { SlashMenuState } from '../types/editor';
 
-const TEMPLATE_VAR_REGEX = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/;
-
-interface SlashMenuState {
-  query: string;
-  anchorRect: DOMRect;
-}
+// ─── Slash + template-variable detection plugin ───────────────────────────────
 
 function SlashAndVariablePlugin({
   onSlashMenu,
@@ -112,6 +103,7 @@ function SlashAndVariablePlugin({
   return null;
 }
 
+// ─── Utility plugins ──────────────────────────────────────────────────────────
 function EditorRefPlugin({ onEditor }: { onEditor: (editor: LexicalEditor) => void }) {
   const [editor] = useLexicalComposerContext();
   useEffect(() => { onEditor(editor); }, [editor, onEditor]);
@@ -135,6 +127,7 @@ function RestorePlugin({ initialContent }: { initialContent: string | null }) {
   return null;
 }
 
+// ─── Main Editor component ────────────────────────────────────────────────────
 interface EditorProps {
   title: string;
   onTitleChange: (title: string) => void;
@@ -150,7 +143,6 @@ export function Editor({ title, onTitleChange }: EditorProps) {
 
   const isSaving = useAutoSave(editorState, title);
 
-  // Word count
   const wordCount = useMemo(() => {
     if (!editorState) return 0;
     let text = '';
@@ -158,7 +150,6 @@ export function Editor({ title, onTitleChange }: EditorProps) {
     return text.trim() ? text.trim().split(/\s+/).length : 0;
   }, [editorState]);
 
-  // PDF export — runs on main thread for MVP reliability
   const handleExportPDF = useCallback(async () => {
     if (!editorState || isExporting) return;
     setIsExporting(true);
@@ -187,50 +178,15 @@ export function Editor({ title, onTitleChange }: EditorProps) {
 
   const initialConfig = {
     namespace: 'HawkDoc',
-    theme: {
-      root: 'editor-content',
-      text: {
-        bold: 'font-bold',
-        italic: 'italic',
-        underline: 'underline',
-        strikethrough: 'line-through',
-        code: 'editor-inline-code',
-      },
-      heading: {
-        h1: 'editor-h1',
-        h2: 'editor-h2',
-        h3: 'editor-h3',
-      },
-      list: {
-        ul: 'editor-ul',
-        ol: 'editor-ol',
-        listitem: 'editor-li',
-      },
-      quote: 'editor-quote',
-      code: 'editor-code',
-      link: 'editor-link',
-    },
-    nodes: [
-      HeadingNode,
-      QuoteNode,
-      ListNode,
-      ListItemNode,
-      CodeNode,
-      CodeHighlightNode,
-      LinkNode,
-      AutoLinkNode,
-      HorizontalRuleNode,
-      TemplateVariableNode,
-      ImageNode,
-    ],
-    onError: (error: Error) => {
-      console.error('Lexical error:', error);
-    },
+    theme: EDITOR_THEME,
+    nodes: EDITOR_NODES,
+    onError: (error: Error) => { console.error('Lexical error:', error); },
   };
 
   return (
     <div className="flex flex-col min-h-full">
-      {/* ── Toolbar — sticky just below the app header ── */}
+
+      {/* Toolbar */}
       {editorInstance && (
         <EditorToolbar
           editor={editorInstance}
@@ -240,11 +196,21 @@ export function Editor({ title, onTitleChange }: EditorProps) {
         />
       )}
 
-      {/* ── Centered paper card ── */}
-      <div className="flex-1 py-10 px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto">
+      {/* Gray canvas */}
+      <div className="flex-1 py-10 bg-[#e8eaed] overflow-x-auto">
+
+        {/* Centered A4 paper */}
+        <div style={{ width: 794, margin: '0 auto' }}>
+
           {/* White paper */}
-          <div className="bg-white rounded-xl border border-notion-border shadow-sm px-12 py-12">
+          <div
+            className="bg-white"
+            style={{
+              padding: 72,
+              minHeight: 1123,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.10)',
+            }}
+          >
             {/* Document title */}
             <input
               type="text"
@@ -256,60 +222,64 @@ export function Editor({ title, onTitleChange }: EditorProps) {
             />
 
             {/* Lexical editor */}
-            <LexicalComposer initialConfig={initialConfig}>
-              <div className="relative">
-                <RichTextPlugin
-                  contentEditable={
-                    <ContentEditable
-                      className="editor-content focus:outline-none"
-                      aria-label="Document editor"
-                    />
-                  }
-                  placeholder={
-                    <div className="editor-placeholder">
-                      Press <kbd className="editor-kbd">/</kbd> for commands, or start typing…
-                    </div>
-                  }
-                  ErrorBoundary={LexicalErrorBoundary}
-                />
-                <HistoryPlugin />
-                <AutoFocusPlugin />
-                <ListPlugin />
-                <LinkPlugin />
-                <HorizontalRulePlugin />
-                <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
-                <OnChangePlugin onChange={(state) => setEditorState(state)} />
-                <SlashAndVariablePlugin onSlashMenu={setSlashMenu} />
-                <EditorRefPlugin onEditor={setEditorInstance} />
-                <RestorePlugin initialContent={initialContent} />
-                <CodeBlockPlugin />
-              </div>
+              <LexicalComposer initialConfig={initialConfig}>
+                <div className="relative">
+                  <RichTextPlugin
+                    contentEditable={
+                      <ContentEditable
+                        className="editor-content focus:outline-none"
+                        aria-label="Document editor"
+                      />
+                    }
+                    placeholder={
+                      <div className="editor-placeholder">
+                        Press <kbd className="editor-kbd">/</kbd> for commands, or start typing…
+                      </div>
+                    }
+                    ErrorBoundary={LexicalErrorBoundary}
+                  />
+                  <HistoryPlugin />
+                  <AutoFocusPlugin />
+                  <ListPlugin />
+                  <LinkPlugin />
+                  <HorizontalRulePlugin />
+                  <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+                  <OnChangePlugin onChange={(state) => setEditorState(state)} />
+                  <SlashAndVariablePlugin onSlashMenu={setSlashMenu} />
+                  <EditorRefPlugin onEditor={setEditorInstance} />
+                  <RestorePlugin initialContent={initialContent} />
+                  <CodeBlockPlugin />
+                </div>
 
-              {slashMenu && editorInstance && (
-                <SlashCommandMenu
-                  editor={editorInstance}
-                  query={slashMenu.query}
-                  anchorRect={slashMenu.anchorRect}
-                  onClose={() => setSlashMenu(null)}
-                />
-              )}
-            </LexicalComposer>
+                {slashMenu && editorInstance && (
+                  <SlashCommandMenu
+                    editor={editorInstance}
+                    query={slashMenu.query}
+                    anchorRect={slashMenu.anchorRect}
+                    onClose={() => setSlashMenu(null)}
+                  />
+                )}
+              </LexicalComposer>
           </div>
 
-          {/* Footer — below the card */}
-          <div className="mt-4 px-1 flex items-center justify-between">
-            <span className="text-xs text-notion-muted">
+          {/* Status bar */}
+          <div className="mt-3 flex items-center justify-between px-1">
+            <span className="text-xs text-[#80868b]">
               {wordCount} {wordCount === 1 ? 'word' : 'words'}
             </span>
-            <span className="text-xs text-notion-muted">
-              Press <kbd className="editor-kbd">/</kbd> for commands &nbsp;·&nbsp; <kbd className="editor-kbd">{'{{ }}'}</kbd> for template variables
+            <span className="text-xs text-[#80868b]">
+              Press <kbd className="editor-kbd">/</kbd> for commands
+              &nbsp;·&nbsp;
+              <kbd className="editor-kbd">{'{{ }}'}</kbd> for template variables
             </span>
           </div>
+
         </div>
       </div>
 
       {/* Floating bubble menu */}
       {editorInstance && <BubbleMenu editor={editorInstance} />}
+
     </div>
   );
 }

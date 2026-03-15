@@ -3,8 +3,9 @@ import multer from 'multer';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
+import { UPLOADS_DIR, MAX_UPLOAD_SIZE_BYTES } from '../constants/upload.js';
 
-export const UPLOADS_DIR = path.resolve('uploads');
+export { UPLOADS_DIR };
 
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -20,7 +21,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: MAX_UPLOAD_SIZE_BYTES },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);

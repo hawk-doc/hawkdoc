@@ -119,16 +119,16 @@
   }
 
   .toolbar-btn {
-    @apply w-7 h-7 flex items-center justify-center rounded text-notion-muted
-           hover:bg-notion-hover hover:text-notion-text transition-colors text-sm font-medium
+    @apply w-8 h-8 flex items-center justify-center rounded text-[#444746]
+           hover:bg-[#f1f3f4] transition-colors text-sm font-medium
            cursor-pointer;
   }
 
   .toolbar-btn.active {
-    @apply bg-notion-hover text-notion-text;
+    @apply bg-[#d3e3fd] text-[#1a73e8];
   }
 
   .toolbar-divider {
-    @apply w-px h-5 bg-notion-border mx-0.5;
+    @apply w-px h-5 bg-[#dadce0] mx-1;
   }
 }

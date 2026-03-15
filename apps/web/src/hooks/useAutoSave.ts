@@ -1,13 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { EditorState } from 'lexical';
-
-const STORAGE_KEY = 'hawkdoc-autosave';
-const DEBOUNCE_MS = 800;
-
-interface AutoSaveData {
-  title: string;
-  content: string;
-}
+import { STORAGE_KEY, DEBOUNCE_MS } from '../constants/autosave';
+import type { AutoSaveData } from '../types/editor';
 
 export function loadAutoSave(): AutoSaveData | null {
   try {
@@ -19,7 +13,10 @@ export function loadAutoSave(): AutoSaveData | null {
   }
 }
 
-export function useAutoSave(editorState: EditorState | null, title: string): boolean {
+export function useAutoSave(
+  editorState: EditorState | null,
+  title: string,
+): boolean {
   const [isSaving, setIsSaving] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
