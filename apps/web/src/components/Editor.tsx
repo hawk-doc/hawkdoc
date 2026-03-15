@@ -26,6 +26,7 @@ import { CodeNode, CodeHighlightNode } from '@lexical/code';
 import { LinkNode, AutoLinkNode } from '@lexical/link';
 import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { TableNode, TableRowNode, TableCellNode } from '@lexical/table';
 
 import { EditorToolbar } from './EditorToolbar';
 import { SlashCommandMenu } from './SlashCommandMenu';
@@ -34,6 +35,7 @@ import { CodeBlockPlugin } from './CodeBlockPlugin';
 import { DocumentPDF } from './DocumentPDF';
 import { TemplateVariableNode, $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { ImageNode } from '../nodes/ImageNode';
+import { TablePlugin } from '../plugins/TablePlugin';
 import { useAutoSave, loadAutoSave } from '../hooks/useAutoSave';
 
 const TEMPLATE_VAR_REGEX = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/;
@@ -209,6 +211,11 @@ export function Editor({ title, onTitleChange }: EditorProps) {
       quote: 'editor-quote',
       code: 'editor-code',
       link: 'editor-link',
+      table: 'editor-table',
+      tableCell: 'editor-table-cell',
+      tableCellHeader: 'editor-table-cell-header',
+      tableRow: 'editor-table-row',
+      tableSelection: 'editor-table-selection',
     },
     nodes: [
       HeadingNode,
@@ -222,6 +229,9 @@ export function Editor({ title, onTitleChange }: EditorProps) {
       HorizontalRuleNode,
       TemplateVariableNode,
       ImageNode,
+      TableNode,
+      TableRowNode,
+      TableCellNode,
     ],
     onError: (error: Error) => {
       console.error('Lexical error:', error);
@@ -283,6 +293,7 @@ export function Editor({ title, onTitleChange }: EditorProps) {
                 <EditorRefPlugin onEditor={setEditorInstance} />
                 <RestorePlugin initialContent={initialContent} />
                 <CodeBlockPlugin />
+                <TablePlugin />
               </div>
 
               {slashMenu && editorInstance && (

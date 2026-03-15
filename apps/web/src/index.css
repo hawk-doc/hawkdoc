@@ -93,6 +93,27 @@
            mx-0.5 align-middle;
   }
 
+  /* ─── Table ─── */
+  .editor-table {
+    @apply w-full border-collapse my-4;
+  }
+
+  .editor-table-row {
+  }
+
+  .editor-table-cell {
+    @apply border border-notion-border px-3 py-2 text-sm align-top min-w-[80px];
+  }
+
+  .editor-table-cell-header {
+    @apply border border-notion-border px-3 py-2 text-sm align-top min-w-[80px]
+           bg-notion-hover font-semibold;
+  }
+
+  .editor-table-selection {
+    @apply bg-blue-50;
+  }
+
   /* ─── Slash command menu ─── */
   .slash-menu {
     @apply absolute z-50 bg-white rounded-xl shadow-2xl border border-notion-border
