@@ -1,0 +1,6 @@
+reviews:
+  profile: chill
+  request_changes_workflow: false
+
+chat:
+  auto_reply: true
