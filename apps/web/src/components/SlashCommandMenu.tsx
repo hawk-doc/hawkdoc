@@ -24,6 +24,7 @@ import { $insertNodeToNearestRoot } from '@lexical/utils';
 import { $createCodeNode } from '@lexical/code';
 import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
+import { INSERT_TABLE_COMMAND } from '@lexical/table';
 import type { SlashCommand } from '../types/editor';
 
 const COMMANDS: SlashCommand[] = [
@@ -150,6 +151,19 @@ const COMMANDS: SlashCommand[] = [
         const code = $createCodeNode();
         parent.replace(code);
         code.select();
+      });
+    },
+  },
+  {
+    id: 'table',
+    label: 'Table',
+    description: 'Insert a table',
+    icon: '⊞',
+    execute: (editor) => {
+      editor.dispatchCommand(INSERT_TABLE_COMMAND, {
+        rows: '3',
+        columns: '3',
+        includeHeaders: { rows: true, columns: false },
       });
     },
   },

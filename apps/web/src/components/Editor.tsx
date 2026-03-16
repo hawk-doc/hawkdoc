@@ -21,13 +21,13 @@ import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { TRANSFORMERS } from '@lexical/markdown';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
-
 import { EditorToolbar } from './EditorToolbar';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { BubbleMenu } from './BubbleMenu';
 import { CodeBlockPlugin } from './CodeBlockPlugin';
 import { DocumentPDF } from './DocumentPDF';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
+import { TablePlugin } from './TablePlugin';
 import { useAutoSave, loadAutoSave } from '../hooks/useAutoSave';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES } from '../constants/editor';
 import type { SlashMenuState } from '../types/editor';
@@ -249,6 +249,7 @@ export function Editor({ title, onTitleChange }: EditorProps) {
                   <EditorRefPlugin onEditor={setEditorInstance} />
                   <RestorePlugin initialContent={initialContent} />
                   <CodeBlockPlugin />
+                <TablePlugin />
                 </div>
 
                 {slashMenu && editorInstance && (

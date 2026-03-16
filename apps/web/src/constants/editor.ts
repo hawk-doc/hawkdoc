@@ -3,6 +3,7 @@ import { ListNode, ListItemNode } from '@lexical/list';
 import { CodeNode, CodeHighlightNode } from '@lexical/code';
 import { LinkNode, AutoLinkNode } from '@lexical/link';
 import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
+import { TableNode, TableRowNode, TableCellNode } from '@lexical/table';
 import { TemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { ImageNode } from '../nodes/ImageNode';
 import type { BlockType } from '../types/editor';
@@ -23,6 +24,11 @@ export const EDITOR_THEME = {
   quote: 'editor-quote',
   code: 'editor-code',
   link: 'editor-link',
+  table: 'editor-table',
+  tableRow: 'editor-table-row',
+  tableCell: 'editor-table-cell',
+  tableCellHeader: 'editor-table-cell-header',
+  tableSelected: 'editor-table-selection',
 };
 
 export const EDITOR_NODES = [
@@ -31,6 +37,7 @@ export const EDITOR_NODES = [
   CodeNode, CodeHighlightNode,
   LinkNode, AutoLinkNode,
   HorizontalRuleNode,
+  TableNode, TableRowNode, TableCellNode,
   TemplateVariableNode,
   ImageNode,
 ];
