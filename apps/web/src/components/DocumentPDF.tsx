@@ -42,6 +42,33 @@ const styles = StyleSheet.create({
   paragraph: {
     marginBottom: 6,
   },
+  table: {
+    display: 'flex',
+    flexDirection: 'column',
+    marginVertical: 8,
+    borderTop: '1pt solid #d0d0d0',
+    borderLeft: '1pt solid #d0d0d0',
+  },
+  tableRow: {
+    display: 'flex',
+    flexDirection: 'row',
+  },
+  tableCell: {
+    flex: 1,
+    borderRight: '1pt solid #d0d0d0',
+    borderBottom: '1pt solid #d0d0d0',
+    padding: '4pt 6pt',
+    fontSize: 11,
+  },
+  tableCellHeader: {
+    flex: 1,
+    borderRight: '1pt solid #d0d0d0',
+    borderBottom: '1pt solid #d0d0d0',
+    padding: '4pt 6pt',
+    fontSize: 11,
+    backgroundColor: '#f1f3f4',
+    fontFamily: 'Helvetica-Bold',
+  },
   watermark: {
     position: 'absolute',
     top: '45%',
@@ -64,6 +91,7 @@ interface Node {
   src?: string;
   alt?: string;
   variableName?: string;
+  headerState?: number;
 }
 
 interface EditorRoot {
@@ -77,7 +105,32 @@ function extractText(node: Node): string {
   return '';
 }
 
+function renderTableCell(cell: Node, index: number): React.ReactElement {
+  const isHeader = (cell.headerState ?? 0) > 0;
+  return (
+    <View key={index} style={isHeader ? styles.tableCellHeader : styles.tableCell}>
+      <Text>{extractText(cell)}</Text>
+    </View>
+  );
+}
+
+function renderTableRow(row: Node, index: number): React.ReactElement {
+  return (
+    <View key={index} style={styles.tableRow}>
+      {(row.children ?? []).map((cell, ci) => renderTableCell(cell, ci))}
+    </View>
+  );
+}
+
 function renderNode(node: Node, index: number): React.ReactElement | null {
+  if (node.type === 'table') {
+    return (
+      <View key={index} style={styles.table}>
+        {(node.children ?? []).map((row, ri) => renderTableRow(row, ri))}
+      </View>
+    );
+  }
+
   if (node.type === 'image') {
     if (!node.src) return null;
     return (
