@@ -1,15 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../env.js';
+import type { AuthPayload, AuthenticatedRequest } from '../types/auth.js';
 
-export interface AuthPayload {
-  userId: string;
-  email: string;
-}
-
-export interface AuthenticatedRequest extends Request {
-  auth: AuthPayload;
-}
+export type { AuthPayload, AuthenticatedRequest };
 
 export function requireAuth(
   req: Request,

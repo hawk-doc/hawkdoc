@@ -25,14 +25,7 @@ import { $createCodeNode } from '@lexical/code';
 import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { INSERT_TABLE_COMMAND } from '@lexical/table';
-
-interface SlashCommand {
-  id: string;
-  label: string;
-  description: string;
-  icon: string;
-  execute: (editor: LexicalEditor) => void;
-}
+import type { SlashCommand } from '../types/editor';
 
 const COMMANDS: SlashCommand[] = [
   {
