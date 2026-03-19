@@ -1,0 +1,22 @@
+language: en-US
+
+reviews:
+  profile: chill
+  auto_review:
+    enabled: true
+    drafts: false
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  path_instructions:
+    - path: "apps/web/**"
+      instructions: "React + TypeScript + Lexical editor. Never suggest ProseMirror or TipTap. Check for Tailwind usage (no inline styles). Ensure no window.prompt() usage — InputDialog must be used instead."
+    - path: "apps/api/**"
+      instructions: "Node.js + Express + Hocuspocus. All routes must use Zod validation. No unvalidated req.body access. JWT must be verified via middleware on protected routes."
+    - path: "**/*.tsx"
+      instructions: "Strict TypeScript — no `any` types. Components in PascalCase. Hooks must have `use` prefix."
+
+chat:
+  auto_reply: true
