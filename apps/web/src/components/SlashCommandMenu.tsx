@@ -25,6 +25,7 @@ import { $createCodeNode } from '@lexical/code';
 import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { INSERT_TABLE_COMMAND } from '@lexical/table';
+import { $createPageBreakNode } from '../nodes/PageBreakNode';
 import type { SlashCommand } from '../types/editor';
 
 const COMMANDS: SlashCommand[] = [
@@ -176,6 +177,21 @@ const COMMANDS: SlashCommand[] = [
       editor.update(() => {
         const hr = $createHorizontalRuleNode();
         $insertNodeToNearestRoot(hr);
+      });
+    },
+  },
+  {
+    id: 'page-break',
+    label: 'Page Break',
+    description: 'Force a new page in PDF export',
+    icon: '⌧',
+    execute: (editor) => {
+      editor.update(() => {
+        const node = $createPageBreakNode();
+        $insertNodeToNearestRoot(node);
+        const paragraph = $createParagraphNode();
+        node.insertAfter(paragraph);
+        paragraph.select();
       });
     },
   },

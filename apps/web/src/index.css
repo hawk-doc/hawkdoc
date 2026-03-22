@@ -93,6 +93,23 @@
            mx-0.5 align-middle;
   }
 
+  /* ─── Page break ─── */
+  .page-break-node {
+    @apply flex items-center gap-2 my-5 cursor-pointer select-none rounded px-1;
+  }
+
+  .page-break-node.selected {
+    @apply ring-2 ring-violet-500 ring-offset-1;
+  }
+
+  .page-break-node__line {
+    @apply flex-1 border-t-2 border-dashed border-notion-border;
+  }
+
+  .page-break-node__label {
+    @apply text-xs font-medium text-notion-muted uppercase tracking-widest px-2 whitespace-nowrap;
+  }
+
   /* ─── Table ─── */
   .editor-table {
     @apply w-full border-collapse my-4;
