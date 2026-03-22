@@ -123,6 +123,10 @@ function renderTableRow(row: Node, index: number): React.ReactElement {
 }
 
 function renderNode(node: Node, index: number): React.ReactElement | null {
+  if (node.type === 'page-break') {
+    return <View key={index} break />;
+  }
+
   if (node.type === 'table') {
     return (
       <View key={index} style={styles.table}>

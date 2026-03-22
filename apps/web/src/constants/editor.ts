@@ -6,6 +6,7 @@ import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { TableNode, TableRowNode, TableCellNode } from '@lexical/table';
 import { TemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { ImageNode } from '../nodes/ImageNode';
+import { PageBreakNode } from '../nodes/PageBreakNode';
 import type { BlockType } from '../types/editor';
 
 export const TEMPLATE_VAR_REGEX = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/;
@@ -40,6 +41,7 @@ export const EDITOR_NODES = [
   TableNode, TableRowNode, TableCellNode,
   TemplateVariableNode,
   ImageNode,
+  PageBreakNode,
 ];
 
 export const BLOCK_TYPES: { type: BlockType; label: string }[] = [
