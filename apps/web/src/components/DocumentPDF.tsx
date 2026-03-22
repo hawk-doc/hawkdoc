@@ -199,8 +199,8 @@ export function DocumentPDF({ editorState, title, watermark }: DocumentPDFProps)
 
   // Remove empty sections (leading, trailing, or consecutive page-breaks).
   // Always keep at least one section so the document has at least one page.
-  const sections = rawSections.filter((s) => s.length > 0);
-  if (sections.length === 0) sections.push([]);
+  const filtered = rawSections.filter((s) => s.length > 0);
+  const sections: Node[][] = filtered.length > 0 ? filtered : [[]];
 
   return (
     <Document>

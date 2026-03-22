@@ -6,7 +6,6 @@ import {
   type NodeKey,
   type SerializedLexicalNode,
   $getNodeByKey,
-  $createParagraphNode,
   KEY_BACKSPACE_COMMAND,
   KEY_DELETE_COMMAND,
   COMMAND_PRIORITY_LOW,
@@ -115,11 +114,3 @@ export function $isPageBreakNode(node: LexicalNode | null | undefined): node is 
   return node instanceof PageBreakNode;
 }
 
-export function insertPageBreakWithParagraph(editor: LexicalEditor): void {
-  editor.update(() => {
-    const node = $createPageBreakNode();
-    const paragraph = $createParagraphNode();
-    node.insertAfter(paragraph);
-    paragraph.select();
-  });
-}
