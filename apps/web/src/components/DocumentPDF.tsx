@@ -94,7 +94,7 @@ interface Node {
   headerState?: number;
 }
 
-interface EditorRoot {
+export interface EditorRoot {
   root: { children: Node[] };
 }
 
@@ -168,13 +168,13 @@ function renderNode(node: Node, index: number): React.ReactElement | null {
 }
 
 interface DocumentPDFProps {
-  editorState: object;
+  editorState: EditorRoot;
   title: string;
   watermark?: string;
 }
 
 export function DocumentPDF({ editorState, title, watermark }: DocumentPDFProps) {
-  const root = (editorState as EditorRoot).root;
+  const root = editorState.root;
   const children = root?.children ?? [];
 
   // Recursively flatten list nodes into listitem leaves, then split into

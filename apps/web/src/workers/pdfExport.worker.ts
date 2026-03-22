@@ -3,7 +3,7 @@
 
 import { pdf } from '@react-pdf/renderer';
 import { createElement } from 'react';
-import { DocumentPDF } from '../components/DocumentPDF';
+import { DocumentPDF, type EditorRoot } from '../components/DocumentPDF';
 
 export interface PdfExportRequest {
   type: 'export';
@@ -24,7 +24,7 @@ self.addEventListener('message', async (event: MessageEvent<PdfExportRequest>) =
   if (type !== 'export') return;
 
   try {
-    const editorState = JSON.parse(editorStateJSON) as object;
+    const editorState = JSON.parse(editorStateJSON) as EditorRoot;
     const element = createElement(DocumentPDF, { editorState, title, watermark });
     const blob = await pdf(element).toBlob();
     const blobUrl = URL.createObjectURL(blob);
