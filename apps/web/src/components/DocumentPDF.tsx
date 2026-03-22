@@ -123,10 +123,6 @@ function renderTableRow(row: Node, index: number): React.ReactElement {
 }
 
 function renderNode(node: Node, index: number): React.ReactElement | null {
-  if (node.type === 'page-break') {
-    return <View key={index} break />;
-  }
-
   if (node.type === 'table') {
     return (
       <View key={index} style={styles.table}>
@@ -181,26 +177,44 @@ export function DocumentPDF({ editorState, title, watermark }: DocumentPDFProps)
   const root = (editorState as EditorRoot).root;
   const children = root?.children ?? [];
 
-  const allNodes: Node[] = [];
-  for (const node of children) {
+  // Recursively flatten list nodes into listitem leaves, then split into
+  // sections at page-break nodes. Each section becomes its own <Page>.
+  function flattenNode(node: Node): Node[] {
     if (node.type === 'list' && node.children) {
-      allNodes.push(...node.children);
+      return node.children.flatMap(flattenNode);
+    }
+    return [node];
+  }
+
+  const flat = children.flatMap(flattenNode);
+
+  const rawSections: Node[][] = [[]];
+  for (const node of flat) {
+    if (node.type === 'page-break') {
+      rawSections.push([]);
     } else {
-      allNodes.push(node);
+      rawSections[rawSections.length - 1].push(node);
     }
   }
 
+  // Remove empty sections (leading, trailing, or consecutive page-breaks).
+  // Always keep at least one section so the document has at least one page.
+  const sections = rawSections.filter((s) => s.length > 0);
+  if (sections.length === 0) sections.push([]);
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        {watermark && (
-          <Text style={styles.watermark} fixed>
-            {watermark}
-          </Text>
-        )}
-        <Text style={styles.title}>{title}</Text>
-        {allNodes.map((node, i) => renderNode(node, i))}
-      </Page>
+      {sections.map((section, si) => (
+        <Page key={si} size="A4" style={styles.page}>
+          {watermark && (
+            <Text style={styles.watermark} fixed>
+              {watermark}
+            </Text>
+          )}
+          {si === 0 && <Text style={styles.title}>{title}</Text>}
+          {section.map((node, i) => renderNode(node, i))}
+        </Page>
+      ))}
     </Document>
   );
 }
