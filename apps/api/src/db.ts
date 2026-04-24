@@ -5,7 +5,7 @@ const { Pool } = pg;
 
 export const pool = new Pool({ connectionString: env.DATABASE_URL });
 
-export async function query<T extends pg.QueryResultRow>(
+export default async function query<T extends pg.QueryResultRow>(
   text: string,
   params?: unknown[],
 ): Promise<pg.QueryResult<T>> {

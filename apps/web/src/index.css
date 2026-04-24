@@ -115,8 +115,6 @@
     @apply w-full border-collapse my-4;
   }
 
-  .editor-table-row {
-  }
 
   .editor-table-cell {
     @apply border border-notion-border px-3 py-2 text-sm align-top min-w-[80px];

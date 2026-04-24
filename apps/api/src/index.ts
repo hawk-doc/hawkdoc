@@ -5,7 +5,7 @@ import { documentsRouter } from './routes/documents.js';
 import { uploadsRouter, UPLOADS_DIR } from './routes/uploads.js';
 import { hocuspocusServer } from './hocuspocus.js';
 import { startFlushScheduler } from './redis.js';
-import { query } from './db.js';
+import query from './db.js';
 
 const app = express();
 
@@ -53,8 +53,9 @@ startFlushScheduler(async (docId, update) => {
 // error handlers bypass all previous middleware when called via next(err).
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   setCors(res);
-  console.error(err.message);
-  res.status(500).json({ error: err.message });
+  console.error(err);
+  const message = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+  res.status(500).json({ error: message });
 });
 
 // Start REST API

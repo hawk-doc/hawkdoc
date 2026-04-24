@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { query } from '../db.js';
+import query from '../db.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import type { Request } from 'express';
 

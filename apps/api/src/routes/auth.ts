@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
-import { query } from '../db.js';
+import query from '../db.js';
 import { signToken } from '../middleware/auth.js';
 
 export const authRouter = Router();

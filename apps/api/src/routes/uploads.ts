@@ -34,10 +34,16 @@ const upload = multer({
 export const uploadsRouter = Router();
 
 // TODO: add requireAuth once auth UI is built
-uploadsRouter.post('/', upload.single('image'), (req: Request, res: Response) => {
-  if (!req.file) {
-    res.status(400).json({ error: 'No file uploaded' });
-    return;
-  }
-  res.json({ url: `/uploads/${req.file.filename}` });
+uploadsRouter.post('/', (req: Request, res: Response, next) => {
+  upload.single('image')(req, res, (err: unknown) => {
+    if (err instanceof multer.MulterError) {
+      const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+      const message = err.code === 'LIMIT_FILE_SIZE' ? 'File too large' : err.message;
+      res.status(status).json({ error: message });
+      return;
+    }
+    if (err) { next(err); return; }
+    if (!req.file) { res.status(400).json({ error: 'No file uploaded' }); return; }
+    res.json({ url: `/uploads/${req.file.filename}` });
+  });
 });

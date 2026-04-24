@@ -7,7 +7,13 @@ export function loadAutoSave(): AutoSaveData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as AutoSaveData;
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed !== 'object' || parsed === null ||
+      typeof (parsed as Record<string, unknown>).title !== 'string' ||
+      typeof (parsed as Record<string, unknown>).content !== 'string'
+    ) return null;
+    return parsed as AutoSaveData;
   } catch {
     return null;
   }

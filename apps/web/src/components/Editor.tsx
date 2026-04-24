@@ -200,17 +200,10 @@ export function Editor({ title, onTitleChange }: EditorProps) {
       <div className="flex-1 py-10 bg-[#e8eaed] overflow-x-auto">
 
         {/* Centered A4 paper */}
-        <div style={{ width: 794, margin: '0 auto' }}>
+        <div className="w-[794px] mx-auto">
 
           {/* White paper */}
-          <div
-            className="bg-white"
-            style={{
-              padding: 72,
-              minHeight: 1123,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.10)',
-            }}
-          >
+          <div className="bg-white p-[72px] min-h-[1123px] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.10)]">
             {/* Document title */}
             <input
               type="text"

@@ -37,7 +37,11 @@ function TableActionMenuPlugin(): JSX.Element | null {
           return;
         }
         const rect = domElement.getBoundingClientRect();
-        setMenuPos({ top: rect.top - 36, left: rect.right + 4 });
+        const menuWidth = 160;
+        const menuHeight = 80;
+        const top = Math.max(0, Math.min(rect.top - 36, window.innerHeight - menuHeight));
+        const left = Math.max(0, Math.min(rect.right + 4, window.innerWidth - menuWidth));
+        setMenuPos({ top, left });
         setShowMenu(true);
       });
     });

@@ -223,6 +223,10 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
       formData.append('image', file);
       try {
         const res = await fetch(`${apiUrl}/api/uploads`, { method: 'POST', body: formData });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(`Upload failed (${res.status}): ${body}`);
+        }
         const { url } = (await res.json()) as { url: string };
         editor.update(() => {
           $insertNodeToNearestRoot($createImageNode(`${apiUrl}${url}`, file.name));
