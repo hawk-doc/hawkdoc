@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InputDialog } from './InputDialog';
 import {
   $getSelection,
@@ -24,14 +24,9 @@ import { $insertNodeToNearestRoot } from '@lexical/utils';
 import { $createCodeNode } from '@lexical/code';
 import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
-
-interface SlashCommand {
-  id: string;
-  label: string;
-  description: string;
-  icon: string;
-  execute: (editor: LexicalEditor) => void;
-}
+import { INSERT_TABLE_COMMAND } from '@lexical/table';
+import { $createPageBreakNode } from '../nodes/PageBreakNode';
+import type { SlashCommand } from '../types/editor';
 
 const COMMANDS: SlashCommand[] = [
   {
@@ -161,6 +156,19 @@ const COMMANDS: SlashCommand[] = [
     },
   },
   {
+    id: 'table',
+    label: 'Table',
+    description: 'Insert a table',
+    icon: '⊞',
+    execute: (editor) => {
+      editor.dispatchCommand(INSERT_TABLE_COMMAND, {
+        rows: '3',
+        columns: '3',
+        includeHeaders: { rows: true, columns: false },
+      });
+    },
+  },
+  {
     id: 'divider',
     label: 'Divider',
     description: 'Horizontal rule',
@@ -169,6 +177,21 @@ const COMMANDS: SlashCommand[] = [
       editor.update(() => {
         const hr = $createHorizontalRuleNode();
         $insertNodeToNearestRoot(hr);
+      });
+    },
+  },
+  {
+    id: 'page-break',
+    label: 'Page Break',
+    description: 'Force a new page in PDF export',
+    icon: '⌧',
+    execute: (editor) => {
+      editor.update(() => {
+        const node = $createPageBreakNode();
+        $insertNodeToNearestRoot(node);
+        const paragraph = $createParagraphNode();
+        node.insertAfter(paragraph);
+        paragraph.select();
       });
     },
   },
@@ -198,11 +221,15 @@ export function SlashCommandMenu({
   const [varDialogOpen, setVarDialogOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const filtered = COMMANDS.filter(
-    (cmd) =>
-      query === '' ||
-      cmd.label.toLowerCase().includes(query.toLowerCase()) ||
-      cmd.id.toLowerCase().includes(query.toLowerCase()),
+  const filtered = useMemo(
+    () =>
+      COMMANDS.filter(
+        (cmd) =>
+          query === '' ||
+          cmd.label.toLowerCase().includes(query.toLowerCase()) ||
+          cmd.id.toLowerCase().includes(query.toLowerCase()),
+      ),
+    [query],
   );
 
   const removeSlashText = useCallback(() => {

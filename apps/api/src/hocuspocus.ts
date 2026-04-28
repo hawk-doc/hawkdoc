@@ -1,7 +1,7 @@
 import { Server } from '@hocuspocus/server';
 import jwt from 'jsonwebtoken';
 import { env } from './env.js';
-import { query } from './db.js';
+import query from './db.js';
 import { redis, docBufferKey } from './redis.js';
 import * as Y from 'yjs';
 

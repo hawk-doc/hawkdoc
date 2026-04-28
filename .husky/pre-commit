@@ -1,0 +1,3 @@
+npm run typecheck --workspace=apps/web
+npm run typecheck --workspace=apps/api
+npx lint-staged

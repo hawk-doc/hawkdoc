@@ -2,7 +2,7 @@
   "name": "hawkdoc",
   "version": "0.1.0",
   "private": true,
-  "description": "Open-source high-performance document editor — a better SuperDoc",
+  "description": "Open-source high-performance document editor",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -10,9 +10,17 @@
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=apps/web\" \"npm run dev --workspace=apps/api\"",
     "build": "npm run build --workspace=apps/web && npm run build --workspace=apps/api",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "apps/web/src/**/*.{ts,tsx}": "eslint --max-warnings 0",
+    "apps/api/src/**/*.ts": "eslint --max-warnings 0"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10"
   }
 }

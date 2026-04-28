@@ -27,3 +27,6 @@ coverage/
 # Editor directories
 .vscode/
 .idea/
+
+# Uploaded user files — do not commit
+apps/api/uploads/

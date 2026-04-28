@@ -3,6 +3,7 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
 } from '@react-pdf/renderer';
 
@@ -41,6 +42,33 @@ const styles = StyleSheet.create({
   paragraph: {
     marginBottom: 6,
   },
+  table: {
+    display: 'flex',
+    flexDirection: 'column',
+    marginVertical: 8,
+    borderTop: '1pt solid #d0d0d0',
+    borderLeft: '1pt solid #d0d0d0',
+  },
+  tableRow: {
+    display: 'flex',
+    flexDirection: 'row',
+  },
+  tableCell: {
+    flex: 1,
+    borderRight: '1pt solid #d0d0d0',
+    borderBottom: '1pt solid #d0d0d0',
+    padding: '4pt 6pt',
+    fontSize: 11,
+  },
+  tableCellHeader: {
+    flex: 1,
+    borderRight: '1pt solid #d0d0d0',
+    borderBottom: '1pt solid #d0d0d0',
+    padding: '4pt 6pt',
+    fontSize: 11,
+    backgroundColor: '#f1f3f4',
+    fontFamily: 'Helvetica-Bold',
+  },
   watermark: {
     position: 'absolute',
     top: '45%',
@@ -60,19 +88,60 @@ interface Node {
   children?: Node[];
   text?: string;
   format?: number;
+  src?: string;
+  alt?: string;
+  variableName?: string;
+  headerState?: number;
 }
 
-interface EditorRoot {
+export interface EditorRoot {
   root: { children: Node[] };
 }
 
 function extractText(node: Node): string {
   if (node.type === 'text') return node.text ?? '';
+  if (node.type === 'template-variable') return `{{${node.variableName ?? ''}}}`;
   if (node.children) return node.children.map(extractText).join('');
   return '';
 }
 
+function renderTableCell(cell: Node, index: number): React.ReactElement {
+  const isHeader = (cell.headerState ?? 0) > 0;
+  return (
+    <View key={index} style={isHeader ? styles.tableCellHeader : styles.tableCell}>
+      <Text>{extractText(cell)}</Text>
+    </View>
+  );
+}
+
+function renderTableRow(row: Node, index: number): React.ReactElement {
+  return (
+    <View key={index} style={styles.tableRow}>
+      {(row.children ?? []).map((cell, ci) => renderTableCell(cell, ci))}
+    </View>
+  );
+}
+
 function renderNode(node: Node, index: number): React.ReactElement | null {
+  if (node.type === 'table') {
+    return (
+      <View key={index} style={styles.table}>
+        {(node.children ?? []).map((row, ri) => renderTableRow(row, ri))}
+      </View>
+    );
+  }
+
+  if (node.type === 'image') {
+    if (!node.src) return null;
+    return (
+      <Image
+        key={index}
+        src={node.src}
+        style={{ maxWidth: '100%', marginVertical: 8 }}
+      />
+    );
+  }
+
   const text = extractText(node);
   if (!text.trim()) return null;
 
@@ -99,35 +168,53 @@ function renderNode(node: Node, index: number): React.ReactElement | null {
 }
 
 interface DocumentPDFProps {
-  editorState: object;
+  editorState: EditorRoot;
   title: string;
   watermark?: string;
 }
 
 export function DocumentPDF({ editorState, title, watermark }: DocumentPDFProps) {
-  const root = (editorState as EditorRoot).root;
+  const root = editorState.root;
   const children = root?.children ?? [];
 
-  const allNodes: Node[] = [];
-  for (const node of children) {
+  // Recursively flatten list nodes into listitem leaves, then split into
+  // sections at page-break nodes. Each section becomes its own <Page>.
+  function flattenNode(node: Node): Node[] {
     if (node.type === 'list' && node.children) {
-      allNodes.push(...node.children);
+      return node.children.flatMap(flattenNode);
+    }
+    return [node];
+  }
+
+  const flat = children.flatMap(flattenNode);
+
+  const rawSections: Node[][] = [[]];
+  for (const node of flat) {
+    if (node.type === 'page-break') {
+      rawSections.push([]);
     } else {
-      allNodes.push(node);
+      rawSections[rawSections.length - 1].push(node);
     }
   }
 
+  // Remove empty sections (leading, trailing, or consecutive page-breaks).
+  // Always keep at least one section so the document has at least one page.
+  const filtered = rawSections.filter((s) => s.length > 0);
+  const sections: Node[][] = filtered.length > 0 ? filtered : [[]];
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        {watermark && (
-          <Text style={styles.watermark} fixed>
-            {watermark}
-          </Text>
-        )}
-        <Text style={styles.title}>{title}</Text>
-        {allNodes.map((node, i) => renderNode(node, i))}
-      </Page>
+      {sections.map((section, si) => (
+        <Page key={si} size="A4" style={styles.page}>
+          {watermark && (
+            <Text style={styles.watermark} fixed>
+              {watermark}
+            </Text>
+          )}
+          {si === 0 && <Text style={styles.title}>{title}</Text>}
+          {section.map((node, i) => renderNode(node, i))}
+        </Page>
+      ))}
     </Document>
   );
 }

@@ -15,7 +15,9 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      # npm ci fails cross-platform when lock file was generated on a different
+      # OS (macOS lock file missing Linux rollup binary). Use npm install instead.
+      - run: npm install
 
       - name: Type check (web)
         run: npm run typecheck --workspace=apps/web
