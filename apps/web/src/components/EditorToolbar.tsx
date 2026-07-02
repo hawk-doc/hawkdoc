@@ -8,6 +8,9 @@ import {
   FORMAT_ELEMENT_COMMAND,
   UNDO_COMMAND,
   REDO_COMMAND,
+  CAN_UNDO_COMMAND,
+  CAN_REDO_COMMAND,
+  COMMAND_PRIORITY_CRITICAL,
 } from 'lexical';
 import { $patchStyleText, $getSelectionStyleValueForProperty } from '@lexical/selection';
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
@@ -49,6 +52,8 @@ import {
 
 
 export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorToolbarProps) {
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const [blockType, setBlockType] = useState<BlockType>('paragraph');
   const [format, setFormat] = useState({
     bold: false,
@@ -124,6 +129,20 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
       editorState.read(updateToolbar);
     });
   }, [editor, updateToolbar]);
+
+  useEffect(() => {
+    const unregUndo = editor.registerCommand(
+      CAN_UNDO_COMMAND,
+      (payload) => { setCanUndo(payload); return false; },
+      COMMAND_PRIORITY_CRITICAL,
+    );
+    const unregRedo = editor.registerCommand(
+      CAN_REDO_COMMAND,
+      (payload) => { setCanRedo(payload); return false; },
+      COMMAND_PRIORITY_CRITICAL,
+    );
+    return () => { unregUndo(); unregRedo(); };
+  }, [editor]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -258,10 +277,10 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
     <div className="sticky top-0 z-40 bg-white border-b border-[#dadce0]">
       <div className="flex items-center gap-0.5 px-2 py-1 flex-wrap">
         {/* Undo / Redo */}
-        <Btn title="Undo (⌘Z)" onMouseDown={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
+        <Btn title="Undo (⌘Z)" disabled={!canUndo} onMouseDown={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
           <Undo2 size={16} />
         </Btn>
-        <Btn title="Redo (⌘⇧Z)" onMouseDown={() => editor.dispatchCommand(REDO_COMMAND, undefined)}>
+        <Btn title="Redo (⌘⇧Z)" disabled={!canRedo} onMouseDown={() => editor.dispatchCommand(REDO_COMMAND, undefined)}>
           <Redo2 size={16} />
         </Btn>
 
@@ -501,25 +520,30 @@ function Btn({
   children,
   title,
   active,
+  disabled,
   onMouseDown,
 }: {
   children: React.ReactNode;
   title?: string;
   active?: boolean;
+  disabled?: boolean;
   onMouseDown?: () => void;
 }) {
   return (
     <button
       type="button"
       title={title}
+      disabled={disabled}
       className={`w-8 h-8 flex items-center justify-center rounded transition-colors
-        ${active
+        ${disabled
+          ? 'text-[#bdc1c6] cursor-not-allowed'
+          : active
           ? 'bg-[#d3e3fd] text-[#1a73e8]'
           : 'text-[#444746] hover:bg-[#f1f3f4]'
         }`}
       onMouseDown={(e) => {
         e.preventDefault();
-        onMouseDown?.();
+        if (!disabled) onMouseDown?.();
       }}
     >
       {children}
