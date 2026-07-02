@@ -15,7 +15,9 @@
 @layer components {
   /* ─── Editor content ─── */
   .editor-content {
-    @apply outline-none min-h-[480px] text-[16px] leading-[1.75] text-notion-text;
+    @apply outline-none min-h-[480px] text-[16px] leading-[1.75] text-notion-text w-full;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .editor-content p {
@@ -168,3 +170,26 @@
     @apply w-px h-5 bg-[#dadce0] mx-1;
   }
 }
+
+/* ─── Dark mode overrides for CSS-class-based editor styles ─── */
+html.dark .editor-content        { color: #e8eaed; }
+html.dark .editor-h1,
+html.dark .editor-h2,
+html.dark .editor-h3             { color: #e8eaed; }
+html.dark .editor-quote          { border-color: #5f6368; color: #9aa0a6; }
+html.dark .editor-inline-code    { background: #2d2f31; color: #f28b82; }
+html.dark .editor-link           { color: #8ab4f8; }
+html.dark .editor-content hr     { border-color: #3c4043; }
+html.dark .editor-placeholder    { color: #5f6368; }
+html.dark .editor-kbd            { background: #2d2f31; border-color: #3c4043; color: #9aa0a6; }
+html.dark .template-variable     { background: #1a3a5c; color: #8ab4f8; border-color: #1a4d80; }
+html.dark .slash-menu            { background: #2d2f31; border-color: #3c4043; }
+html.dark .slash-menu-item       { color: #e8eaed; }
+html.dark .slash-menu-item:hover,
+html.dark .slash-menu-item.selected { background: #3c4043; }
+html.dark .slash-menu-item-icon  { background: #3c4043; color: #9aa0a6; }
+html.dark .editor-table-cell,
+html.dark .editor-table-cell-header { border-color: #3c4043; color: #e8eaed; }
+html.dark .editor-table-cell-header { background: #2d2f31; }
+html.dark .page-break-node__line  { border-color: #3c4043; }
+html.dark .page-break-node__label { color: #5f6368; }

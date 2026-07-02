@@ -11,14 +11,20 @@ const app = express();
 
 // CORS — must be the very first middleware so every response (including
 // errors from body-parser, multer, auth) carries the correct headers.
-function setCors(res: Response): void {
-  res.header('Access-Control-Allow-Origin', '*');
+const ALLOWED_ORIGINS = new Set(env.ALLOWED_ORIGINS);
+
+function setCors(req: Request, res: Response): void {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
   res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
 }
 
 app.use((req, res, next) => {
-  setCors(res);
+  setCors(req, res);
   if (req.method === 'OPTIONS') {
     res.sendStatus(204);
     return;
@@ -51,8 +57,8 @@ startFlushScheduler(async (docId, update) => {
 
 // Global error handler — CORS headers must also be set here because Express
 // error handlers bypass all previous middleware when called via next(err).
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  setCors(res);
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+  setCors(req, res);
   console.error(err);
   const message = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
   res.status(500).json({ error: message });

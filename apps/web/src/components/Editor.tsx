@@ -197,21 +197,27 @@ export function Editor({ title, onTitleChange }: EditorProps) {
       )}
 
       {/* Gray canvas */}
-      <div className="flex-1 py-10 bg-[#e8eaed] overflow-x-auto">
+      <div className="flex-1 py-10 bg-[#e8eaed] dark:bg-[#141414] overflow-x-auto">
 
         {/* Centered A4 paper */}
         <div className="w-[794px] mx-auto">
 
           {/* White paper */}
-          <div className="bg-white p-[72px] min-h-[1123px] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.10)]">
+          <div className="bg-white dark:bg-[#1e1e1e] p-[72px] min-h-[1123px] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.10)]">
             {/* Document title */}
-            <input
-              type="text"
+            <textarea
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
               placeholder="Untitled"
-              className="w-full text-[40px] font-bold text-notion-text placeholder-notion-muted
-                         border-none outline-none bg-transparent mb-8 leading-tight tracking-tight"
+              rows={1}
+              className="w-full text-[40px] font-bold text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368]
+                         border-none outline-none bg-transparent mb-8 leading-tight tracking-tight
+                         resize-none overflow-hidden block"
+              onInput={(e) => {
+                const el = e.currentTarget;
+                el.style.height = 'auto';
+                el.style.height = el.scrollHeight + 'px';
+              }}
             />
 
             {/* Lexical editor */}
@@ -258,10 +264,10 @@ export function Editor({ title, onTitleChange }: EditorProps) {
 
           {/* Status bar */}
           <div className="mt-3 flex items-center justify-between px-1">
-            <span className="text-xs text-[#80868b]">
+            <span className="text-xs text-[#80868b] dark:text-[#5f6368]">
               {wordCount} {wordCount === 1 ? 'word' : 'words'}
             </span>
-            <span className="text-xs text-[#80868b]">
+            <span className="text-xs text-[#80868b] dark:text-[#5f6368]">
               Press <kbd className="editor-kbd">/</kbd> for commands
               &nbsp;·&nbsp;
               <kbd className="editor-kbd">{'{{ }}'}</kbd> for template variables
