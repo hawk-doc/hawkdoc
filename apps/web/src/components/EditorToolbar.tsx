@@ -274,7 +274,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
         onCancel={() => { setLinkDialogOpen(false); editor.focus(); }}
       />
     )}
-    <div className="sticky top-0 z-40 bg-white border-b border-[#dadce0]">
+    <div className="sticky top-0 z-40 bg-white dark:bg-[#202020] border-b border-[#dadce0] dark:border-[#3c4043]">
       <div className="flex items-center gap-0.5 px-2 py-1 flex-wrap">
         {/* Undo / Redo */}
         <Btn title="Undo (⌘Z)" disabled={!canUndo} onMouseDown={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
@@ -290,7 +290,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
         <div className="relative" ref={blockRef}>
           <button
             type="button"
-            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-sm text-[#444746] hover:bg-[#f1f3f4] transition-colors"
+            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-sm text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f1f3f4] dark:hover:bg-[#2d2f31] transition-colors"
             onClick={() => setBlockOpen((v) => !v)}
           >
             <span className="min-w-[82px] text-left">{currentLabel}</span>
@@ -298,12 +298,12 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
           </button>
 
           {blockOpen && (
-            <div className="absolute top-full left-0 mt-1 w-44 bg-white rounded-xl shadow-xl border border-notion-border py-1 z-50">
+            <div className="absolute top-full left-0 mt-1 w-44 bg-white dark:bg-[#2d2f31] rounded-xl shadow-xl border border-notion-border dark:border-[#3c4043] py-1 z-50">
               {BLOCK_TYPES.map(({ type, label }) => (
                 <button
                   key={type}
                   type="button"
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-notion-text hover:bg-notion-hover transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-notion-text dark:text-[#e8eaed] hover:bg-notion-hover dark:hover:bg-[#3c4043] transition-colors"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     changeBlockType(type);
@@ -323,7 +323,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
         <div className="relative" ref={fontFamilyRef}>
           <button
             type="button"
-            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-sm text-[#444746] hover:bg-[#f1f3f4] transition-colors"
+            className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-sm text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f1f3f4] dark:hover:bg-[#2d2f31] transition-colors"
             onClick={() => setFontFamilyOpen((v) => !v)}
             style={{ fontFamily }}
           >
@@ -332,12 +332,12 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
           </button>
 
           {fontFamilyOpen && (
-            <div className="absolute top-full left-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-notion-border py-1 z-50">
+            <div className="absolute top-full left-0 mt-1 w-52 bg-white dark:bg-[#2d2f31] rounded-xl shadow-xl border border-notion-border dark:border-[#3c4043] py-1 z-50">
               {FONT_FAMILIES.map(({ label, css }) => (
                 <button
                   key={label}
                   type="button"
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-notion-text hover:bg-notion-hover transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-notion-text dark:text-[#e8eaed] hover:bg-notion-hover dark:hover:bg-[#3c4043] transition-colors"
                   style={{ fontFamily: css }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -354,7 +354,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
 
         {/* Font size */}
         <div className="relative" ref={fontSizeRef}>
-          <div className="flex items-center h-7 rounded-md border border-notion-border overflow-hidden">
+          <div className="flex items-center h-7 rounded-md border border-notion-border dark:border-[#3c4043] overflow-hidden">
             <input
               type="text"
               value={fontSizeInput}
@@ -367,12 +367,12 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
               }}
               onBlur={() => applyFontSize(fontSizeInput)}
               onFocus={() => setFontSizeOpen(true)}
-              className="w-10 text-center text-sm text-notion-text bg-transparent px-1 focus:outline-none"
+              className="w-10 text-center text-sm text-notion-text dark:text-[#c4c7c5] bg-transparent px-1 focus:outline-none"
               aria-label="Font size"
             />
             <button
               type="button"
-              className="px-1 h-full hover:bg-notion-hover transition-colors flex items-center border-l border-notion-border"
+              className="px-1 h-full hover:bg-notion-hover dark:hover:bg-[#2d2f31] transition-colors flex items-center border-l border-notion-border dark:border-[#3c4043]"
               onMouseDown={(e) => {
                 e.preventDefault();
                 setFontSizeOpen((v) => !v);
@@ -383,12 +383,12 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
           </div>
 
           {fontSizeOpen && (
-            <div className="absolute top-full left-0 mt-1 w-20 bg-white rounded-xl shadow-xl border border-notion-border py-1 z-50 max-h-56 overflow-y-auto">
+            <div className="absolute top-full left-0 mt-1 w-20 bg-white dark:bg-[#2d2f31] rounded-xl shadow-xl border border-notion-border dark:border-[#3c4043] py-1 z-50 max-h-56 overflow-y-auto">
               {FONT_SIZES.map((size) => (
                 <button
                   key={size}
                   type="button"
-                  className="w-full flex items-center justify-between px-3 py-1 text-sm text-notion-text hover:bg-notion-hover transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-1 text-sm text-notion-text dark:text-[#e8eaed] hover:bg-notion-hover dark:hover:bg-[#3c4043] transition-colors"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     applyFontSize(size);
@@ -462,7 +462,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
         <div className="flex-1" />
 
         {/* Save status */}
-        <div className={`flex items-center gap-1.5 text-xs mr-2 ${isSaving ? 'text-notion-muted' : 'text-emerald-600'}`}>
+        <div className={`flex items-center gap-1.5 text-xs mr-2 ${isSaving ? 'text-notion-muted dark:text-[#9aa0a6]' : 'text-emerald-600 dark:text-emerald-400'}`}>
           {isSaving ? (
             <>
               <span className="w-3 h-3 rounded-full border-2 border-t-transparent border-notion-muted animate-spin inline-block" />
@@ -491,7 +491,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
           </button>
 
           {exportOpen && (
-            <div className="absolute top-full right-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-notion-border py-1 z-50">
+            <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-[#2d2f31] rounded-xl shadow-xl border border-notion-border dark:border-[#3c4043] py-1 z-50">
               <ExportItem
                 icon={<FileText size={14} className="text-red-500" />}
                 label="Export as PDF"
@@ -534,13 +534,15 @@ function Btn({
       type="button"
       title={title}
       disabled={disabled}
-      className={`w-8 h-8 flex items-center justify-center rounded transition-colors
-        ${disabled
-          ? 'text-[#bdc1c6] cursor-not-allowed'
-          : active
-          ? 'bg-[#d3e3fd] text-[#1a73e8]'
-          : 'text-[#444746] hover:bg-[#f1f3f4]'
-        }`}
+      className={`w-8 h-8 flex items-center justify-center rounded                
+  transition-colors                                                           
+    ${disabled                                                                
+      ? 'text-[#bdc1c6] dark:text-[#5f6368] cursor-not-allowed'               
+      : active                                                                
+      ? 'bg-[#d3e3fd] text-[#1a73e8] dark:bg-[#1a3a5c] dark:text-[#8ab4f8]'   
+      : 'text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f1f3f4]                
+  dark:hover:bg-[#2d2f31]'                                                    
+    }`} 
       onMouseDown={(e) => {
         e.preventDefault();
         if (!disabled) onMouseDown?.();
@@ -552,7 +554,7 @@ function Btn({
 }
 
 function Sep() {
-  return <div className="w-px h-5 bg-[#dadce0] mx-1 flex-shrink-0" />;
+  return <div className="w-px h-5 bg-[#dadce0] dark:bg-[#3c4043] mx-1 flex-shrink-0" />;
 }
 
 function ExportItem({
@@ -567,7 +569,7 @@ function ExportItem({
   return (
     <button
       type="button"
-      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-notion-text hover:bg-notion-hover transition-colors"
+      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-notion-text dark:text-[#e8eaed] hover:bg-notion-hover dark:hover:bg-[#3c4043] transition-colors"
       onClick={onClick}
     >
       {icon}
