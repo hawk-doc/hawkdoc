@@ -7,6 +7,7 @@ export interface SlashCommand {
   label: string;
   description: string;
   icon: string;
+  shortcut?: string;
   execute: (editor: LexicalEditor) => void;
 }
 
@@ -25,4 +26,5 @@ export interface EditorToolbarProps {
   onExportPDF: () => void;
   isSaving: boolean;
   title: string;
+  onToggleFocusMode: () => void;
 }
