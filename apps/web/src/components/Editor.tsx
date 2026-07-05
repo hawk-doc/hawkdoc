@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, createElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, createElement, Fragment } from 'react';
+import { Minimize2 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import {
   $getRoot,
@@ -137,7 +138,16 @@ export function Editor({ title, onTitleChange }: EditorProps) {
   const [editorInstance, setEditorInstance] = useState<LexicalEditor | null>(null);
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
+  const closeSlashMenu = useCallback(() => setSlashMenu(null), []);
   const [isExporting, setIsExporting] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+
+  useEffect(() => {
+    if (!focusMode) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setFocusMode(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [focusMode]);
 
   const [initialContent] = useState<string | null>(() => loadAutoSave()?.content ?? null);
 
@@ -176,6 +186,17 @@ export function Editor({ title, onTitleChange }: EditorProps) {
     }
   }, [editorState, title, isExporting]);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        e.preventDefault();
+        void handleExportPDF();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [handleExportPDF]);
+
   const initialConfig = {
     namespace: 'HawkDoc',
     theme: EDITOR_THEME,
@@ -184,20 +205,22 @@ export function Editor({ title, onTitleChange }: EditorProps) {
   };
 
   return (
+    <Fragment>
     <div className="flex flex-col min-h-full">
 
-      {/* Toolbar */}
-      {editorInstance && (
+      {/* Toolbar — hidden in focus mode */}
+      {editorInstance && !focusMode && (
         <EditorToolbar
           editor={editorInstance}
           onExportPDF={handleExportPDF}
           isSaving={isSaving || isExporting}
           title={title}
+          onToggleFocusMode={() => setFocusMode(true)}
         />
       )}
 
       {/* Gray canvas */}
-      <div className="flex-1 py-10 bg-[#e8eaed] dark:bg-[#141414] overflow-x-auto">
+      <div className={`flex-1 py-10 overflow-x-auto transition-colors duration-300 ${focusMode ? 'bg-[#0d0d0d]' : 'bg-[#e8eaed] dark:bg-[#141414]'}`}>
 
         {/* Centered A4 paper */}
         <div className="w-[794px] mx-auto">
@@ -256,7 +279,7 @@ export function Editor({ title, onTitleChange }: EditorProps) {
                     editor={editorInstance}
                     query={slashMenu.query}
                     anchorRect={slashMenu.anchorRect}
-                    onClose={() => setSlashMenu(null)}
+                    onClose={closeSlashMenu}
                   />
                 )}
               </LexicalComposer>
@@ -281,5 +304,18 @@ export function Editor({ title, onTitleChange }: EditorProps) {
       {editorInstance && <BubbleMenu editor={editorInstance} />}
 
     </div>
+
+    {/* Focus mode — floating exit button */}
+    {focusMode && (
+      <button
+        type="button"
+        onClick={() => setFocusMode(false)}
+        className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-xs rounded-full backdrop-blur-sm transition-all"
+      >
+        <Minimize2 size={12} />
+        Exit focus · Esc
+      </button>
+    )}
+    </Fragment>
   );
 }
