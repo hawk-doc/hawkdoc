@@ -138,6 +138,7 @@ export function Editor({ title, onTitleChange }: EditorProps) {
   const [editorInstance, setEditorInstance] = useState<LexicalEditor | null>(null);
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
+  const closeSlashMenu = useCallback(() => setSlashMenu(null), []);
   const [isExporting, setIsExporting] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
 
@@ -278,7 +279,7 @@ export function Editor({ title, onTitleChange }: EditorProps) {
                     editor={editorInstance}
                     query={slashMenu.query}
                     anchorRect={slashMenu.anchorRect}
-                    onClose={() => setSlashMenu(null)}
+                    onClose={closeSlashMenu}
                   />
                 )}
               </LexicalComposer>

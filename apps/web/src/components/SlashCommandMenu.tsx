@@ -316,6 +316,12 @@ export function SlashCommandMenu({
     };
   }, [editor, filtered, selectedIndex, executeCommand, onClose]);
 
+  // Close on any scroll (capture catches non-bubbling scroll on overflow containers)
+  useEffect(() => {
+    document.addEventListener('scroll', onClose, { capture: true });
+    return () => document.removeEventListener('scroll', onClose, { capture: true });
+  }, [onClose]);
+
   // Reset selection when query changes
   useEffect(() => {
     setSelectedIndex(0);
@@ -342,14 +348,14 @@ export function SlashCommandMenu({
 
   if (filtered.length === 0) return null;
 
-  const top = anchorRect.bottom + window.scrollY + 4;
-  const left = Math.min(anchorRect.left + window.scrollX, window.innerWidth - 300);
+  const top = anchorRect.bottom + 4;
+  const left = Math.min(anchorRect.left, window.innerWidth - 300);
 
   return (
     <div
       ref={menuRef}
       className="slash-menu"
-      style={{ top, left, position: 'absolute' }}
+      style={{ top, left, position: 'fixed' }}
     >
       {filtered.map((cmd, index) => (
         <button
@@ -368,7 +374,7 @@ export function SlashCommandMenu({
             <span className="block text-xs text-notion-muted">{cmd.description}</span>
           </span>
           {cmd.shortcut && (
-            <kbd className="ml-3 flex-shrink-0 text-[10px] font-mono text-notion-muted bg-[#f1f3f4] px-1.5 py-0.5 rounded border border-[#dadce0]">
+            <kbd className="ml-3 flex-shrink-0 text-[10px] font-mono text-notion-muted dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded border border-[#dadce0] dark:border-[#5f6368]">
               {cmd.shortcut}
             </kbd>
           )}
