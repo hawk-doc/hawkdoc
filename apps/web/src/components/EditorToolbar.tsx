@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { InputDialog } from './InputDialog';
 import {
   $getSelection,
@@ -264,13 +264,18 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
     editor.focus();
   }, [editor]);
 
-  const exportMarkdown = useCallback(() => {
+  const getMarkdownString = useCallback((): string => {
+    let md = '';
     editor.getEditorState().read(() => {
-      const md = $convertToMarkdownString(TRANSFORMERS);
-      download(`${title || 'document'}.md`, md, 'text/markdown');
+      md = $convertToMarkdownString(TRANSFORMERS);
     });
+    return md;
+  }, [editor]);
+
+  const exportMarkdown = useCallback(() => {
+    download(`${title || 'document'}.md`, getMarkdownString(), 'text/markdown');
     setExportOpen(false);
-  }, [editor, title]);
+  }, [getMarkdownString, title]);
 
   const exportHTML = useCallback(() => {
     const root = editor.getRootElement();
@@ -281,12 +286,11 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
   }, [editor, title]);
 
   const copyMarkdown = useCallback(() => {
-    editor.getEditorState().read(() => {
-      const md = $convertToMarkdownString(TRANSFORMERS);
-      void navigator.clipboard.writeText(md);
+    navigator.clipboard.writeText(getMarkdownString()).catch((err) => {
+      console.error('Copy as Markdown failed:', err);
     });
     setExportOpen(false);
-  }, [editor]);
+  }, [getMarkdownString]);
 
   const handleImageUpload = useCallback(
     async (file: File) => {
@@ -489,7 +493,10 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
             onMouseDown={(e) => { e.preventDefault(); setColorOpen((v) => !v); setHighlightOpen(false); }}
           >
             <Type size={13} />
-            <div className="w-4 h-[3px] rounded-sm mt-0.5" style={{ backgroundColor: textColor || '#1a1a1a' }} />
+            <div
+              className="w-4 h-[3px] rounded-sm mt-0.5 [background-color:var(--indicator-color)]"
+              style={{ '--indicator-color': textColor || '#1a1a1a' } as React.CSSProperties}
+            />
           </button>
           {colorOpen && (
             <ColorPalette
@@ -509,8 +516,8 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
           >
             <Highlighter size={13} />
             <div
-              className="w-4 h-[3px] rounded-sm mt-0.5 border border-[#dadce0] dark:border-[#3c4043]"
-              style={{ backgroundColor: highlightColor || 'transparent', borderWidth: highlightColor ? 0 : 1 }}
+              className={`w-4 h-[3px] rounded-sm mt-0.5 [background-color:var(--indicator-color)] ${highlightColor ? 'border-0' : 'border border-[#dadce0] dark:border-[#3c4043]'}`}
+              style={{ '--indicator-color': highlightColor || 'transparent' } as React.CSSProperties}
             />
           </button>
           {highlightOpen && (
@@ -693,9 +700,10 @@ function ColorPalette({
             key={label}
             type="button"
             title={label}
-            className="w-6 h-6 rounded-md border border-[#dadce0] dark:border-[#3c4043] hover:scale-110 transition-transform flex items-center justify-center"
-            style={{ backgroundColor: value || 'transparent' }}
-            onMouseDown={(e) => { e.preventDefault(); onSelect(value); }}
+            className="w-6 h-6 rounded-md border border-[#dadce0] dark:border-[#3c4043] hover:scale-110 transition-transform flex items-center justify-center [background-color:var(--swatch-color)]"
+            style={{ '--swatch-color': value || 'transparent' } as React.CSSProperties}
+            onMouseDown={(e) => { e.preventDefault(); }}
+            onClick={() => onSelect(value)}
           >
             {!value && <span className="text-[9px] text-[#80868b]">✕</span>}
           </button>
