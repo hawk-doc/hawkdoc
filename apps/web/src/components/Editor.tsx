@@ -29,6 +29,7 @@ import { CodeBlockPlugin } from './CodeBlockPlugin';
 import { DocumentPDF } from './DocumentPDF';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { TablePlugin } from './TablePlugin';
+import { FindReplacePlugin } from './FindReplacePlugin';
 import { useAutoSave, loadAutoSave } from '../hooks/useAutoSave';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES } from '../constants/editor';
 import type { SlashMenuState } from '../types/editor';
@@ -277,7 +278,8 @@ export function Editor({ title, onTitleChange }: EditorProps) {
                   <EditorRefPlugin onEditor={setEditorInstance} />
                   <RestorePlugin initialContent={initialContent} />
                   <CodeBlockPlugin />
-                <TablePlugin />
+                  <TablePlugin />
+                  <FindReplacePlugin />
                 </div>
 
                 {slashMenu && editorInstance && (
