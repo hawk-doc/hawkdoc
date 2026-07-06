@@ -160,6 +160,12 @@ export function Editor({ title, onTitleChange }: EditorProps) {
     return text.trim() ? text.trim().split(/\s+/).length : 0;
   }, [editorState]);
 
+  const readingTime = useMemo(() => {
+    if (wordCount === 0) return null;
+    const minutes = wordCount / 200;
+    return minutes < 1 ? '< 1 min read' : `${Math.ceil(minutes)} min read`;
+  }, [wordCount]);
+
   const handleExportPDF = useCallback(async () => {
     if (!editorState || isExporting) return;
     setIsExporting(true);
@@ -289,6 +295,7 @@ export function Editor({ title, onTitleChange }: EditorProps) {
           <div className="mt-3 flex items-center justify-between px-1">
             <span className="text-xs text-[#80868b] dark:text-[#5f6368]">
               {wordCount} {wordCount === 1 ? 'word' : 'words'}
+              {readingTime && <> · {readingTime}</>}
             </span>
             <span className="text-xs text-[#80868b] dark:text-[#5f6368]">
               Press <kbd className="editor-kbd">/</kbd> for commands
