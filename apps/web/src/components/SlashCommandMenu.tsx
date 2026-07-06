@@ -34,6 +34,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Heading 1',
     description: 'Large section heading',
     icon: 'H1',
+    shortcut: '#',
     execute: (editor) => {
       editor.update(() => {
         const selection = $getSelection();
@@ -52,6 +53,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Heading 2',
     description: 'Medium section heading',
     icon: 'H2',
+    shortcut: '##',
     execute: (editor) => {
       editor.update(() => {
         const selection = $getSelection();
@@ -70,6 +72,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Heading 3',
     description: 'Small section heading',
     icon: 'H3',
+    shortcut: '###',
     execute: (editor) => {
       editor.update(() => {
         const selection = $getSelection();
@@ -106,6 +109,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Bullet List',
     description: 'Unordered list',
     icon: '•',
+    shortcut: '-',
     execute: (editor) => {
       editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
     },
@@ -115,6 +119,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Numbered List',
     description: 'Ordered list',
     icon: '1.',
+    shortcut: '1.',
     execute: (editor) => {
       editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
     },
@@ -124,6 +129,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Quote',
     description: 'Block quotation',
     icon: '"',
+    shortcut: '>',
     execute: (editor) => {
       editor.update(() => {
         const selection = $getSelection();
@@ -142,6 +148,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Code Block',
     description: 'Monospace code block',
     icon: '</>',
+    shortcut: '```',
     execute: (editor) => {
       editor.update(() => {
         const selection = $getSelection();
@@ -173,6 +180,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Divider',
     description: 'Horizontal rule',
     icon: '—',
+    shortcut: '---',
     execute: (editor) => {
       editor.update(() => {
         const hr = $createHorizontalRuleNode();
@@ -200,6 +208,7 @@ const COMMANDS: SlashCommand[] = [
     label: 'Template Variable',
     description: 'Insert {{variable}} placeholder',
     icon: '{{}}',
+    shortcut: '{{}}',
     execute: () => { /* handled by SlashCommandMenu with InputDialog */ },
   },
 ];
@@ -307,6 +316,12 @@ export function SlashCommandMenu({
     };
   }, [editor, filtered, selectedIndex, executeCommand, onClose]);
 
+  // Close on any scroll (capture catches non-bubbling scroll on overflow containers)
+  useEffect(() => {
+    document.addEventListener('scroll', onClose, { capture: true });
+    return () => document.removeEventListener('scroll', onClose, { capture: true });
+  }, [onClose]);
+
   // Reset selection when query changes
   useEffect(() => {
     setSelectedIndex(0);
@@ -333,14 +348,14 @@ export function SlashCommandMenu({
 
   if (filtered.length === 0) return null;
 
-  const top = anchorRect.bottom + window.scrollY + 4;
-  const left = Math.min(anchorRect.left + window.scrollX, window.innerWidth - 300);
+  const top = anchorRect.bottom + 4;
+  const left = Math.min(anchorRect.left, window.innerWidth - 300);
 
   return (
     <div
       ref={menuRef}
       className="slash-menu"
-      style={{ top, left, position: 'absolute' }}
+      style={{ top, left, position: 'fixed' }}
     >
       {filtered.map((cmd, index) => (
         <button
@@ -354,10 +369,15 @@ export function SlashCommandMenu({
           }}
         >
           <span className="slash-menu-item-icon">{cmd.icon}</span>
-          <span>
+          <span className="flex-1 min-w-0">
             <span className="font-medium">{cmd.label}</span>
             <span className="block text-xs text-notion-muted">{cmd.description}</span>
           </span>
+          {cmd.shortcut && (
+            <kbd className="ml-3 flex-shrink-0 text-[10px] font-mono text-notion-muted dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded border border-[#dadce0] dark:border-[#5f6368]">
+              {cmd.shortcut}
+            </kbd>
+          )}
         </button>
       ))}
     </div>

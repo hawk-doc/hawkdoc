@@ -7,6 +7,10 @@
     box-sizing: border-box;
   }
 
+  html {
+    @apply bg-notion-bg;
+  }
+
   body {
     @apply font-sans text-notion-text bg-notion-bg antialiased;
   }
@@ -134,7 +138,8 @@
   /* ─── Slash command menu ─── */
   .slash-menu {
     @apply absolute z-50 bg-white rounded-xl shadow-2xl border border-notion-border
-           w-72 py-1 overflow-hidden;
+           w-72 py-1 overflow-y-auto;
+    max-height: 320px;
   }
 
   .slash-menu-item {
@@ -169,6 +174,12 @@
   .toolbar-divider {
     @apply w-px h-5 bg-[#dadce0] mx-1;
   }
+}
+
+/* ─── Dark mode base — prevents white flash on overscroll / rubber-band ─── */
+html.dark,
+html.dark body {
+  background-color: #1a1a1a;
 }
 
 /* ─── Dark mode overrides for CSS-class-based editor styles ─── */

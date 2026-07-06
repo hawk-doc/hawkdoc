@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { InputDialog } from './InputDialog';
 import {
   $getSelection,
@@ -48,10 +48,42 @@ import {
   Check,
   Globe,
   ImagePlus,
+  Type,
+  Highlighter,
+  Maximize2,
+  ClipboardCopy,
 } from 'lucide-react';
 
 
-export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorToolbarProps) {
+
+const TEXT_COLORS = [
+  { label: 'Clear', value: '' },
+  { label: 'Black', value: '#1a1a1a' },
+  { label: 'Dark gray', value: '#444746' },
+  { label: 'Gray', value: '#80868b' },
+  { label: 'Red', value: '#d93025' },
+  { label: 'Orange', value: '#e8710a' },
+  { label: 'Yellow', value: '#f29900' },
+  { label: 'Green', value: '#1e8e3e' },
+  { label: 'Teal', value: '#007b83' },
+  { label: 'Blue', value: '#1a73e8' },
+  { label: 'Purple', value: '#9334e6' },
+  { label: 'Pink', value: '#e52592' },
+];
+
+const HIGHLIGHT_COLORS = [
+  { label: 'None', value: '' },
+  { label: 'Yellow', value: '#fef08a' },
+  { label: 'Green', value: '#bbf7d0' },
+  { label: 'Blue', value: '#bfdbfe' },
+  { label: 'Pink', value: '#fbcfe8' },
+  { label: 'Orange', value: '#fed7aa' },
+  { label: 'Purple', value: '#e9d5ff' },
+  { label: 'Red', value: '#fecaca' },
+];
+
+
+export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFocusMode }: EditorToolbarProps) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [blockType, setBlockType] = useState<BlockType>('paragraph');
@@ -66,15 +98,21 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
   const [fontFamily, setFontFamily] = useState('Inter');
   const [fontSize, setFontSize] = useState('16');
   const [fontSizeInput, setFontSizeInput] = useState('16');
+  const [textColor, setTextColor] = useState('');
+  const [highlightColor, setHighlightColor] = useState('');
   const [blockOpen, setBlockOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [fontFamilyOpen, setFontFamilyOpen] = useState(false);
   const [fontSizeOpen, setFontSizeOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
+  const [highlightOpen, setHighlightOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const blockRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const fontFamilyRef = useRef<HTMLDivElement>(null);
   const fontSizeRef = useRef<HTMLDivElement>(null);
+  const colorRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const updateToolbar = useCallback(() => {
@@ -122,6 +160,13 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
     const sizeNum = rawSize.replace('px', '').trim();
     setFontSize(sizeNum || '16');
     setFontSizeInput(sizeNum || '16');
+
+    // Text color
+    setTextColor($getSelectionStyleValueForProperty(selection, 'color', ''));
+
+    // Highlight color
+    const bg = $getSelectionStyleValueForProperty(selection, 'background-color', '');
+    setHighlightColor(bg === 'transparent' ? '' : bg);
   }, []);
 
   useEffect(() => {
@@ -151,6 +196,8 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
       if (!exportRef.current?.contains(e.target as Node)) setExportOpen(false);
       if (!fontFamilyRef.current?.contains(e.target as Node)) setFontFamilyOpen(false);
       if (!fontSizeRef.current?.contains(e.target as Node)) setFontSizeOpen(false);
+      if (!colorRef.current?.contains(e.target as Node)) setColorOpen(false);
+      if (!highlightRef.current?.contains(e.target as Node)) setHighlightOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -218,13 +265,38 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
     }
   }, [editor, format.link]);
 
-  const exportMarkdown = useCallback(() => {
-    editor.getEditorState().read(() => {
-      const md = $convertToMarkdownString(TRANSFORMERS);
-      download(`${title || 'document'}.md`, md, 'text/markdown');
+  const applyTextColor = useCallback((color: string) => {
+    editor.update(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+      $patchStyleText(selection, { color: color || '' });
     });
+    setTextColor(color);
+    editor.focus();
+  }, [editor]);
+
+  const applyHighlightColor = useCallback((color: string) => {
+    editor.update(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+      $patchStyleText(selection, { 'background-color': color || '' });
+    });
+    setHighlightColor(color);
+    editor.focus();
+  }, [editor]);
+
+  const getMarkdownString = useCallback((): string => {
+    let md = '';
+    editor.getEditorState().read(() => {
+      md = $convertToMarkdownString(TRANSFORMERS);
+    });
+    return md;
+  }, [editor]);
+
+  const exportMarkdown = useCallback(() => {
+    download(`${title || 'document'}.md`, getMarkdownString(), 'text/markdown');
     setExportOpen(false);
-  }, [editor, title]);
+  }, [getMarkdownString, title]);
 
   const exportHTML = useCallback(() => {
     const root = editor.getRootElement();
@@ -233,6 +305,13 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
     download(`${title || 'document'}.html`, html, 'text/html');
     setExportOpen(false);
   }, [editor, title]);
+
+  const copyMarkdown = useCallback(() => {
+    navigator.clipboard.writeText(getMarkdownString()).catch((err) => {
+      console.error('Copy as Markdown failed:', err);
+    });
+    setExportOpen(false);
+  }, [getMarkdownString]);
 
   const handleImageUpload = useCallback(
     async (file: File) => {
@@ -426,6 +505,52 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
 
         <Sep />
 
+        {/* Text color */}
+        <div className="relative" ref={colorRef}>
+          <button
+            type="button"
+            title="Text color"
+            className="w-8 h-8 flex flex-col items-center justify-center rounded transition-colors text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f1f3f4] dark:hover:bg-[#2d2f31]"
+            onMouseDown={(e) => { e.preventDefault(); setColorOpen((v) => !v); setHighlightOpen(false); }}
+          >
+            <Type size={13} />
+            <div
+              className="w-4 h-[3px] rounded-sm mt-0.5 [background-color:var(--indicator-color)]"
+              style={{ '--indicator-color': textColor || '#1a1a1a' } as React.CSSProperties}
+            />
+          </button>
+          {colorOpen && (
+            <ColorPalette
+              colors={TEXT_COLORS}
+              onSelect={(color) => { applyTextColor(color); setColorOpen(false); }}
+            />
+          )}
+        </div>
+
+        {/* Highlight color */}
+        <div className="relative" ref={highlightRef}>
+          <button
+            type="button"
+            title="Highlight color"
+            className="w-8 h-8 flex flex-col items-center justify-center rounded transition-colors text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f1f3f4] dark:hover:bg-[#2d2f31]"
+            onMouseDown={(e) => { e.preventDefault(); setHighlightOpen((v) => !v); setColorOpen(false); }}
+          >
+            <Highlighter size={13} />
+            <div
+              className={`w-4 h-[3px] rounded-sm mt-0.5 [background-color:var(--indicator-color)] ${highlightColor ? 'border-0' : 'border border-[#dadce0] dark:border-[#3c4043]'}`}
+              style={{ '--indicator-color': highlightColor || 'transparent' } as React.CSSProperties}
+            />
+          </button>
+          {highlightOpen && (
+            <ColorPalette
+              colors={HIGHLIGHT_COLORS}
+              onSelect={(color) => { applyHighlightColor(color); setHighlightOpen(false); }}
+            />
+          )}
+        </div>
+
+        <Sep />
+
         {/* Alignment */}
         <Btn title="Align left" onMouseDown={() => editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left')}>
           <AlignLeft size={16} />
@@ -457,6 +582,11 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
             e.target.value = '';
           }}
         />
+
+        {/* Focus mode */}
+        <Btn title="Focus mode" onMouseDown={onToggleFocusMode}>
+          <Maximize2 size={16} />
+        </Btn>
 
         {/* Spacer */}
         <div className="flex-1" />
@@ -503,6 +633,11 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title }: EditorTo
                 onClick={exportMarkdown}
               />
               <ExportItem
+                icon={<ClipboardCopy size={14} className="text-blue-400" />}
+                label="Copy as Markdown"
+                onClick={copyMarkdown}
+              />
+              <ExportItem
                 icon={<Globe size={14} className="text-orange-500" />}
                 label="Export as HTML"
                 onClick={exportHTML}
@@ -534,15 +669,13 @@ function Btn({
       type="button"
       title={title}
       disabled={disabled}
-      className={`w-8 h-8 flex items-center justify-center rounded                
-  transition-colors                                                           
-    ${disabled                                                                
-      ? 'text-[#bdc1c6] dark:text-[#5f6368] cursor-not-allowed'               
-      : active                                                                
-      ? 'bg-[#d3e3fd] text-[#1a73e8] dark:bg-[#1a3a5c] dark:text-[#8ab4f8]'   
-      : 'text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f1f3f4]                
-  dark:hover:bg-[#2d2f31]'                                                    
-    }`} 
+      className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${
+      disabled
+        ? 'text-[#bdc1c6] dark:text-[#5f6368] cursor-not-allowed'
+        : active
+        ? 'bg-[#d3e3fd] text-[#1a73e8] dark:bg-[#1a3a5c] dark:text-[#8ab4f8]'
+        : 'text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f1f3f4] dark:hover:bg-[#2d2f31]'
+    }`}
       onMouseDown={(e) => {
         e.preventDefault();
         if (!disabled) onMouseDown?.();
@@ -575,6 +708,34 @@ function ExportItem({
       {icon}
       {label}
     </button>
+  );
+}
+
+function ColorPalette({
+  colors,
+  onSelect,
+}: {
+  colors: { label: string; value: string }[];
+  onSelect: (color: string) => void;
+}) {
+  return (
+    <div className="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-[#2d2f31] rounded-xl shadow-xl border border-notion-border dark:border-[#3c4043] z-50">
+      <div className="grid grid-cols-6 gap-1">
+        {colors.map(({ label, value }) => (
+          <button
+            key={label}
+            type="button"
+            title={label}
+            className="w-6 h-6 rounded-md border border-[#dadce0] dark:border-[#3c4043] hover:scale-110 transition-transform flex items-center justify-center [background-color:var(--swatch-color)]"
+            style={{ '--swatch-color': value || 'transparent' } as React.CSSProperties}
+            onMouseDown={(e) => { e.preventDefault(); }}
+            onClick={() => onSelect(value)}
+          >
+            {!value && <span className="text-[9px] text-[#80868b]">✕</span>}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
