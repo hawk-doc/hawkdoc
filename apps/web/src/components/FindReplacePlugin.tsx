@@ -114,18 +114,29 @@ export function FindReplacePlugin(): null | React.ReactElement {
   const [currentIndex, setCurrentIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // ⌘F / Ctrl+F — open panel
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setSearchTerm('');
+    setReplaceTerm('');
+    editor.focus();
+  }, [editor]);
+
+  // ⌘F / Ctrl+F — open panel; Escape — close panel
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault();
         setIsOpen(true);
         setTimeout(() => searchInputRef.current?.select(), 0);
+      } else if (e.key === 'Escape' && isOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
       }
     };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
+    document.addEventListener('keydown', handler, true);
+    return () => document.removeEventListener('keydown', handler, true);
+  }, [isOpen, close]);
 
   // Re-collect matches when search params change
   useEffect(() => {
@@ -179,13 +190,6 @@ export function FindReplacePlugin(): null | React.ReactElement {
     if (matches.length === 0) return;
     replaceAll(editor, matches, replaceTerm);
   }, [editor, matches, replaceTerm]);
-
-  const close = useCallback(() => {
-    setIsOpen(false);
-    setSearchTerm('');
-    setReplaceTerm('');
-    editor.focus();
-  }, [editor]);
 
   if (!isOpen) return null;
 
