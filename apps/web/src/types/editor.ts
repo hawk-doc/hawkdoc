@@ -21,6 +21,12 @@ export interface AutoSaveData {
   content: string;
 }
 
+export interface DocMeta {
+  id: string;
+  title: string;
+  updatedAt: number;
+}
+
 export interface EditorToolbarProps {
   editor: LexicalEditor;
   onExportPDF: () => void;

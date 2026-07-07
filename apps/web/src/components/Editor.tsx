@@ -30,7 +30,7 @@ import { DocumentPDF } from './DocumentPDF';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { TablePlugin } from './TablePlugin';
 import { FindReplacePlugin } from './FindReplacePlugin';
-import { useAutoSave, loadAutoSave } from '../hooks/useAutoSave';
+import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES } from '../constants/editor';
 import type { SlashMenuState } from '../types/editor';
 
@@ -131,11 +131,12 @@ function RestorePlugin({ initialContent }: { initialContent: string | null }) {
 
 // ─── Main Editor component ────────────────────────────────────────────────────
 interface EditorProps {
+  docId: string;
   title: string;
   onTitleChange: (title: string) => void;
 }
 
-export function Editor({ title, onTitleChange }: EditorProps) {
+export function Editor({ docId, title, onTitleChange }: EditorProps) {
   const [editorInstance, setEditorInstance] = useState<LexicalEditor | null>(null);
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
@@ -150,9 +151,9 @@ export function Editor({ title, onTitleChange }: EditorProps) {
     return () => document.removeEventListener('keydown', handler);
   }, [focusMode]);
 
-  const [initialContent] = useState<string | null>(() => loadAutoSave()?.content ?? null);
+  const [initialContent] = useState<string | null>(() => loadDocContent(docId)?.content ?? null);
 
-  const isSaving = useAutoSave(editorState, title);
+  const isSaving = useAutoSave(editorState, title, docId);
 
   const wordCount = useMemo(() => {
     if (!editorState) return 0;
