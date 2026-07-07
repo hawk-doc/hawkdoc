@@ -55,14 +55,19 @@ function collectMatches(
   return matches;
 }
 
+const NAVIGATE_TAG = 'find-replace-navigate';
+
 function navigateToMatch(editor: LexicalEditor, match: Match): void {
-  editor.update(() => {
-    const node = $getNodeByKey(match.nodeKey);
-    if (!node || !$isTextNode(node)) return;
-    const sel = $createRangeSelection();
-    sel.setTextNodeRange(node as TextNode, match.start, node as TextNode, match.end);
-    $setSelection(sel);
-  });
+  editor.update(
+    () => {
+      const node = $getNodeByKey(match.nodeKey);
+      if (!node || !$isTextNode(node)) return;
+      const sel = $createRangeSelection();
+      sel.setTextNodeRange(node as TextNode, match.start, node as TextNode, match.end);
+      $setSelection(sel);
+    },
+    { tag: NAVIGATE_TAG },
+  );
 
   // DOM scroll must happen outside update()
   requestAnimationFrame(() => {
@@ -137,7 +142,8 @@ export function FindReplacePlugin(): null | React.ReactElement {
   // Re-collect when editor content changes while panel is open
   useEffect(() => {
     if (!isOpen) return;
-    return editor.registerUpdateListener(({ editorState }) => {
+    return editor.registerUpdateListener(({ editorState, tags }) => {
+      if (tags.has(NAVIGATE_TAG)) return;
       if (searchTerm === '') {
         setMatches([]);
         setCurrentIndex(0);
