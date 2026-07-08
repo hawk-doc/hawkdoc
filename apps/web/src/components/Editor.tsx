@@ -30,6 +30,7 @@ import { DocumentPDF } from './DocumentPDF';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { TablePlugin } from './TablePlugin';
 import { FindReplacePlugin } from './FindReplacePlugin';
+import { DraggableBlockPlugin } from './DraggableBlockPlugin';
 import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES } from '../constants/editor';
 import type { SlashMenuState } from '../types/editor';
@@ -143,6 +144,8 @@ export function Editor({ docId, title, onTitleChange }: EditorProps) {
   const closeSlashMenu = useCallback(() => setSlashMenu(null), []);
   const [isExporting, setIsExporting] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
+  const onPaperRef = useCallback((el: HTMLDivElement | null) => { setAnchorElem(el); }, []);
 
   useEffect(() => {
     if (!focusMode) return;
@@ -234,7 +237,7 @@ export function Editor({ docId, title, onTitleChange }: EditorProps) {
         <div className="w-[794px] mx-auto">
 
           {/* White paper */}
-          <div className="bg-white dark:bg-[#1e1e1e] p-[72px] min-h-[1123px] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.10)]">
+          <div ref={onPaperRef} className="relative bg-white dark:bg-[#1e1e1e] p-[72px] min-h-[1123px] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.10)]">
             {/* Document title */}
             <textarea
               value={title}
@@ -281,6 +284,7 @@ export function Editor({ docId, title, onTitleChange }: EditorProps) {
                   <CodeBlockPlugin />
                   <TablePlugin />
                   <FindReplacePlugin />
+                  {anchorElem && <DraggableBlockPlugin anchorElem={anchorElem} />}
                 </div>
 
                 {slashMenu && editorInstance && (

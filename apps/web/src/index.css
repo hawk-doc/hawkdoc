@@ -156,6 +156,31 @@
            text-notion-muted font-bold text-sm flex-shrink-0 font-mono;
   }
 
+  /* ─── Drag-to-reorder ─── */
+  .drag-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    will-change: transform;
+    opacity: 0;
+    @apply flex items-center justify-center w-5 h-5 rounded
+           cursor-grab active:cursor-grabbing
+           text-notion-muted dark:text-[#9aa0a6]
+           hover:bg-notion-hover dark:hover:bg-[#2d2f31]
+           transition-colors;
+  }
+
+  .drag-target-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    will-change: transform;
+    height: 4px;
+    opacity: 0;
+    pointer-events: none;
+    @apply bg-notion-accent rounded-full;
+  }
+
   /* ─── Sidebar ─── */
   .sidebar {
     @apply w-60 flex-shrink-0 flex flex-col h-full
