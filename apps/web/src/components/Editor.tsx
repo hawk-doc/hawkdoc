@@ -230,8 +230,8 @@ export function Editor({ docId, title, onTitleChange }: EditorProps) {
         />
       )}
 
-      {/* Gray canvas */}
-      <div className={`flex-1 py-10 overflow-x-auto transition-colors duration-300 ${focusMode ? 'bg-[#0d0d0d]' : 'bg-[#e8eaed] dark:bg-[#141414]'}`}>
+      {/* Gray canvas — fixed full-screen overlay in focus mode */}
+      <div className={`py-10 transition-colors duration-300 ${focusMode ? 'fixed inset-0 z-[100] overflow-y-auto bg-[#0d0d0d]' : 'flex-1 overflow-x-auto bg-[#e8eaed] dark:bg-[#141414]'}`}>
 
         {/* Centered A4 paper */}
         <div className="w-[794px] mx-auto">
@@ -324,7 +324,7 @@ export function Editor({ docId, title, onTitleChange }: EditorProps) {
       <button
         type="button"
         onClick={() => setFocusMode(false)}
-        className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-xs rounded-full backdrop-blur-sm transition-all"
+        className="fixed top-4 right-4 z-[101] flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-xs rounded-full backdrop-blur-sm transition-all"
       >
         <Minimize2 size={12} />
         Exit focus · Esc
