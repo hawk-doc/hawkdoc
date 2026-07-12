@@ -156,6 +156,98 @@
            text-notion-muted font-bold text-sm flex-shrink-0 font-mono;
   }
 
+  /* ─── Drag-to-reorder ─── */
+  .drag-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    will-change: transform;
+    opacity: 0;
+    @apply flex items-center justify-center w-5 h-5 rounded
+           cursor-grab active:cursor-grabbing
+           text-notion-muted dark:text-[#9aa0a6]
+           hover:bg-notion-hover dark:hover:bg-[#2d2f31]
+           transition-colors;
+  }
+
+  .drag-target-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    will-change: transform;
+    height: 4px;
+    opacity: 0;
+    pointer-events: none;
+    @apply bg-notion-accent rounded-full;
+  }
+
+  /* ─── Sidebar ─── */
+  .sidebar {
+    @apply w-60 flex-shrink-0 flex flex-col h-full
+           bg-notion-sidebar dark:bg-[#181818]
+           border-r border-notion-border dark:border-[#3c4043];
+  }
+
+  .sidebar-header {
+    @apply flex items-center justify-between px-4 py-3
+           border-b border-notion-border dark:border-[#3c4043] flex-shrink-0;
+  }
+
+  .sidebar-new-btn {
+    @apply w-6 h-6 flex items-center justify-center rounded
+           text-notion-muted dark:text-[#9aa0a6]
+           hover:bg-notion-hover dark:hover:bg-[#2d2f31]
+           hover:text-notion-text dark:hover:text-[#e8eaed]
+           transition-colors;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-sm
+           transition-colors text-notion-muted dark:text-[#9aa0a6]
+           hover:bg-notion-hover dark:hover:bg-[#2d2f31]
+           hover:text-notion-text dark:hover:text-[#e8eaed];
+  }
+
+  .sidebar-item.active {
+    @apply bg-notion-hover dark:bg-[#2d2f31]
+           text-notion-text dark:text-[#e8eaed] font-medium;
+  }
+
+  .sidebar-rename-input {
+    @apply flex-1 min-w-0 bg-white dark:bg-[#2d2f31] rounded px-1 text-sm
+           text-notion-text dark:text-[#e8eaed] outline-none
+           border border-notion-accent dark:border-[#8ab4f8];
+  }
+
+  .sidebar-delete-btn {
+    @apply opacity-0 group-hover:opacity-100 flex-shrink-0
+           w-5 h-5 flex items-center justify-center rounded
+           text-notion-muted hover:text-red-500 dark:hover:text-red-400
+           transition-all;
+  }
+
+  .sidebar-search-wrap {
+    @apply relative flex items-center mx-3 my-2 flex-shrink-0;
+  }
+
+  .sidebar-search-icon {
+    @apply absolute left-2 text-notion-muted dark:text-[#5f6368] pointer-events-none;
+  }
+
+  .sidebar-search {
+    @apply w-full pl-6 pr-2 py-1 text-xs rounded-md outline-none
+           bg-notion-hover dark:bg-[#2d2f31]
+           border border-transparent focus:border-notion-accent dark:focus:border-[#8ab4f8]
+           text-notion-text dark:text-[#e8eaed]
+           placeholder-notion-muted dark:placeholder-[#5f6368]
+           transition-colors;
+  }
+
+  .sidebar-empty {
+    @apply flex flex-col items-center justify-center pt-10 pb-6 px-4
+           text-notion-muted dark:text-[#5f6368];
+  }
+
   /* ─── Toolbar (legacy helpers) ─── */
   .toolbar {
     @apply flex items-center gap-0.5 flex-wrap;

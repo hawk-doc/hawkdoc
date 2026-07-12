@@ -30,7 +30,8 @@ import { DocumentPDF } from './DocumentPDF';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { TablePlugin } from './TablePlugin';
 import { FindReplacePlugin } from './FindReplacePlugin';
-import { useAutoSave, loadAutoSave } from '../hooks/useAutoSave';
+import { DraggableBlockPlugin } from './DraggableBlockPlugin';
+import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES } from '../constants/editor';
 import type { SlashMenuState } from '../types/editor';
 
@@ -131,17 +132,20 @@ function RestorePlugin({ initialContent }: { initialContent: string | null }) {
 
 // ─── Main Editor component ────────────────────────────────────────────────────
 interface EditorProps {
+  docId: string;
   title: string;
   onTitleChange: (title: string) => void;
 }
 
-export function Editor({ title, onTitleChange }: EditorProps) {
+export function Editor({ docId, title, onTitleChange }: EditorProps) {
   const [editorInstance, setEditorInstance] = useState<LexicalEditor | null>(null);
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
   const closeSlashMenu = useCallback(() => setSlashMenu(null), []);
   const [isExporting, setIsExporting] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
+  const onPaperRef = useCallback((el: HTMLDivElement | null) => { setAnchorElem(el); }, []);
 
   useEffect(() => {
     if (!focusMode) return;
@@ -150,9 +154,9 @@ export function Editor({ title, onTitleChange }: EditorProps) {
     return () => document.removeEventListener('keydown', handler);
   }, [focusMode]);
 
-  const [initialContent] = useState<string | null>(() => loadAutoSave()?.content ?? null);
+  const [initialContent] = useState<string | null>(() => loadDocContent(docId)?.content ?? null);
 
-  const isSaving = useAutoSave(editorState, title);
+  const isSaving = useAutoSave(editorState, title, docId);
 
   const wordCount = useMemo(() => {
     if (!editorState) return 0;
@@ -226,14 +230,14 @@ export function Editor({ title, onTitleChange }: EditorProps) {
         />
       )}
 
-      {/* Gray canvas */}
-      <div className={`flex-1 py-10 overflow-x-auto transition-colors duration-300 ${focusMode ? 'bg-[#0d0d0d]' : 'bg-[#e8eaed] dark:bg-[#141414]'}`}>
+      {/* Gray canvas — fixed full-screen overlay in focus mode */}
+      <div className={`py-10 transition-colors duration-300 ${focusMode ? 'fixed inset-0 z-[100] overflow-y-auto bg-[#0d0d0d]' : 'flex-1 overflow-x-auto bg-[#e8eaed] dark:bg-[#141414]'}`}>
 
         {/* Centered A4 paper */}
         <div className="w-[794px] mx-auto">
 
           {/* White paper */}
-          <div className="bg-white dark:bg-[#1e1e1e] p-[72px] min-h-[1123px] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.10)]">
+          <div ref={onPaperRef} className="relative bg-white dark:bg-[#1e1e1e] p-[72px] min-h-[1123px] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.10)]">
             {/* Document title */}
             <textarea
               value={title}
@@ -280,6 +284,7 @@ export function Editor({ title, onTitleChange }: EditorProps) {
                   <CodeBlockPlugin />
                   <TablePlugin />
                   <FindReplacePlugin />
+                  {anchorElem && <DraggableBlockPlugin anchorElem={anchorElem} />}
                 </div>
 
                 {slashMenu && editorInstance && (
@@ -319,7 +324,7 @@ export function Editor({ title, onTitleChange }: EditorProps) {
       <button
         type="button"
         onClick={() => setFocusMode(false)}
-        className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-xs rounded-full backdrop-blur-sm transition-all"
+        className="fixed top-4 right-4 z-[101] flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-xs rounded-full backdrop-blur-sm transition-all"
       >
         <Minimize2 size={12} />
         Exit focus · Esc

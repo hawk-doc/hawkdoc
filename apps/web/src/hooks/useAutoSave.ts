@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { EditorState } from 'lexical';
-import { STORAGE_KEY, DEBOUNCE_MS } from '../constants/autosave';
+import { DOC_KEY_PREFIX, DEBOUNCE_MS } from '../constants/autosave';
 import type { AutoSaveData } from '../types/editor';
 
-export function loadAutoSave(): AutoSaveData | null {
+export function loadDocContent(docId: string): AutoSaveData | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(`${DOC_KEY_PREFIX}${docId}`);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (
       typeof parsed !== 'object' || parsed === null ||
-      typeof (parsed as Record<string, unknown>).title !== 'string' ||
       typeof (parsed as Record<string, unknown>).content !== 'string'
     ) return null;
     return parsed as AutoSaveData;
@@ -22,6 +21,7 @@ export function loadAutoSave(): AutoSaveData | null {
 export function useAutoSave(
   editorState: EditorState | null,
   title: string,
+  docId: string,
 ): boolean {
   const [isSaving, setIsSaving] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -33,22 +33,14 @@ export function useAutoSave(
     timerRef.current = setTimeout(() => {
       setIsSaving(true);
       try {
-        const data: AutoSaveData = {
-          title,
-          content: JSON.stringify(editorState.toJSON()),
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch {
-        // ignore storage errors
-      }
-      // localStorage is synchronous — delay the flip so React renders "Saving…" first
+        const data: AutoSaveData = { title, content: JSON.stringify(editorState.toJSON()) };
+        localStorage.setItem(`${DOC_KEY_PREFIX}${docId}`, JSON.stringify(data));
+      } catch { /* ignore storage errors */ }
       setTimeout(() => setIsSaving(false), 600);
     }, DEBOUNCE_MS);
 
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [editorState, title]);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [editorState, title, docId]);
 
   return isSaving;
 }
