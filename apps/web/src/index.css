@@ -226,6 +226,28 @@
            transition-all;
   }
 
+  .sidebar-search-wrap {
+    @apply relative flex items-center mx-3 my-2 flex-shrink-0;
+  }
+
+  .sidebar-search-icon {
+    @apply absolute left-2 text-notion-muted dark:text-[#5f6368] pointer-events-none;
+  }
+
+  .sidebar-search {
+    @apply w-full pl-6 pr-2 py-1 text-xs rounded-md outline-none
+           bg-notion-hover dark:bg-[#2d2f31]
+           border border-transparent focus:border-notion-accent dark:focus:border-[#8ab4f8]
+           text-notion-text dark:text-[#e8eaed]
+           placeholder-notion-muted dark:placeholder-[#5f6368]
+           transition-colors;
+  }
+
+  .sidebar-empty {
+    @apply flex flex-col items-center justify-center pt-10 pb-6 px-4
+           text-notion-muted dark:text-[#5f6368];
+  }
+
   /* ─── Toolbar (legacy helpers) ─── */
   .toolbar {
     @apply flex items-center gap-0.5 flex-wrap;
