@@ -268,6 +268,37 @@
   }
 }
 
+/* ─── Real-time collaboration cursors ─── */
+.collab-cursor {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+}
+
+.collab-cursor__caret {
+  position: absolute;
+  display: inline;
+  width: 2px;
+  height: 1.1em;
+  margin-left: -1px;
+  border-left: 2px solid;
+  vertical-align: text-top;
+}
+
+.collab-cursor__label {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 3px 3px 3px 0;
+  color: #fff;
+  white-space: nowrap;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
 /* ─── Dark mode base — prevents white flash on overscroll / rubber-band ─── */
 html.dark,
 html.dark body {

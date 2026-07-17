@@ -27,6 +27,8 @@ import { SlashCommandMenu } from './SlashCommandMenu';
 import { BubbleMenu } from './BubbleMenu';
 import { CodeBlockPlugin } from './CodeBlockPlugin';
 import { DocumentPDF } from './DocumentPDF';
+import { CollaborationPlugin } from './CollaborationPlugin';
+import type { CollabStatus } from './CollaborationPlugin';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { TablePlugin } from './TablePlugin';
 import { FindReplacePlugin } from './FindReplacePlugin';
@@ -135,15 +137,21 @@ interface EditorProps {
   docId: string;
   title: string;
   onTitleChange: (title: string) => void;
+  // Collaboration props (undefined = local-only mode)
+  collabToken?: string;
+  collabUser?: { id: string; name: string };
 }
 
-export function Editor({ docId, title, onTitleChange }: EditorProps) {
+export function Editor({ docId, title, onTitleChange, collabToken, collabUser }: EditorProps) {
+  const isCollab = !!(collabToken && collabUser);
+
   const [editorInstance, setEditorInstance] = useState<LexicalEditor | null>(null);
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
   const closeSlashMenu = useCallback(() => setSlashMenu(null), []);
   const [isExporting, setIsExporting] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [collabStatus, setCollabStatus] = useState<CollabStatus>('connecting');
   const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
   const onPaperRef = useCallback((el: HTMLDivElement | null) => { setAnchorElem(el); }, []);
 
@@ -154,9 +162,12 @@ export function Editor({ docId, title, onTitleChange }: EditorProps) {
     return () => document.removeEventListener('keydown', handler);
   }, [focusMode]);
 
-  const [initialContent] = useState<string | null>(() => loadDocContent(docId)?.content ?? null);
+  const [initialContent] = useState<string | null>(() =>
+    isCollab ? null : (loadDocContent(docId)?.content ?? null),
+  );
 
-  const isSaving = useAutoSave(editorState, title, docId);
+  // Disable local autosave in collab mode — Hocuspocus handles server-side persistence
+  const isSaving = useAutoSave(isCollab ? null : editorState, title, docId);
 
   const wordCount = useMemo(() => {
     if (!editorState) return 0;
@@ -227,6 +238,7 @@ export function Editor({ docId, title, onTitleChange }: EditorProps) {
           isSaving={isSaving || isExporting}
           title={title}
           onToggleFocusMode={() => setFocusMode(true)}
+          collabStatus={isCollab ? collabStatus : undefined}
         />
       )}
 
@@ -271,7 +283,10 @@ export function Editor({ docId, title, onTitleChange }: EditorProps) {
                     }
                     ErrorBoundary={LexicalErrorBoundary}
                   />
-                  <HistoryPlugin />
+
+                  {/* History: Lexical's own in local mode; Yjs UndoManager in collab mode */}
+                  {!isCollab && <HistoryPlugin />}
+
                   <AutoFocusPlugin />
                   <ListPlugin />
                   <LinkPlugin />
@@ -280,11 +295,24 @@ export function Editor({ docId, title, onTitleChange }: EditorProps) {
                   <OnChangePlugin onChange={(state) => setEditorState(state)} />
                   <SlashAndVariablePlugin onSlashMenu={setSlashMenu} />
                   <EditorRefPlugin onEditor={setEditorInstance} />
-                  <RestorePlugin initialContent={initialContent} />
                   <CodeBlockPlugin />
                   <TablePlugin />
                   <FindReplacePlugin />
                   {anchorElem && <DraggableBlockPlugin anchorElem={anchorElem} />}
+
+                  {/* Restore from localStorage only in local mode */}
+                  {!isCollab && <RestorePlugin initialContent={initialContent} />}
+
+                  {/* Real-time collaboration — Yjs ↔ Hocuspocus ↔ Lexical */}
+                  {isCollab && collabToken && collabUser && (
+                    <CollaborationPlugin
+                      docId={docId}
+                      token={collabToken}
+                      username={collabUser.name}
+                      userId={collabUser.id}
+                      onStatus={setCollabStatus}
+                    />
+                  )}
                 </div>
 
                 {slashMenu && editorInstance && (

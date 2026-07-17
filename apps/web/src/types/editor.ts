@@ -1,4 +1,5 @@
 import type { LexicalEditor } from 'lexical';
+import type { CollabStatus } from '../components/CollaborationPlugin';
 
 export type BlockType = 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullet' | 'number' | 'quote' | 'code';
 
@@ -33,4 +34,7 @@ export interface EditorToolbarProps {
   isSaving: boolean;
   title: string;
   onToggleFocusMode: () => void;
+  collabStatus?: CollabStatus;
 }
+
+export type { CollabStatus };

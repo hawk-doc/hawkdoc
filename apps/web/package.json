@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hocuspocus/provider": "^4.4.0",
     "@lexical/code": "^0.17.1",
     "@lexical/history": "^0.17.1",
     "@lexical/link": "^0.17.1",
@@ -21,12 +22,14 @@
     "@lexical/selection": "^0.17.1",
     "@lexical/table": "^0.17.1",
     "@lexical/utils": "^0.17.1",
+    "@lexical/yjs": "^0.48.0",
     "@react-pdf/renderer": "^3.4.4",
     "@tanstack/react-virtual": "^3.8.1",
     "lexical": "^0.17.1",
     "lucide-react": "^0.576.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "yjs": "^13.6.31"
   },
   "optionalDependencies": {
     "@rollup/rollup-darwin-arm64": "*",

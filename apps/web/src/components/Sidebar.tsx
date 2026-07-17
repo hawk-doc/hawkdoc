@@ -6,7 +6,7 @@ interface SidebarProps {
   docs: DocMeta[];
   activeId: string;
   onActivate: (id: string) => void;
-  onCreate: () => void;
+  onCreate: () => void | Promise<void>;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
 }
@@ -48,7 +48,7 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
         <span className="text-xs font-semibold uppercase tracking-widest text-notion-muted dark:text-[#5f6368]">
           Documents&nbsp;·&nbsp;{docs.length}
         </span>
-        <button type="button" title="New document" onClick={onCreate} className="sidebar-new-btn">
+        <button type="button" title="New document" onClick={() => { void onCreate(); }} className="sidebar-new-btn">
           <FilePlus size={15} />
         </button>
       </div>
