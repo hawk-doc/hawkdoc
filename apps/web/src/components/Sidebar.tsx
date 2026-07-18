@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FilePlus, FileText, Search, Trash2 } from 'lucide-react';
-import type { DocMeta } from '../types/editor';
+import type { DocMeta } from '../interfaces';
 
 interface SidebarProps {
   docs: DocMeta[];

@@ -34,3 +34,8 @@ export interface EditorToolbarProps {
   title: string;
   onToggleFocusMode: () => void;
 }
+
+export interface DocumentContextValue {
+  header: string;
+  footer: string;
+}

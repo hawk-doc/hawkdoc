@@ -1,9 +1,5 @@
 import { createContext, useContext } from 'react';
-
-interface DocumentContextValue {
-  header: string;
-  footer: string;
-}
+import type { DocumentContextValue } from '../interfaces';
 
 export const DocumentContext = createContext<DocumentContextValue | null>(null);
 

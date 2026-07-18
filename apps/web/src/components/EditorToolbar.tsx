@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { InputDialog } from './InputDialog';
 import {
   $getSelection,
@@ -26,8 +27,9 @@ import {
 import { $getNearestNodeOfType, $insertNodeToNearestRoot } from '@lexical/utils';
 import { $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { $createImageNode } from '../nodes/ImageNode';
+import { uploadImage } from '../lib/documentApi';
 import { BLOCK_TYPES, FONT_FAMILIES, FONT_SIZES } from '../constants/editor';
-import type { BlockType, EditorToolbarProps } from '../types/editor';
+import type { BlockType, EditorToolbarProps } from '../interfaces';
 import {
   Bold,
   Italic,
@@ -313,27 +315,22 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
     setExportOpen(false);
   }, [getMarkdownString]);
 
-  const handleImageUpload = useCallback(
-    async (file: File) => {
-      const apiUrl =
-        (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001';
-      const formData = new FormData();
-      formData.append('image', file);
-      try {
-        const res = await fetch(`${apiUrl}/api/uploads`, { method: 'POST', body: formData });
-        if (!res.ok) {
-          const body = await res.text();
-          throw new Error(`Upload failed (${res.status}): ${body}`);
-        }
-        const { url } = (await res.json()) as { url: string };
-        editor.update(() => {
-          $insertNodeToNearestRoot($createImageNode(`${apiUrl}${url}`, file.name));
-        });
-      } catch (err) {
-        console.error('Image upload failed:', err);
-      }
+  const imageUploadMutation = useMutation({
+    mutationFn: uploadImage,
+    onSuccess: ({ url }, file) => {
+      const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001';
+      editor.update(() => {
+        $insertNodeToNearestRoot($createImageNode(`${apiUrl}${url}`, file.name));
+      });
     },
-    [editor],
+    onError: (err) => {
+      console.error('Image upload failed:', err);
+    },
+  });
+
+  const handleImageUpload = useCallback(
+    (file: File) => { imageUploadMutation.mutate(file); },
+    [imageUploadMutation],
   );
 
   const currentLabel = BLOCK_TYPES.find((b) => b.type === blockType)?.label ?? 'Paragraph';

@@ -1,81 +1,83 @@
-import { useState } from 'react';
-import { DOCS_LIST_KEY, DOC_KEY_PREFIX, ACTIVE_DOC_KEY, STORAGE_KEY } from '../constants/autosave';
-import type { DocMeta } from '../types/editor';
+import { useCallback, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ACTIVE_DOC_KEY } from '../constants/autosave';
+import {
+  fetchDocuments,
+  createDocument,
+  renameDocument,
+  removeDocument,
+} from '../lib/documentApi';
+import type { DocMeta } from '../interfaces';
 
-function genId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-}
+const DOCS_KEY = ['documents'] as const;
 
-function saveDocs(docs: DocMeta[]): void {
-  localStorage.setItem(DOCS_LIST_KEY, JSON.stringify(docs));
-}
-
-function initialDocs(): DocMeta[] {
-  try {
-    const raw = localStorage.getItem(DOCS_LIST_KEY);
-    if (raw) return JSON.parse(raw) as DocMeta[];
-  } catch { /* ignore */ }
-
-  // Migrate from old single-doc format
-  const id = genId();
-  const old = localStorage.getItem(STORAGE_KEY);
-  let title = 'Untitled';
-  try { if (old) title = (JSON.parse(old) as { title?: string }).title ?? 'Untitled'; } catch { /* ignore */ }
-  if (old) localStorage.setItem(`${DOC_KEY_PREFIX}${id}`, old);
-
-  const docs: DocMeta[] = [{ id, title, updatedAt: Date.now() }];
-  saveDocs(docs);
-  return docs;
-}
-
-function initialActiveId(docs: DocMeta[]): string {
+function getStoredActiveId(docs: DocMeta[]): string {
   const stored = localStorage.getItem(ACTIVE_DOC_KEY);
   return stored && docs.some((d) => d.id === stored) ? stored : (docs[0]?.id ?? '');
 }
 
 export function useDocumentStore() {
-  const [docs, setDocs] = useState<DocMeta[]>(initialDocs);
-  const [activeId, setActiveId] = useState<string>(() => initialActiveId(initialDocs()));
+  const queryClient = useQueryClient();
+  const { data: docs = [] } = useQuery({ queryKey: DOCS_KEY, queryFn: fetchDocuments });
 
-  const update = (next: DocMeta[]) => {
-    setDocs(next);
-    saveDocs(next);
-  };
+  const [activeId, setActiveId] = useState<string>(() => getStoredActiveId(docs));
 
-  const switchTo = (id: string) => {
+  const resolvedActiveId = docs.some((d) => d.id === activeId)
+    ? activeId
+    : (docs[0]?.id ?? '');
+
+  const switchTo = useCallback((id: string) => {
     setActiveId(id);
     localStorage.setItem(ACTIVE_DOC_KEY, id);
-  };
+  }, []);
 
-  const create = (): string => {
-    const id = genId();
-    const next = [{ id, title: 'Untitled', updatedAt: Date.now() }, ...docs];
-    update(next);
-    switchTo(id);
-    return id;
-  };
+  const createMutation = useMutation({
+    mutationFn: createDocument,
+    onSuccess: (newDoc) => {
+      queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) => [newDoc, ...old]);
+      switchTo(newDoc.id);
+    },
+  });
 
-  const rename = (id: string, title: string) => {
-    update(docs.map((d) => (d.id === id ? { ...d, title, updatedAt: Date.now() } : d)));
-  };
+  const renameMutation = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => renameDocument(id, title),
+    onMutate: ({ id, title }) => {
+      queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) =>
+        old.map((d) => (d.id === id ? { ...d, title, updatedAt: Date.now() } : d)),
+      );
+    },
+  });
 
-  const remove = (id: string) => {
-    const next = docs.filter((d) => d.id !== id);
-    localStorage.removeItem(`${DOC_KEY_PREFIX}${id}`);
-    if (next.length === 0) {
-      const newId = genId();
-      const fresh: DocMeta[] = [{ id: newId, title: 'Untitled', updatedAt: Date.now() }];
-      update(fresh);
-      switchTo(newId);
-    } else {
-      update(next);
-      if (id === activeId) switchTo(next[0].id);
-    }
-  };
+  const removeMutation = useMutation({
+    mutationFn: removeDocument,
+    onMutate: (removedId) => {
+      const prev = queryClient.getQueryData<DocMeta[]>(DOCS_KEY) ?? [];
+      const next = prev.filter((d) => d.id !== removedId);
+      if (next.length === 0) {
+        createMutation.mutate();
+      } else {
+        queryClient.setQueryData<DocMeta[]>(DOCS_KEY, next);
+        if (removedId === resolvedActiveId) switchTo(next[0].id);
+      }
+    },
+  });
 
-  const touch = (id: string, title: string) => {
-    update(docs.map((d) => (d.id === id ? { ...d, title, updatedAt: Date.now() } : d)));
-  };
+  const touchMutation = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => renameDocument(id, title),
+    onMutate: ({ id, title }) => {
+      queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) =>
+        old.map((d) => (d.id === id ? { ...d, title, updatedAt: Date.now() } : d)),
+      );
+    },
+  });
 
-  return { docs, activeId, create, rename, remove, activate: switchTo, touch };
+  return {
+    docs,
+    activeId: resolvedActiveId,
+    create: () => { createMutation.mutate(); },
+    rename: (id: string, title: string) => renameMutation.mutate({ id, title }),
+    remove: (id: string) => removeMutation.mutate(id),
+    activate: switchTo,
+    touch: (id: string, title: string) => touchMutation.mutate({ id, title }),
+  };
 }

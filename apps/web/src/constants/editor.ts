@@ -7,7 +7,7 @@ import { TableNode, TableRowNode, TableCellNode } from '@lexical/table';
 import { TemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { ImageNode } from '../nodes/ImageNode';
 import { PageBreakNode } from '../nodes/PageBreakNode';
-import type { BlockType } from '../types/editor';
+import type { BlockType } from '../interfaces';
 
 export const TEMPLATE_VAR_REGEX = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/;
 

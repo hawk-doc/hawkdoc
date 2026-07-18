@@ -26,7 +26,7 @@ import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleN
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { INSERT_TABLE_COMMAND } from '@lexical/table';
 import { $createPageBreakNode } from '../nodes/PageBreakNode';
-import type { SlashCommand } from '../types/editor';
+import type { SlashCommand } from '../interfaces';
 
 const COMMANDS: SlashCommand[] = [
   {

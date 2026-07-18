@@ -4,10 +4,7 @@ import { env } from './env.js';
 import query from './db.js';
 import { redis, docBufferKey } from './redis.js';
 import * as Y from 'yjs';
-
-interface HocuspocusContext {
-  userId: string;
-}
+import type { HocuspocusContext } from './interfaces/index.js';
 
 export const hocuspocusServer = Server.configure({
   port: env.HOCUSPOCUS_PORT,
