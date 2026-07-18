@@ -26,6 +26,7 @@ export function useAutoSave(
   docId: string,
 ): boolean {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDataRef = useRef<AutoSaveData | null>(null);
 
   const saveMutation = useMutation({
     mutationFn: (data: AutoSaveData) => saveDocContent(docId, data),
@@ -35,12 +36,26 @@ export function useAutoSave(
     if (!editorState) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
+    const data: AutoSaveData = { title, content: JSON.stringify(editorState.toJSON()) };
+    pendingDataRef.current = data;
+
     timerRef.current = setTimeout(() => {
-      const data: AutoSaveData = { title, content: JSON.stringify(editorState.toJSON()) };
       saveMutation.mutate(data);
+      timerRef.current = null;
+      pendingDataRef.current = null;
     }, DEBOUNCE_MS);
 
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      // Flush pending save immediately on unmount/doc switch
+      if (pendingDataRef.current) {
+        saveMutation.mutate(pendingDataRef.current);
+        pendingDataRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorState, title, docId]);
 

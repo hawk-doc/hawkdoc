@@ -37,9 +37,11 @@ export async function createDocument(): Promise<DocMeta> {
 
 export async function renameDocument(id: string, title: string): Promise<DocMeta> {
   const docs = await fetchDocuments();
-  const updated = docs.map((d) => (d.id === id ? { ...d, title, updatedAt: Date.now() } : d));
-  saveDocs(updated);
-  return updated.find((d) => d.id === id)!;
+  const doc = docs.find((d) => d.id === id);
+  if (!doc) throw new Error(`Document not found: ${id}`);
+  const renamed = { ...doc, title, updatedAt: Date.now() };
+  saveDocs(docs.map((d) => (d.id === id ? renamed : d)));
+  return renamed;
 }
 
 export async function removeDocument(id: string): Promise<void> {

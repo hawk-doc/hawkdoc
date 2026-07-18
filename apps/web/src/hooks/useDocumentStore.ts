@@ -53,11 +53,11 @@ export function useDocumentStore() {
     onMutate: (removedId) => {
       const prev = queryClient.getQueryData<DocMeta[]>(DOCS_KEY) ?? [];
       const next = prev.filter((d) => d.id !== removedId);
+      queryClient.setQueryData<DocMeta[]>(DOCS_KEY, next);
       if (next.length === 0) {
         createMutation.mutate();
-      } else {
-        queryClient.setQueryData<DocMeta[]>(DOCS_KEY, next);
-        if (removedId === resolvedActiveId) switchTo(next[0].id);
+      } else if (removedId === resolvedActiveId) {
+        switchTo(next[0].id);
       }
     },
   });
