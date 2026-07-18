@@ -33,7 +33,7 @@ import { FindReplacePlugin } from './FindReplacePlugin';
 import { DraggableBlockPlugin } from './DraggableBlockPlugin';
 import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES } from '../constants/editor';
-import type { SlashMenuState } from '../types/editor';
+import type { SlashMenuState } from '../interfaces';
 
 // ─── Slash + template-variable detection plugin ───────────────────────────────
 

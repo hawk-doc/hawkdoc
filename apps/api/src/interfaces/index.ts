@@ -8,3 +8,7 @@ export interface AuthPayload {
 export interface AuthenticatedRequest extends Request {
   auth: AuthPayload;
 }
+
+export interface HocuspocusContext {
+  userId: string;
+}
