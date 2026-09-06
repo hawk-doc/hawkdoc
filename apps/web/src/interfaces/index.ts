@@ -38,3 +38,8 @@ export interface EditorToolbarProps {
 }
 
 export type { CollabStatus };
+
+export interface DocumentContextValue {
+  header: string;
+  footer: string;
+}

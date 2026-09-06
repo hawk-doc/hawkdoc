@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../env.js';
-import type { AuthPayload, AuthenticatedRequest } from '../types/auth.js';
+import type { AuthPayload, AuthenticatedRequest } from '../interfaces/index.js';
 
 export type { AuthPayload, AuthenticatedRequest };
 
