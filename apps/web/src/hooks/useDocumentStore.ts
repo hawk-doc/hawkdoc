@@ -9,16 +9,22 @@ import {
 } from '../lib/documentApi';
 import type { DocMeta } from '../interfaces';
 
-const DOCS_KEY = ['documents'] as const;
+function docsKey(token: string | null) {
+  return ['documents', token ?? 'local'] as const;
+}
 
 function getStoredActiveId(docs: DocMeta[]): string {
   const stored = localStorage.getItem(ACTIVE_DOC_KEY);
   return stored && docs.some((d) => d.id === stored) ? stored : (docs[0]?.id ?? '');
 }
 
-export function useDocumentStore() {
+export function useDocumentStore(token: string | null) {
   const queryClient = useQueryClient();
-  const { data: docs = [] } = useQuery({ queryKey: DOCS_KEY, queryFn: fetchDocuments });
+  const DOCS_KEY = docsKey(token);
+  const { data: docs = [] } = useQuery({
+    queryKey: DOCS_KEY,
+    queryFn: () => fetchDocuments(token),
+  });
 
   const [activeId, setActiveId] = useState<string>(() => getStoredActiveId(docs));
 
@@ -32,7 +38,7 @@ export function useDocumentStore() {
   }, []);
 
   const createMutation = useMutation({
-    mutationFn: createDocument,
+    mutationFn: () => createDocument(token),
     onSuccess: (newDoc) => {
       queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) => [newDoc, ...old]);
       switchTo(newDoc.id);
@@ -40,7 +46,7 @@ export function useDocumentStore() {
   });
 
   const renameMutation = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) => renameDocument(id, title),
+    mutationFn: ({ id, title }: { id: string; title: string }) => renameDocument(id, title, token),
     onMutate: ({ id, title }) => {
       queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) =>
         old.map((d) => (d.id === id ? { ...d, title, updatedAt: Date.now() } : d)),
@@ -49,13 +55,15 @@ export function useDocumentStore() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: removeDocument,
+    mutationFn: (id: string) => removeDocument(id, token),
     onMutate: (removedId) => {
       const prev = queryClient.getQueryData<DocMeta[]>(DOCS_KEY) ?? [];
       const next = prev.filter((d) => d.id !== removedId);
       queryClient.setQueryData<DocMeta[]>(DOCS_KEY, next);
       if (next.length === 0) {
-        createMutation.mutate();
+        // Offline mode always keeps one document around; signed in we let the
+        // empty state show instead of creating a stray server-side document.
+        if (!token) createMutation.mutate();
       } else if (removedId === resolvedActiveId) {
         switchTo(next[0].id);
       }
@@ -63,7 +71,7 @@ export function useDocumentStore() {
   });
 
   const touchMutation = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) => renameDocument(id, title),
+    mutationFn: ({ id, title }: { id: string; title: string }) => renameDocument(id, title, token),
     onMutate: ({ id, title }) => {
       queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) =>
         old.map((d) => (d.id === id ? { ...d, title, updatedAt: Date.now() } : d)),
@@ -74,7 +82,8 @@ export function useDocumentStore() {
   return {
     docs,
     activeId: resolvedActiveId,
-    create: () => { createMutation.mutate(); },
+    // create() is awaitable so the editor gets the real DB id before Hocuspocus connects
+    create: async (): Promise<void> => { await createMutation.mutateAsync(); },
     rename: (id: string, title: string) => renameMutation.mutate({ id, title }),
     remove: (id: string) => removeMutation.mutate(id),
     activate: switchTo,

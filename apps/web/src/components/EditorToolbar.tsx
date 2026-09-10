@@ -85,7 +85,7 @@ const HIGHLIGHT_COLORS = [
 ];
 
 
-export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFocusMode }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFocusMode, collabStatus }: EditorToolbarProps) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [blockType, setBlockType] = useState<BlockType>('paragraph');
@@ -588,20 +588,47 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Save status */}
-        <div className={`flex items-center gap-1.5 text-xs mr-2 ${isSaving ? 'text-notion-muted dark:text-[#9aa0a6]' : 'text-emerald-600 dark:text-emerald-400'}`}>
-          {isSaving ? (
-            <>
-              <span className="w-3 h-3 rounded-full border-2 border-t-transparent border-notion-muted animate-spin inline-block" />
-              Saving…
-            </>
-          ) : (
-            <>
-              <Check size={12} />
-              Saved
-            </>
-          )}
-        </div>
+        {/* Save / collab status */}
+        {collabStatus ? (
+          <div className="flex items-center gap-1.5 text-xs mr-2">
+            <span
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                collabStatus === 'connected'
+                  ? 'bg-emerald-500'
+                  : collabStatus === 'connecting'
+                    ? 'bg-yellow-400 animate-pulse'
+                    : 'bg-red-400'
+              }`}
+            />
+            <span
+              className={
+                collabStatus === 'connected'
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-notion-muted dark:text-[#9aa0a6]'
+              }
+            >
+              {collabStatus === 'connected'
+                ? 'Live'
+                : collabStatus === 'connecting'
+                  ? 'Connecting…'
+                  : 'Offline'}
+            </span>
+          </div>
+        ) : (
+          <div className={`flex items-center gap-1.5 text-xs mr-2 ${isSaving ? 'text-notion-muted dark:text-[#9aa0a6]' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            {isSaving ? (
+              <>
+                <span className="w-3 h-3 rounded-full border-2 border-t-transparent border-notion-muted animate-spin inline-block" />
+                Saving…
+              </>
+            ) : (
+              <>
+                <Check size={12} />
+                Saved
+              </>
+            )}
+          </div>
+        )}
 
         <Sep />
 
