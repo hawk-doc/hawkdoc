@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Redis auto-save buffer
 - JWT authentication
 
+### Changed
+- Document title edits sync to storage after an 800ms debounce instead of on every keystroke; the sidebar still updates instantly, and pending edits flush on document switch, delete-cancel, and tab close
+
+### Fixed
+- Out-of-order title `PATCH` requests could leave a stale title on the server; title writes now run serially
+
 ---
 
 ## How to Update This File
