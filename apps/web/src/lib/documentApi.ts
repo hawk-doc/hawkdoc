@@ -86,6 +86,8 @@ export async function renameDocument(
       method: 'PATCH',
       headers: authHeaders(token, true),
       body: JSON.stringify({ title }),
+      // Lets a title flushed from `pagehide` finish after the tab closes
+      keepalive: true,
     });
     if (!res.ok) throw new Error(`Failed to rename document (${res.status})`);
     return { ...toDocMeta((await res.json()) as ApiDocRow), updatedAt: Date.now() };
