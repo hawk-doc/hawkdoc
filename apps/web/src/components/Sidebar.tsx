@@ -24,7 +24,7 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
   const startEdit = (doc: DocMeta, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingId(doc.id);
-    setEditValue(doc.title || 'Untitled');
+    setEditValue(doc.title.trim() || 'Untitled');
   };
 
   const commitEdit = () => {
@@ -35,7 +35,7 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
 
   const sorted = [...docs].sort((a, b) => b.updatedAt - a.updatedAt);
   const q = query.trim().toLowerCase();
-  const filtered = q ? sorted.filter((d) => (d.title || 'Untitled').toLowerCase().includes(q)) : sorted;
+  const filtered = q ? sorted.filter((d) => (d.title.trim() || 'Untitled').toLowerCase().includes(q)) : sorted;
 
   const isEmptyState =
     !q &&
@@ -106,7 +106,7 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
                     className="sidebar-rename-input"
                   />
                 ) : (
-                  <span className="flex-1 truncate">{doc.title || 'Untitled'}</span>
+                  <span className="flex-1 truncate">{doc.title.trim() || 'Untitled'}</span>
                 )}
 
                 {!isEditing && (

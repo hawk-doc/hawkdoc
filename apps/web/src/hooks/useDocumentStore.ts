@@ -9,9 +9,10 @@ import {
 } from '../lib/documentApi';
 import type { DocMeta } from '../interfaces';
 
-// Title writes share one mutation scope so TanStack runs them serially — an
-// older PATCH can never land after a newer one and roll the title back.
-const TITLE_MUTATION_SCOPE = { id: 'document-title' };
+// Title writes and deletes share one mutation scope so TanStack runs them
+// serially — an older PATCH can never land after a newer one and roll the
+// title back, and a queued PATCH can't hit a document already deleted.
+const DOCUMENT_MUTATION_SCOPE = { id: 'document' };
 
 interface TitleWrite {
   id: string;
@@ -70,7 +71,7 @@ export function useDocumentStore(token: string | null) {
   const titleMutation = useMutation({
     mutationFn: ({ id, title, token: writeToken }: TitleWrite) =>
       renameDocument(id, title.trim() || 'Untitled', writeToken),
-    scope: TITLE_MUTATION_SCOPE,
+    scope: DOCUMENT_MUTATION_SCOPE,
     onError: (err) => { console.error('Failed to save document title:', err); },
   });
   const { mutate: persistTitle } = titleMutation;
@@ -115,6 +116,14 @@ export function useDocumentStore(token: string | null) {
     };
   }, [flushPendingTitle]);
 
+  const activate = useCallback(
+    (id: string) => {
+      flushPendingTitle();
+      switchTo(id);
+    },
+    [flushPendingTitle, switchTo],
+  );
+
   const rename = useCallback(
     (id: string, title: string) => {
       // An explicit rename supersedes any title still being typed for this doc
@@ -127,6 +136,7 @@ export function useDocumentStore(token: string | null) {
 
   const removeMutation = useMutation({
     mutationFn: (id: string) => removeDocument(id, token),
+    scope: DOCUMENT_MUTATION_SCOPE,
     onMutate: (removedId) => {
       cancelPendingTitle(removedId);
       const prev = queryClient.getQueryData<DocMeta[]>(DOCS_KEY) ?? [];
@@ -149,7 +159,7 @@ export function useDocumentStore(token: string | null) {
     create: async (): Promise<void> => { await createMutation.mutateAsync(); },
     rename,
     remove: (id: string) => removeMutation.mutate(id),
-    activate: switchTo,
+    activate,
     touch,
   };
 }
