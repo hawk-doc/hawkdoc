@@ -24,10 +24,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JWT authentication
 
 ### Changed
+- API shuts down gracefully on SIGTERM/SIGINT: flushes every Redis buffer to PostgreSQL, then closes HTTP, Redis and PostgreSQL connections
+- Redis flush uses `SCAN` instead of the blocking `KEYS`, and never overlaps a still-running flush
 - Document title edits sync to storage after an 800ms debounce instead of on every keystroke; the sidebar still updates instantly, and pending edits flush on document switch, delete-cancel, and tab close
 
 ### Fixed
 - Out-of-order title `PATCH` requests could leave a stale title on the server; title writes now run serially
+- Redis flush could delete an edit buffered while it was writing to PostgreSQL; buffers are now only deleted if unchanged
+- Rejected upload types returned a 500; they now return 415
+
+### Security
+- Image uploads are limited to PNG, JPEG, GIF and WebP, verified by file signature; SVG (which can carry scripts) is rejected. The stored extension comes from the verified type, not the client's filename
+- `/uploads` responses send `X-Content-Type-Options: nosniff` and a sandboxing `Content-Security-Policy`, which also neutralizes SVGs uploaded before this change
 
 ---
 
