@@ -6,6 +6,10 @@ export const redis = new Redis(env.REDIS_URL);
 const FLUSH_INTERVAL_MS = 30_000;
 const BUFFER_KEY_PREFIX = 'doc:buffer:';
 
+// The buffer holds each document's full Yjs state as seen by *this* process.
+// That's only coherent with a single Hocuspocus instance; running several
+// against one Redis needs @hocuspocus/extension-redis to sync them first.
+
 /** Buffer key for a document's Yjs update in Redis */
 export function docBufferKey(docId: string): string {
   return `${BUFFER_KEY_PREFIX}${docId}`;

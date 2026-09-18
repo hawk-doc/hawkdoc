@@ -3,7 +3,7 @@ import { env } from './env.js';
 import { authRouter } from './routes/auth.js';
 import { documentsRouter } from './routes/documents.js';
 import { uploadsRouter, UPLOADS_DIR } from './routes/uploads.js';
-import { hocuspocusServer } from './hocuspocus.js';
+import { hocuspocusServer, waitForDisconnectWrites } from './hocuspocus.js';
 import { redis, startFlushScheduler, flushBufferedDocs } from './redis.js';
 import query, { pool } from './db.js';
 
@@ -104,6 +104,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     await flushScheduler.stop();
     // Closes every WebSocket; onDisconnect writes each open document's state
     await hocuspocusServer.destroy();
+    await waitForDisconnectWrites();
     // Catch anything still buffered (e.g. documents whose flush failed earlier)
     await flushBufferedDocs(persistDocState);
     await new Promise<void>((resolve) => {
