@@ -571,7 +571,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/gif,image/webp"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
