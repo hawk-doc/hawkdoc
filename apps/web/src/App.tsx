@@ -9,7 +9,7 @@ import { useTheme } from './hooks/useTheme';
 
 function AppShell() {
   const { theme, toggle } = useTheme();
-  const { user, token, logout } = useAuth();
+  const { user, token, logout, sessionExpired, dismissSessionExpired } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
 
   const { docs, activeId, create, rename, remove, activate, touch } = useDocumentStore(token);
@@ -112,7 +112,15 @@ function AppShell() {
       </div>
 
       {/* Auth modal */}
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      {(authOpen || sessionExpired) && (
+        <AuthModal
+          notice={sessionExpired ? 'Your session expired. Sign in again to get back to your documents.' : undefined}
+          onClose={() => {
+            setAuthOpen(false);
+            dismissSessionExpired();
+          }}
+        />
+      )}
     </div>
   );
 }

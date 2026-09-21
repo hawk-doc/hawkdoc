@@ -4,11 +4,13 @@ import { useAuth } from '../context/AuthContext';
 
 interface AuthModalProps {
   onClose: () => void;
+  /** Shown above the form, e.g. why the user is being asked to sign in */
+  notice?: string;
 }
 
 type Tab = 'login' | 'register';
 
-export function AuthModal({ onClose }: AuthModalProps) {
+export function AuthModal({ onClose, notice }: AuthModalProps) {
   const { login, register } = useAuth();
   const [tab, setTab] = useState<Tab>('login');
   const [email, setEmail] = useState('');
@@ -99,6 +101,12 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
         {/* Form */}
         <form onSubmit={(e) => { void handleSubmit(e); }} className="px-6 py-5 flex flex-col gap-3">
+          {notice && (
+            <p role="status" className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+              {notice}
+            </p>
+          )}
+
           {tab === 'register' && (
             <label className="flex flex-col gap-1">
               <span className="text-[12px] font-medium text-notion-muted dark:text-[#9aa0a6]">Name</span>

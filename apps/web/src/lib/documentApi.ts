@@ -23,6 +23,30 @@ function authHeaders(token: string, withBody = false): HeadersInit {
     : { Authorization: `Bearer ${token}` };
 }
 
+/**
+ * The API rejected the token (expired or invalid), so the session is over.
+ * Remembers which token failed so a late 401 from a previous session can't
+ * sign out a newer one.
+ */
+export class UnauthorizedError extends Error {
+  readonly #token: string;
+
+  constructor(token: string) {
+    super('Your session has expired');
+    this.name = 'UnauthorizedError';
+    this.#token = token;
+  }
+
+  isFor(token: string | null): boolean {
+    return token === this.#token;
+  }
+}
+
+function ensureOk(res: Response, token: string, action: string): void {
+  if (res.status === 401) throw new UnauthorizedError(token);
+  if (!res.ok) throw new Error(`Failed to ${action} (${res.status})`);
+}
+
 function genId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -55,7 +79,7 @@ export async function fetchDocuments(token: string | null): Promise<DocMeta[]> {
   if (!token) return loadLocalDocs();
 
   const res = await fetch(`${API_URL}/api/documents`, { headers: authHeaders(token) });
-  if (!res.ok) throw new Error(`Failed to load documents (${res.status})`);
+  ensureOk(res, token, 'load documents');
   const rows = (await res.json()) as ApiDocRow[];
   return rows.map(toDocMeta);
 }
@@ -67,7 +91,7 @@ export async function createDocument(token: string | null): Promise<DocMeta> {
       headers: authHeaders(token, true),
       body: JSON.stringify({ title: 'Untitled' }),
     });
-    if (!res.ok) throw new Error(`Failed to create document (${res.status})`);
+    ensureOk(res, token, 'create document');
     return toDocMeta((await res.json()) as ApiDocRow);
   }
 
@@ -89,7 +113,7 @@ export async function renameDocument(
       // Lets a title flushed from `pagehide` finish after the tab closes
       keepalive: true,
     });
-    if (!res.ok) throw new Error(`Failed to rename document (${res.status})`);
+    ensureOk(res, token, 'rename document');
     return { ...toDocMeta((await res.json()) as ApiDocRow), updatedAt: Date.now() };
   }
 
@@ -107,7 +131,7 @@ export async function removeDocument(id: string, token: string | null): Promise<
       method: 'DELETE',
       headers: authHeaders(token),
     });
-    if (!res.ok) throw new Error(`Failed to delete document (${res.status})`);
+    ensureOk(res, token, 'delete document');
     return;
   }
 

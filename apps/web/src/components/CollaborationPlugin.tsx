@@ -3,6 +3,8 @@ import { CollaborationPlugin as LexicalCollaborationPlugin } from '@lexical/reac
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import * as Y from 'yjs';
 import type { Provider } from '@lexical/yjs';
+import { useAuth } from '../context/AuthContext';
+import { INVALID_TOKEN_REASON } from '../constants/auth';
 
 const WS_URL = import.meta.env.VITE_WS_URL;
 
@@ -34,6 +36,7 @@ export function CollaborationPlugin({
   onProvider,
 }: CollaborationPluginProps) {
   const cursorsContainerRef = useRef<HTMLDivElement>(null);
+  const { expireSession } = useAuth();
 
   const providerFactory = useCallback(
     (id: string, yjsDocMap: Map<string, Y.Doc>): Provider => {
@@ -50,7 +53,12 @@ export function CollaborationPlugin({
         onConnect: () => onStatus?.('connected'),
         onDisconnect: () => onStatus?.('disconnected'),
         onSynced: () => onStatus?.('connected'),
-        onAuthenticationFailed: () => onStatus?.('disconnected'),
+        onAuthenticationFailed: ({ reason }) => {
+          onStatus?.('disconnected');
+          // Only a rejected token ends the session. `permission-denied` means
+          // this document can't be opened, and the user stays signed in.
+          if (reason === INVALID_TOKEN_REASON) expireSession(token);
+        },
       });
 
       onProvider?.(provider);
@@ -61,7 +69,7 @@ export function CollaborationPlugin({
     // recreating it causes the plugin to reconnect. We intentionally exclude
     // `onStatus` / `onProvider` from deps since they are stable callbacks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [docId, token],
+    [docId, token, expireSession],
   );
 
   return (
