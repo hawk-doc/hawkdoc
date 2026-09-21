@@ -5,6 +5,12 @@ import query from './db.js';
 import { redis, docBufferKey, deleteBufferIfUnchanged } from './redis.js';
 import * as Y from 'yjs';
 import type { HocuspocusContext } from './interfaces/index.js';
+import { INVALID_TOKEN_REASON } from './constants/auth.js';
+
+class InvalidTokenError extends Error {
+  // Hocuspocus forwards `reason` to the client's onAuthenticationFailed
+  readonly reason = INVALID_TOKEN_REASON;
+}
 
 // Shutdown can't rely on destroy() alone: it resolves once documents unload,
 // and with several clients on one document the first finished onDisconnect can
@@ -42,12 +48,12 @@ export const hocuspocusServer = Server.configure({
 
   async onAuthenticate(data) {
     const token = data.token;
-    if (!token) throw new Error('Authentication required');
+    if (!token) throw new InvalidTokenError('Authentication required');
     try {
       const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
       return { userId: payload.userId } satisfies HocuspocusContext;
     } catch {
-      throw new Error('Invalid or expired token');
+      throw new InvalidTokenError('Invalid or expired token');
     }
   },
 
