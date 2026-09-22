@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JWT authentication
 
 ### Changed
+- Initial JavaScript cut from 1,938 KB to 515 KB (gzip 626 KB → 159 KB). The PDF renderer loads on first export (preloaded when the pointer reaches Export), and the collaboration stack loads only for signed-in users
 - Expired or rejected sign-ins now end the session and reopen the sign-in dialog with a notice, instead of silently showing an empty document list. Triggered by a 401 from any API call, the token's `exp` passing (also checked on load), or the collaboration server rejecting the token
 - API shuts down gracefully on SIGTERM/SIGINT: flushes every Redis buffer to PostgreSQL, then closes HTTP, Redis and PostgreSQL connections
 - Redis flush uses `SCAN` instead of the blocking `KEYS`, and never overlaps a still-running flush
