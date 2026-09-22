@@ -42,7 +42,7 @@ export async function exportPdf(editorState: EditorState, title: string): Promis
   const a = document.createElement('a');
   a.href = url;
   a.download = `${title || 'document'}.pdf`;
-  a.style.display = 'none';
+  a.hidden = true;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
