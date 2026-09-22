@@ -113,9 +113,9 @@ const CollaborationPlugin = lazy(() =>
   import('./CollaborationPlugin').then((m) => ({ default: m.CollaborationPlugin })),
 );
 
-// Keeps the editor read-only while the collaboration code loads. The plugin
-// doesn't bootstrap content, so anything typed before it mounts would be
-// replaced by the synced document.
+// Keeps the editor read-only while the collaboration code loads. Until the
+// plugin binds the editor to Yjs, anything typed has no Yjs counterpart and
+// would never be synced or saved.
 function ReadOnlyUntilCollabLoads() {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
