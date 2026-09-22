@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment, lazy, Suspense } from 'react';
 import { Minimize2 } from 'lucide-react';
 import {
   $getRoot,
@@ -25,7 +25,6 @@ import { EditorToolbar } from './EditorToolbar';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { BubbleMenu } from './BubbleMenu';
 import { CodeBlockPlugin } from './CodeBlockPlugin';
-import { CollaborationPlugin } from './CollaborationPlugin';
 import type { CollabStatus } from './CollaborationPlugin';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { TablePlugin } from './TablePlugin';
@@ -104,6 +103,25 @@ function SlashAndVariablePlugin({
     });
   }, [editor, onSlashMenu]);
 
+  return null;
+}
+
+// ─── Collaboration (lazy) ─────────────────────────────────────────────────────
+// Yjs and the Hocuspocus provider are only needed by signed-in users, so they
+// load when a collaborative document is first opened.
+const CollaborationPlugin = lazy(() =>
+  import('./CollaborationPlugin').then((m) => ({ default: m.CollaborationPlugin })),
+);
+
+// Keeps the editor read-only while the collaboration code loads. The plugin
+// doesn't bootstrap content, so anything typed before it mounts would be
+// replaced by the synced document.
+function ReadOnlyUntilCollabLoads() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    editor.setEditable(false);
+    return () => editor.setEditable(true);
+  }, [editor]);
   return null;
 }
 
@@ -290,13 +308,15 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
 
                   {/* Real-time collaboration — Yjs ↔ Hocuspocus ↔ Lexical */}
                   {isCollab && collabToken && collabUser && (
-                    <CollaborationPlugin
-                      docId={docId}
-                      token={collabToken}
-                      username={collabUser.name}
-                      userId={collabUser.id}
-                      onStatus={setCollabStatus}
-                    />
+                    <Suspense fallback={<ReadOnlyUntilCollabLoads />}>
+                      <CollaborationPlugin
+                        docId={docId}
+                        token={collabToken}
+                        username={collabUser.name}
+                        userId={collabUser.id}
+                        onStatus={setCollabStatus}
+                      />
+                    </Suspense>
                   )}
                 </div>
 
