@@ -55,6 +55,7 @@ import {
   Maximize2,
   ClipboardCopy,
 } from 'lucide-react';
+import { preloadPdfExport } from '../lib/pdfExport';
 
 
 
@@ -638,6 +639,8 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
             type="button"
             className="flex items-center gap-1.5 h-7 px-3 bg-notion-text text-white rounded-lg text-sm font-medium hover:bg-opacity-80 transition-opacity"
             onClick={() => setExportOpen((v) => !v)}
+            onPointerEnter={preloadPdfExport}
+            onFocus={preloadPdfExport}
           >
             <Download size={13} />
             Export
