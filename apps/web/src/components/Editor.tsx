@@ -277,7 +277,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
                     contentEditable={
                       <ContentEditable
                         className="editor-content focus:outline-none"
-                        aria-label="Document editor"
+                        ariaLabel="Document editor"
                       />
                     }
                     placeholder={
