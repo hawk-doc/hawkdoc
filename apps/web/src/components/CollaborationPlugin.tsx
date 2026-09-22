@@ -52,7 +52,12 @@ export function CollaborationPlugin({
         token,
         onConnect: () => onStatus?.('connected'),
         onDisconnect: () => onStatus?.('disconnected'),
-        onSynced: () => onStatus?.('connected'),
+        onSynced: ({ state }) => {
+          onStatus?.('connected');
+          // Lexical bootstraps an empty document on the provider's `sync`
+          // event (y-websocket's name); Hocuspocus calls it `synced`.
+          (provider as unknown as { emit: (event: string, ...args: unknown[]) => void }).emit('sync', state);
+        },
         onAuthenticationFailed: ({ reason }) => {
           onStatus?.('disconnected');
           // Only a rejected token ends the session. `permission-denied` means
@@ -82,7 +87,9 @@ export function CollaborationPlugin({
       <LexicalCollaborationPlugin
         id={docId}
         providerFactory={providerFactory}
-        shouldBootstrap={false}
+        // The first client to open an empty document creates its initial
+        // paragraph in Yjs; without it there's nothing for edits to attach to.
+        shouldBootstrap
         username={username}
         cursorColor={getCursorColor(userId)}
         cursorsContainerRef={cursorsContainerRef as React.MutableRefObject<HTMLElement | null>}

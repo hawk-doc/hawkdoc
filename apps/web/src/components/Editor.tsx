@@ -226,6 +226,10 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     namespace: 'HawkDoc',
     theme: EDITOR_THEME,
     nodes: EDITOR_NODES,
+    // In collab mode the document must come from Yjs. Without `null`, Lexical
+    // creates its own starting paragraph that Yjs never learns about, and
+    // everything typed into it is silently dropped instead of synced.
+    editorState: isCollab ? null : undefined,
     onError: (error: Error) => { console.error('Lexical error:', error); },
   };
 
@@ -276,7 +280,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
                     contentEditable={
                       <ContentEditable
                         className="editor-content focus:outline-none"
-                        aria-label="Document editor"
+                        ariaLabel="Document editor"
                       />
                     }
                     placeholder={

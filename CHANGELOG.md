@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document title edits sync to storage after an 800ms debounce instead of on every keystroke; the sidebar still updates instantly, and pending edits flush on document switch, delete-cancel, and tab close
 
 ### Fixed
+- Text typed in collaborative (signed-in) documents was never synced or saved — it didn't reach the server or other tabs and was lost on reload
+- The editor had no accessible name for screen readers (`aria-label` wasn't forwarded by Lexical's `ContentEditable`)
 - Out-of-order title `PATCH` requests could leave a stale title on the server; title writes now run serially
 - Redis flush could delete an edit buffered while it was writing to PostgreSQL; buffers are now only deleted if unchanged
 - Rejected upload types returned a 500; they now return 415
