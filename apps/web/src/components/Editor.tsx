@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, createElement, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { Minimize2 } from 'lucide-react';
-import { pdf } from '@react-pdf/renderer';
 import {
   $getRoot,
   $getSelection,
@@ -26,7 +25,6 @@ import { EditorToolbar } from './EditorToolbar';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { BubbleMenu } from './BubbleMenu';
 import { CodeBlockPlugin } from './CodeBlockPlugin';
-import { DocumentPDF } from './DocumentPDF';
 import { CollaborationPlugin } from './CollaborationPlugin';
 import type { CollabStatus } from './CollaborationPlugin';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
@@ -34,6 +32,7 @@ import { TablePlugin } from './TablePlugin';
 import { FindReplacePlugin } from './FindReplacePlugin';
 import { DraggableBlockPlugin } from './DraggableBlockPlugin';
 import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
+import { exportPdf } from '../lib/pdfExport';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES } from '../constants/editor';
 import type { SlashMenuState } from '../interfaces';
 
@@ -186,21 +185,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     if (!editorState || isExporting) return;
     setIsExporting(true);
     try {
-      const element = createElement(DocumentPDF, {
-        editorState: editorState.toJSON(),
-        title,
-        watermark: 'HawkDoc',
-      });
-      const blob = await pdf(element).toBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title || 'document'}.pdf`;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await exportPdf(editorState, title);
     } catch (err) {
       console.error('PDF export failed:', err);
     } finally {
