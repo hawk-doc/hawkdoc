@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { FilePlus, FileText, Search, Trash2, X } from 'lucide-react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
+// Tailwind's `md` — above it the sidebar is a static panel, below it a drawer
+const MD = '(min-width: 768px)';
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 import type { DocMeta } from '../interfaces';
 
 interface SidebarProps {
@@ -19,6 +24,9 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
   const [editValue, setEditValue] = useState('');
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const isDrawer = !useMediaQuery(MD);
 
   useEffect(() => {
     if (editingId) inputRef.current?.select();
@@ -30,6 +38,42 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [open, onClose]);
+
+  // A closed drawer is only moved off-screen, so without `inert` its controls
+  // stay in the tab order and keyboard users land on an invisible panel.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (panel) panel.inert = isDrawer && !open;
+  }, [isDrawer, open]);
+
+  // Move focus into the drawer when it opens, and back to whatever opened it
+  useEffect(() => {
+    if (!isDrawer) return;
+    if (open) {
+      returnFocusRef.current = document.activeElement as HTMLElement | null;
+      panelRef.current?.focus();
+    } else {
+      returnFocusRef.current?.focus();
+      returnFocusRef.current = null;
+    }
+  }, [isDrawer, open]);
+
+  // Keep Tab inside the drawer while it's open (it covers the page)
+  const onPanelKeyDown = (e: React.KeyboardEvent) => {
+    if (!isDrawer || !open || e.key !== 'Tab') return;
+    const items = panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE);
+    if (!items?.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === panelRef.current)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   const startEdit = (doc: DocMeta, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -64,7 +108,14 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
       )}
 
       <aside
-        className={`sidebar fixed bottom-0 left-0 top-[52px] z-50 transition-transform duration-200 md:static md:z-auto md:translate-x-0 md:transition-none ${
+        ref={panelRef}
+        // Dialog semantics only while it's an overlay; on desktop it's a plain panel
+        role={isDrawer ? 'dialog' : undefined}
+        aria-modal={isDrawer ? true : undefined}
+        aria-label={isDrawer ? 'Documents' : undefined}
+        tabIndex={isDrawer ? -1 : undefined}
+        onKeyDown={onPanelKeyDown}
+        className={`sidebar fixed bottom-0 left-0 top-[52px] z-50 transition-transform duration-200 outline-none md:static md:z-auto md:translate-x-0 md:transition-none ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
