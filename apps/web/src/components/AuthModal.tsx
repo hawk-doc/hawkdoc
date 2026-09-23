@@ -90,7 +90,7 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
               onClick={() => switchTab(t)}
               className={`flex-1 py-2.5 text-[13px] font-medium transition-colors ${
                 tab === t
-                  ? 'text-notion-accent dark:text-[#8ab4f8] border-b-2 border-notion-accent dark:border-[#8ab4f8] -mb-px'
+                  ? 'text-notion-text dark:text-[#e8eaed] border-b-2 border-notion-text dark:border-[#e8eaed] -mb-px'
                   : 'text-notion-muted dark:text-[#9aa0a6] hover:text-notion-text dark:hover:text-[#e8eaed]'
               }`}
             >
@@ -116,7 +116,7 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jane Smith"
                 autoComplete="name"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-notion-border dark:border-[#3c4043] bg-white dark:bg-[#202020] text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368] outline-none focus:border-notion-accent dark:focus:border-[#8ab4f8] transition-colors"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-notion-border dark:border-[#3c4043] bg-white dark:bg-[#202020] text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368] outline-none focus:border-notion-text dark:focus:border-[#9aa0a6] transition-colors"
               />
             </label>
           )}
@@ -131,7 +131,7 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
               placeholder="jane@example.com"
               autoComplete="email"
               required
-              className="w-full px-3 py-2 text-sm rounded-lg border border-notion-border dark:border-[#3c4043] bg-white dark:bg-[#202020] text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368] outline-none focus:border-notion-accent dark:focus:border-[#8ab4f8] transition-colors"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-notion-border dark:border-[#3c4043] bg-white dark:bg-[#202020] text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368] outline-none focus:border-notion-text dark:focus:border-[#9aa0a6] transition-colors"
             />
           </label>
 
@@ -145,7 +145,7 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
               autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
               required
               minLength={tab === 'register' ? 8 : undefined}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-notion-border dark:border-[#3c4043] bg-white dark:bg-[#202020] text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368] outline-none focus:border-notion-accent dark:focus:border-[#8ab4f8] transition-colors"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-notion-border dark:border-[#3c4043] bg-white dark:bg-[#202020] text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368] outline-none focus:border-notion-text dark:focus:border-[#9aa0a6] transition-colors"
             />
           </label>
 
@@ -158,7 +158,7 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 w-full py-2 rounded-lg bg-notion-accent text-white text-sm font-medium hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="mt-1 w-full py-2 rounded-lg bg-notion-text text-white hover:bg-opacity-80 dark:bg-[#e8eaed] dark:text-[#202020] dark:hover:bg-white text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading
               ? tab === 'login' ? 'Signing in…' : 'Creating account…'
