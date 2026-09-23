@@ -250,20 +250,21 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
       )}
 
       {/* Gray canvas — fixed full-screen overlay in focus mode */}
-      <div className={`py-10 transition-colors duration-300 ${focusMode ? 'fixed inset-0 z-[100] overflow-y-auto bg-[#0d0d0d]' : 'flex-1 overflow-x-auto bg-[#e8eaed] dark:bg-[#141414]'}`}>
+      <div className={`py-4 sm:py-10 transition-colors duration-300 ${focusMode ? 'fixed inset-0 z-[100] overflow-y-auto bg-[#0d0d0d]' : 'flex-1 overflow-x-auto bg-[#e8eaed] dark:bg-[#141414]'}`}>
 
-        {/* Centered A4 paper */}
-        <div className="w-[794px] mx-auto">
+        {/* Centered A4 paper — full width below the A4 breakpoint so narrow
+            screens scroll vertically instead of sideways */}
+        <div className="w-full max-w-[794px] mx-auto px-3 sm:px-6 lg:px-0">
 
           {/* White paper */}
-          <div ref={onPaperRef} className="relative bg-white dark:bg-[#1e1e1e] p-[72px] min-h-[1123px] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.10)]">
+          <div ref={onPaperRef} className="relative bg-white dark:bg-[#1e1e1e] p-6 sm:p-10 lg:p-[72px] min-h-[60vh] lg:min-h-[1123px] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.10)]">
             {/* Document title */}
             <textarea
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
               placeholder="Untitled"
               rows={1}
-              className="w-full text-[40px] font-bold text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368]
+              className="w-full text-[28px] sm:text-[34px] lg:text-[40px] font-bold text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368]
                          border-none outline-none bg-transparent mb-8 leading-tight tracking-tight
                          resize-none overflow-hidden block"
               onInput={(e) => {
@@ -341,7 +342,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
               {wordCount} {wordCount === 1 ? 'word' : 'words'}
               {readingTime && <> · {readingTime}</>}
             </span>
-            <span className="text-xs text-[#80868b] dark:text-[#5f6368]">
+            <span className="hidden sm:inline text-xs text-[#80868b] dark:text-[#5f6368]">
               Press <kbd className="editor-kbd">/</kbd> for commands
               &nbsp;·&nbsp;
               <kbd className="editor-kbd">{'{{ }}'}</kbd> for template variables
