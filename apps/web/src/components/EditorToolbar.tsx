@@ -42,6 +42,7 @@ import {
   AlignRight,
   AlignJustify,
   ChevronDown,
+  MoreHorizontal,
   Download,
   FileText,
   FileDown,
@@ -105,6 +106,9 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
   const [highlightColor, setHighlightColor] = useState('');
   const [blockOpen, setBlockOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // Secondary controls are collapsed below `lg`, where they'd otherwise wrap
+  // the toolbar into many rows. `lg:contents` keeps the desktop layout as-is.
+  const [moreOpen, setMoreOpen] = useState(false);
   const [fontFamilyOpen, setFontFamilyOpen] = useState(false);
   const [fontSizeOpen, setFontSizeOpen] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
@@ -396,6 +400,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
 
         <Sep />
 
+        <div className={`${moreOpen ? 'flex w-full flex-wrap items-center gap-0.5' : 'hidden'} lg:contents`}>
         {/* Font family dropdown */}
         <div className="relative" ref={fontFamilyRef}>
           <button
@@ -479,6 +484,8 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
           )}
         </div>
 
+        </div>
+
         <Sep />
 
         {/* Text format */}
@@ -503,6 +510,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
 
         <Sep />
 
+        <div className={`${moreOpen ? 'flex w-full flex-wrap items-center gap-0.5' : 'hidden'} lg:contents`}>
         {/* Text color */}
         <div className="relative" ref={colorRef}>
           <button
@@ -585,6 +593,23 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
         <Btn title="Focus mode" onMouseDown={onToggleFocusMode}>
           <Maximize2 size={16} />
         </Btn>
+
+        </div>
+
+        {/* More formatting — only below lg, where the groups above are hidden */}
+        <button
+          type="button"
+          title={moreOpen ? 'Fewer options' : 'More options'}
+          aria-expanded={moreOpen}
+          onMouseDown={(e) => { e.preventDefault(); setMoreOpen((v) => !v); }}
+          className={`lg:hidden w-8 h-8 flex items-center justify-center rounded transition-colors ${
+            moreOpen
+              ? 'bg-[#d3e3fd] text-[#1a73e8] dark:bg-[#1a3a5c] dark:text-[#8ab4f8]'
+              : 'text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f1f3f4] dark:hover:bg-[#2d2f31]'
+          }`}
+        >
+          <MoreHorizontal size={16} />
+        </button>
 
         {/* Spacer */}
         <div className="flex-1" />
