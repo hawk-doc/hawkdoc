@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FilePlus, FileText, Search, Trash2 } from 'lucide-react';
+import { FilePlus, FileText, Search, Trash2, X } from 'lucide-react';
 import type { DocMeta } from '../interfaces';
 
 interface SidebarProps {
@@ -9,9 +9,12 @@ interface SidebarProps {
   onCreate: () => void | Promise<void>;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
+  /** Below `md` the sidebar is an overlay drawer that starts closed */
+  open: boolean;
+  onClose: () => void;
 }
 
-export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDelete }: SidebarProps) {
+export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDelete, open, onClose }: SidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [query, setQuery] = useState('');
@@ -20,6 +23,13 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
   useEffect(() => {
     if (editingId) inputRef.current?.select();
   }, [editingId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onClose]);
 
   const startEdit = (doc: DocMeta, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -43,14 +53,33 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
     (!docs[0].title || docs[0].title === 'Untitled');
 
   return (
-    <aside className="sidebar">
+    <>
+      {/* Backdrop — drawer only exists below md */}
+      {open && (
+        <div
+          className="fixed inset-x-0 bottom-0 top-[52px] z-40 bg-black/40 md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`sidebar fixed bottom-0 left-0 top-[52px] z-50 transition-transform duration-200 md:static md:z-auto md:translate-x-0 md:transition-none ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
       <div className="sidebar-header">
         <span className="text-xs font-semibold uppercase tracking-widest text-notion-muted dark:text-[#5f6368]">
           Documents&nbsp;·&nbsp;{docs.length}
         </span>
-        <button type="button" title="New document" onClick={() => { void onCreate(); }} className="sidebar-new-btn">
-          <FilePlus size={15} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button type="button" title="New document" onClick={() => { void onCreate(); }} className="sidebar-new-btn">
+            <FilePlus size={15} />
+          </button>
+          <button type="button" title="Close documents" onClick={onClose} className="sidebar-new-btn md:hidden">
+            <X size={15} />
+          </button>
+        </div>
       </div>
 
       <div className="sidebar-search-wrap">
@@ -125,5 +154,6 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
         )}
       </nav>
     </aside>
+    </>
   );
 }
