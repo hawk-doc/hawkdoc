@@ -70,7 +70,7 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
       >
       <div className="sidebar-header">
         <span className="text-xs font-semibold uppercase tracking-widest text-notion-muted dark:text-[#5f6368]">
-          Documents&nbsp;·&nbsp;{docs.length}
+          Documents{!isEmptyState && <>&nbsp;·&nbsp;{docs.length}</>}
         </span>
         <div className="flex items-center gap-1">
           <button type="button" title="New document" onClick={() => { void onCreate(); }} className="sidebar-new-btn">
