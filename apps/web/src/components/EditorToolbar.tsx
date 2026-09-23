@@ -42,6 +42,7 @@ import {
   AlignRight,
   AlignJustify,
   ChevronDown,
+  MoreHorizontal,
   Download,
   FileText,
   FileDown,
@@ -105,6 +106,9 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
   const [highlightColor, setHighlightColor] = useState('');
   const [blockOpen, setBlockOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // Secondary controls are collapsed below `lg`, where they'd otherwise wrap
+  // the toolbar into many rows. `lg:contents` keeps the desktop layout as-is.
+  const [moreOpen, setMoreOpen] = useState(false);
   const [fontFamilyOpen, setFontFamilyOpen] = useState(false);
   const [fontSizeOpen, setFontSizeOpen] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
@@ -353,6 +357,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
     )}
     <div className="sticky top-0 z-40 bg-white dark:bg-[#202020] border-b border-[#dadce0] dark:border-[#3c4043]">
       <div className="flex items-center gap-0.5 px-2 py-1 flex-wrap">
+        <div className={`${moreOpen ? 'flex w-full flex-wrap items-center gap-0.5' : 'hidden'} lg:contents`}>
         {/* Undo / Redo */}
         <Btn title="Undo (⌘Z)" disabled={!canUndo} onMouseDown={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
           <Undo2 size={16} />
@@ -393,8 +398,6 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
             </div>
           )}
         </div>
-
-        <Sep />
 
         {/* Font family dropdown */}
         <div className="relative" ref={fontFamilyRef}>
@@ -479,6 +482,8 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
           )}
         </div>
 
+        </div>
+
         <Sep />
 
         {/* Text format */}
@@ -503,6 +508,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
 
         <Sep />
 
+        <div className={`${moreOpen ? 'flex w-full flex-wrap items-center gap-0.5' : 'hidden'} lg:contents`}>
         {/* Text color */}
         <div className="relative" ref={colorRef}>
           <button
@@ -586,12 +592,30 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
           <Maximize2 size={16} />
         </Btn>
 
-        {/* Spacer */}
-        <div className="flex-1" />
+        </div>
+
+        {/* More formatting — only below lg, where the groups above are hidden */}
+        <button
+          type="button"
+          title={moreOpen ? 'Fewer options' : 'More options'}
+          aria-expanded={moreOpen}
+          onMouseDown={(e) => { e.preventDefault(); setMoreOpen((v) => !v); }}
+          className={`lg:hidden w-8 h-8 flex items-center justify-center rounded transition-colors ${
+            moreOpen
+              ? 'bg-[#d3e3fd] text-[#1a73e8] dark:bg-[#1a3a5c] dark:text-[#8ab4f8]'
+              : 'text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f1f3f4] dark:hover:bg-[#2d2f31]'
+          }`}
+        >
+          <MoreHorizontal size={16} />
+        </button>
+
+        {/* Status + Export, right-aligned. `ml-auto` keeps them on this row
+            when there's space; a flex-1 spacer would force a wrap. */}
+        <div className="ml-auto flex items-center gap-0.5">
 
         {/* Save / collab status */}
         {collabStatus ? (
-          <div className="flex items-center gap-1.5 text-xs mr-2">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs mr-2">
             <span
               className={`w-2 h-2 rounded-full flex-shrink-0 ${
                 collabStatus === 'connected'
@@ -616,7 +640,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
             </span>
           </div>
         ) : (
-          <div className={`flex items-center gap-1.5 text-xs mr-2 ${isSaving ? 'text-notion-muted dark:text-[#9aa0a6]' : 'text-emerald-600 dark:text-emerald-400'}`}>
+          <div className={`hidden sm:flex items-center gap-1.5 text-xs mr-2 ${isSaving ? 'text-notion-muted dark:text-[#9aa0a6]' : 'text-emerald-600 dark:text-emerald-400'}`}>
             {isSaving ? (
               <>
                 <span className="w-3 h-3 rounded-full border-2 border-t-transparent border-notion-muted animate-spin inline-block" />
@@ -637,13 +661,14 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
         <div className="relative" ref={exportRef}>
           <button
             type="button"
-            className="flex items-center gap-1.5 h-7 px-3 bg-notion-text text-white rounded-lg text-sm font-medium hover:bg-opacity-80 transition-opacity"
+            className="flex items-center gap-1.5 h-7 px-2.5 sm:px-3 bg-notion-text text-white rounded-lg text-sm font-medium hover:bg-opacity-80 transition-opacity"
             onClick={() => setExportOpen((v) => !v)}
             onPointerEnter={preloadPdfExport}
             onFocus={preloadPdfExport}
+            title="Export"
           >
             <Download size={13} />
-            Export
+            <span className="hidden sm:inline">Export</span>
             <ChevronDown size={11} className="opacity-70" />
           </button>
 
@@ -671,6 +696,7 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
               />
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

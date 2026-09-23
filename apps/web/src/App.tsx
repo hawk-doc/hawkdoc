@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Github, Sun, Moon, LogIn, LogOut, User } from 'lucide-react';
+import { Github, Sun, Moon, LogIn, LogOut, User, PanelLeft } from 'lucide-react';
 import { Editor } from './components/Editor';
 import { Sidebar } from './components/Sidebar';
 import { AuthModal } from './components/AuthModal';
@@ -11,6 +11,7 @@ function AppShell() {
   const { theme, toggle } = useTheme();
   const { user, token, logout, sessionExpired, dismissSessionExpired } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { docs, activeId, create, rename, remove, activate, touch } = useDocumentStore(token);
 
@@ -22,6 +23,16 @@ function AppShell() {
       {/* ── Top header ── */}
       <header className="flex-shrink-0 h-[52px] bg-white dark:bg-[#202020] border-b border-notion-border dark:border-[#3c4043] flex items-center justify-between px-5 z-50">
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((v) => !v)}
+            aria-label="Toggle document list"
+            aria-expanded={sidebarOpen}
+            title="Documents"
+            className="md:hidden flex items-center justify-center w-8 h-8 -ml-1 rounded-lg text-notion-muted dark:text-[#9aa0a6] hover:text-notion-text dark:hover:text-[#e8eaed] hover:bg-notion-hover dark:hover:bg-[#2d2f31] transition-colors"
+          >
+            <PanelLeft size={17} />
+          </button>
           <img src="/logo.png" alt="HawkDoc" className="w-6 h-6 object-contain" />
           <span className="font-semibold text-notion-text dark:text-[#e8eaed] text-[15px] tracking-tight">HawkDoc</span>
         </div>
@@ -80,7 +91,9 @@ function AppShell() {
         <Sidebar
           docs={docs}
           activeId={activeId}
-          onActivate={activate}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onActivate={(id) => { activate(id); setSidebarOpen(false); }}
           onCreate={create}
           onRename={rename}
           onDelete={remove}
