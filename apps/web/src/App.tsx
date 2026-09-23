@@ -67,7 +67,7 @@ function AppShell() {
           ) : (
             <button
               onClick={() => setAuthOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white bg-notion-accent hover:bg-blue-600 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white bg-notion-text hover:bg-opacity-80 dark:bg-[#e8eaed] dark:text-[#202020] dark:hover:bg-white transition-colors"
             >
               <LogIn size={15} />
               <span className="hidden sm:inline">Sign in</span>
