@@ -64,7 +64,7 @@ documentsRouter.get('/:id', async (req: Request, res) => {
     }>(
       `SELECT id, title, yjs_state, updated_at
        FROM documents
-       WHERE id = $1 AND owner_id = $2`,
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`,
       [req.params['id'], userId],
     );
 
@@ -119,7 +119,7 @@ documentsRouter.patch('/:id', async (req: Request, res) => {
     const result = await query<{ id: string; title: string }>(
       `UPDATE documents
        SET title = COALESCE($1, title), updated_at = NOW()
-       WHERE id = $2 AND owner_id = $3
+       WHERE id = $2 AND owner_id = $3 AND deleted_at IS NULL
        RETURNING id, title`,
       [body.title, req.params['id'], userId],
     );
