@@ -164,6 +164,45 @@ documentsRouter.delete('/:id', async (req: Request, res) => {
   }
 });
 
+// Permanently delete a trashed document. Only reachable for documents that
+// are already in the trash, so a single click can never destroy live work.
+documentsRouter.delete('/:id/permanent', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const result = await query(
+      `DELETE FROM documents
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NOT NULL
+       RETURNING id`,
+      [req.params['id'], userId],
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Document not found in trash' });
+      return;
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Empty the trash
+documentsRouter.delete('/', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const result = await query<{ id: string }>(
+      'DELETE FROM documents WHERE owner_id = $1 AND deleted_at IS NOT NULL RETURNING id',
+      [userId],
+    );
+    res.json({ deleted: result.rows.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Restore a trashed document
 documentsRouter.post('/:id/restore', async (req: Request, res) => {
   try {
