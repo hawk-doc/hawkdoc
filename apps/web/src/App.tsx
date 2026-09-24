@@ -13,7 +13,10 @@ function AppShell() {
   const [authOpen, setAuthOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const { docs, activeId, create, rename, remove, activate, touch } = useDocumentStore(token);
+  const {
+    docs, activeId, create, rename, remove, activate, touch,
+    trashed, trashOpen, setTrashOpen, restore, purge,
+  } = useDocumentStore(token);
 
   const activeDoc = docs.find((d) => d.id === activeId);
   const title = activeDoc?.title ?? 'Untitled';
@@ -97,6 +100,11 @@ function AppShell() {
           onCreate={create}
           onRename={rename}
           onDelete={remove}
+          trashed={trashed}
+          trashOpen={trashOpen}
+          onTrashOpenChange={setTrashOpen}
+          onRestore={restore}
+          onPurge={purge}
         />
 
         <main className="flex-1 overflow-y-auto">

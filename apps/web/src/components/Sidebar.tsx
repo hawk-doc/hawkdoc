@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FilePlus, FileText, Search, Trash2, X } from 'lucide-react';
+import { FilePlus, FileText, Search, Trash2, Undo2, X } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
 // Tailwind's `md` — above it the sidebar is a static panel, below it a drawer
@@ -14,12 +14,21 @@ interface SidebarProps {
   onCreate: () => void | Promise<void>;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
+  trashed: DocMeta[];
+  trashOpen: boolean;
+  onTrashOpenChange: (open: boolean) => void;
+  onRestore: (id: string) => void;
+  onPurge: (id: string) => void;
   /** Below `md` the sidebar is an overlay drawer that starts closed */
   open: boolean;
   onClose: () => void;
 }
 
-export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDelete, open, onClose }: SidebarProps) {
+export function Sidebar({
+  docs, activeId, onActivate, onCreate, onRename, onDelete,
+  trashed, trashOpen, onTrashOpenChange, onRestore, onPurge,
+  open, onClose,
+}: SidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [query, setQuery] = useState('');
@@ -121,18 +130,21 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
       >
       <div className="sidebar-header">
         <span className="text-xs font-semibold uppercase tracking-widest text-notion-muted dark:text-[#5f6368]">
-          Documents{!isEmptyState && <>&nbsp;·&nbsp;{docs.length}</>}
+          {trashOpen ? <>Trash{trashed.length > 0 && <>&nbsp;·&nbsp;{trashed.length}</>}</> : <>Documents{!isEmptyState && <>&nbsp;·&nbsp;{docs.length}</>}</>}
         </span>
         <div className="flex items-center gap-1">
-          <button type="button" title="New document" onClick={() => { void onCreate(); }} className="sidebar-new-btn">
-            <FilePlus size={15} />
-          </button>
+          {!trashOpen && (
+            <button type="button" title="New document" onClick={() => { void onCreate(); }} className="sidebar-new-btn">
+              <FilePlus size={15} />
+            </button>
+          )}
           <button type="button" title="Close documents" onClick={onClose} className="sidebar-new-btn md:hidden">
             <X size={15} />
           </button>
         </div>
       </div>
 
+      {!trashOpen && (
       <div className="sidebar-search-wrap">
         <Search size={12} className="sidebar-search-icon" />
         <input
@@ -143,9 +155,45 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
           className="sidebar-search"
         />
       </div>
+      )}
 
       <nav className="flex-1 overflow-y-auto py-1 px-1">
-        {isEmptyState ? (
+        {trashOpen ? (
+          trashed.length === 0 ? (
+            <div className="sidebar-empty">
+              <Trash2 size={22} className="mb-2 opacity-30" />
+              <p className="text-xs font-medium">Trash is empty</p>
+              <p className="text-[11px] opacity-60 text-center leading-snug mt-1">
+                Deleted documents can be restored from here
+              </p>
+            </div>
+          ) : (
+            trashed.map((doc) => (
+              <div key={doc.id} className="sidebar-item group">
+                <Trash2 size={13} className="flex-shrink-0 opacity-50" />
+                <span className="flex-1 truncate">{doc.title.trim() || 'Untitled'}</span>
+                <button
+                  type="button"
+                  title="Restore"
+                  aria-label={`Restore ${doc.title.trim() || 'Untitled'}`}
+                  onClick={() => onRestore(doc.id)}
+                  className="sidebar-delete-btn"
+                >
+                  <Undo2 size={12} />
+                </button>
+                <button
+                  type="button"
+                  title="Delete forever"
+                  aria-label={`Delete ${doc.title.trim() || 'Untitled'} forever`}
+                  onClick={() => onPurge(doc.id)}
+                  className="sidebar-delete-btn"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))
+          )
+        ) : isEmptyState ? (
           <div className="sidebar-empty">
             <FileText size={28} className="mb-2 opacity-30" />
             <p className="text-xs font-medium mb-1">No documents yet</p>
@@ -204,6 +252,19 @@ export function Sidebar({ docs, activeId, onActivate, onCreate, onRename, onDele
           })
         )}
       </nav>
+
+      <div className="border-t border-notion-border dark:border-[#3c4043] p-1">
+        <button
+          type="button"
+          onClick={() => onTrashOpenChange(!trashOpen)}
+          aria-pressed={trashOpen}
+          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-notion-muted dark:text-[#9aa0a6] hover:bg-notion-hover dark:hover:bg-[#2d2f31] hover:text-notion-text dark:hover:text-[#e8eaed] transition-colors"
+        >
+          {trashOpen ? <FileText size={13} /> : <Trash2 size={13} />}
+          {trashOpen ? 'Back to documents' : 'Trash'}
+          {!trashOpen && trashed.length > 0 && <span className="ml-auto opacity-70">{trashed.length}</span>}
+        </button>
+      </div>
     </aside>
     </>
   );
