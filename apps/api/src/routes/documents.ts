@@ -16,26 +16,39 @@ const UpdateDocSchema = z.object({
   title: z.string().min(1).max(500).optional(),
 });
 
+// ?trash=true lists the trash instead of the active documents
+const ListQuerySchema = z.object({
+  trash: z.enum(['true', 'false']).optional(),
+});
+
 // List documents for the authenticated user
 documentsRouter.get('/', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { trash } = ListQuerySchema.parse(req.query);
+    const trashed = trash === 'true';
     const result = await query<{
       id: string;
       title: string;
       updated_at: string;
       created_at: string;
+      deleted_at: string | null;
     }>(
-      `SELECT id, title, updated_at, created_at
+      `SELECT id, title, updated_at, created_at, deleted_at
        FROM documents
        WHERE owner_id = $1
-       ORDER BY updated_at DESC`,
+         AND deleted_at IS ${trashed ? 'NOT NULL' : 'NULL'}
+       ORDER BY ${trashed ? 'deleted_at' : 'updated_at'} DESC`,
       [userId],
     );
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
