@@ -154,8 +154,18 @@ export function useDocumentStore(token: string | null) {
   const removeMutation = useMutation({
     mutationFn: (id: string) => removeDocument(id, token),
     scope: DOCUMENT_MUTATION_SCOPE,
+    onError: (err, _id, context) => {
+      console.error('Failed to move document to the trash:', err);
+      const prev = context as { docs?: DocMeta[]; trash?: DocMeta[] } | undefined;
+      if (prev?.docs) queryClient.setQueryData<DocMeta[]>(DOCS_KEY, prev.docs);
+      if (prev?.trash) queryClient.setQueryData<DocMeta[]>(TRASH_KEY, prev.trash);
+    },
     onMutate: (removedId) => {
       cancelPendingTitle(removedId);
+      const before = {
+        docs: queryClient.getQueryData<DocMeta[]>(DOCS_KEY),
+        trash: queryClient.getQueryData<DocMeta[]>(TRASH_KEY),
+      };
       const prev = queryClient.getQueryData<DocMeta[]>(DOCS_KEY) ?? [];
       const removed = prev.find((d) => d.id === removedId);
       const next = prev.filter((d) => d.id !== removedId);
@@ -173,21 +183,38 @@ export function useDocumentStore(token: string | null) {
       } else if (removedId === resolvedActiveId) {
         switchTo(next[0].id);
       }
+      return before;
     },
   });
+
+  // Optimistic updates are rolled back if the write fails, so a failed
+  // restore or delete can't leave the sidebar showing something untrue.
+  const snapshot = useCallback(() => ({
+    docs: queryClient.getQueryData<DocMeta[]>(DOCS_KEY),
+    trash: queryClient.getQueryData<DocMeta[]>(TRASH_KEY),
+  }), [queryClient, DOCS_KEY, TRASH_KEY]);
+
+  const rollback = useCallback((prev: { docs?: DocMeta[]; trash?: DocMeta[] } | undefined) => {
+    if (!prev) return;
+    if (prev.docs) queryClient.setQueryData<DocMeta[]>(DOCS_KEY, prev.docs);
+    if (prev.trash) queryClient.setQueryData<DocMeta[]>(TRASH_KEY, prev.trash);
+  }, [queryClient, DOCS_KEY, TRASH_KEY]);
 
   const restoreMutation = useMutation({
     mutationFn: (id: string) => restoreDocument(id, token),
     scope: DOCUMENT_MUTATION_SCOPE,
     onMutate: (id) => {
-      const restored = queryClient.getQueryData<DocMeta[]>(TRASH_KEY)?.find((d) => d.id === id);
+      const prev = snapshot();
+      const restored = prev.trash?.find((d) => d.id === id);
       queryClient.setQueryData<DocMeta[]>(TRASH_KEY, (old = []) => old.filter((d) => d.id !== id));
       if (restored) {
         queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) =>
           old.some((d) => d.id === id) ? old : [{ id, title: restored.title, updatedAt: restored.updatedAt }, ...old],
         );
       }
+      return prev;
     },
+    onError: (err, _id, prev) => { console.error('Failed to restore document:', err); rollback(prev); },
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: DOCS_KEY }); },
   });
 
@@ -195,14 +222,22 @@ export function useDocumentStore(token: string | null) {
     mutationFn: (id: string) => purgeDocument(id, token),
     scope: DOCUMENT_MUTATION_SCOPE,
     onMutate: (id) => {
+      const prev = snapshot();
       queryClient.setQueryData<DocMeta[]>(TRASH_KEY, (old = []) => old.filter((d) => d.id !== id));
+      return prev;
     },
+    onError: (err, _id, prev) => { console.error('Failed to delete document:', err); rollback(prev); },
   });
 
   const emptyTrashMutation = useMutation({
     mutationFn: () => emptyTrash(token),
     scope: DOCUMENT_MUTATION_SCOPE,
-    onMutate: () => { queryClient.setQueryData<DocMeta[]>(TRASH_KEY, []); },
+    onMutate: () => {
+      const prev = snapshot();
+      queryClient.setQueryData<DocMeta[]>(TRASH_KEY, []);
+      return prev;
+    },
+    onError: (err, _vars, prev) => { console.error('Failed to empty the trash:', err); rollback(prev); },
   });
 
   return {
