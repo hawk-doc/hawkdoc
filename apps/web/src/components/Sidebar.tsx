@@ -6,6 +6,18 @@ import { ConfirmDialog } from './ConfirmDialog';
 // Tailwind's `md` — above it the sidebar is a static panel, below it a drawer
 const MD = '(min-width: 768px)';
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const MINUTE = 60_000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
+
+/** "just now" / "5m ago" / "3h ago" / "2d ago" / a date beyond a week */
+function timeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < MINUTE) return 'just now';
+  if (diff < HOUR) return `${Math.floor(diff / MINUTE)}m ago`;
+  if (diff < DAY) return `${Math.floor(diff / HOUR)}h ago`;
+  if (diff < 7 * DAY) return `${Math.floor(diff / DAY)}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
 import type { DocMeta } from '../interfaces';
 
 interface SidebarProps {
@@ -164,6 +176,7 @@ export function Sidebar({
             trashed.length > 0 && (
               <button
                 type="button"
+                title="Empty trash"
                 onClick={() => setPendingPurge('all')}
                 className="px-1.5 py-0.5 rounded text-[11px] font-medium text-notion-muted dark:text-[#9aa0a6] hover:bg-notion-hover dark:hover:bg-[#2d2f31] hover:text-red-600 dark:hover:text-red-400 transition-colors"
               >
@@ -205,6 +218,14 @@ export function Sidebar({
               <div key={doc.id} className="sidebar-item group">
                 <Trash2 size={13} className="flex-shrink-0 opacity-50" />
                 <span className="flex-1 truncate">{doc.title.trim() || 'Untitled'}</span>
+                {doc.deletedAt && (
+                  <span
+                    className="flex-shrink-0 text-[10px] text-notion-muted dark:text-[#5f6368] group-hover:hidden"
+                    title={`Deleted ${new Date(doc.deletedAt).toLocaleString()}`}
+                  >
+                    {timeAgo(doc.deletedAt)}
+                  </span>
+                )}
                 <button
                   type="button"
                   title="Restore"
@@ -291,6 +312,7 @@ export function Sidebar({
           type="button"
           onClick={() => onTrashOpenChange(!trashOpen)}
           aria-pressed={trashOpen}
+          title={trashOpen ? 'Back to documents' : 'Trash'}
           className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-notion-muted dark:text-[#9aa0a6] hover:bg-notion-hover dark:hover:bg-[#2d2f31] hover:text-notion-text dark:hover:text-[#e8eaed] transition-colors"
         >
           {trashOpen ? <FileText size={13} /> : <Trash2 size={13} />}
