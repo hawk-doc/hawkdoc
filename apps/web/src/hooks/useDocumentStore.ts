@@ -3,9 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ACTIVE_DOC_KEY, DEBOUNCE_MS } from '../constants/autosave';
 import {
   fetchDocuments,
+  fetchTrashedDocuments,
   createDocument,
   renameDocument,
   removeDocument,
+  restoreDocument,
+  purgeDocument,
+  emptyTrash,
 } from '../lib/documentApi';
 import type { DocMeta } from '../interfaces';
 
@@ -24,6 +28,10 @@ function docsKey(token: string | null) {
   return ['documents', token ?? 'local'] as const;
 }
 
+function trashKey(token: string | null) {
+  return ['documents', token ?? 'local', 'trash'] as const;
+}
+
 function getStoredActiveId(docs: DocMeta[]): string {
   const stored = localStorage.getItem(ACTIVE_DOC_KEY);
   return stored && docs.some((d) => d.id === stored) ? stored : (docs[0]?.id ?? '');
@@ -35,6 +43,15 @@ export function useDocumentStore(token: string | null) {
   const { data: docs = [] } = useQuery({
     queryKey: DOCS_KEY,
     queryFn: () => fetchDocuments(token),
+  });
+
+  const TRASH_KEY = trashKey(token);
+  // Only fetched once the user opens the trash
+  const [trashOpen, setTrashOpen] = useState(false);
+  const { data: trashed = [] } = useQuery({
+    queryKey: TRASH_KEY,
+    queryFn: () => fetchTrashedDocuments(token),
+    enabled: trashOpen,
   });
 
   const [activeId, setActiveId] = useState<string>(() => getStoredActiveId(docs));
@@ -137,11 +154,28 @@ export function useDocumentStore(token: string | null) {
   const removeMutation = useMutation({
     mutationFn: (id: string) => removeDocument(id, token),
     scope: DOCUMENT_MUTATION_SCOPE,
+    onError: (err, _id, context) => {
+      console.error('Failed to move document to the trash:', err);
+      const prev = context as { docs?: DocMeta[]; trash?: DocMeta[] } | undefined;
+      if (prev?.docs) queryClient.setQueryData<DocMeta[]>(DOCS_KEY, prev.docs);
+      if (prev?.trash) queryClient.setQueryData<DocMeta[]>(TRASH_KEY, prev.trash);
+    },
     onMutate: (removedId) => {
       cancelPendingTitle(removedId);
+      const before = {
+        docs: queryClient.getQueryData<DocMeta[]>(DOCS_KEY),
+        trash: queryClient.getQueryData<DocMeta[]>(TRASH_KEY),
+      };
       const prev = queryClient.getQueryData<DocMeta[]>(DOCS_KEY) ?? [];
+      const removed = prev.find((d) => d.id === removedId);
       const next = prev.filter((d) => d.id !== removedId);
       queryClient.setQueryData<DocMeta[]>(DOCS_KEY, next);
+      // Show it in the trash straight away if that list has been loaded
+      if (removed) {
+        queryClient.setQueryData<DocMeta[]>(TRASH_KEY, (old) =>
+          old ? [{ ...removed, deletedAt: Date.now() }, ...old] : old,
+        );
+      }
       if (next.length === 0) {
         // Offline mode always keeps one document around; signed in we let the
         // empty state show instead of creating a stray server-side document.
@@ -149,7 +183,61 @@ export function useDocumentStore(token: string | null) {
       } else if (removedId === resolvedActiveId) {
         switchTo(next[0].id);
       }
+      return before;
     },
+  });
+
+  // Optimistic updates are rolled back if the write fails, so a failed
+  // restore or delete can't leave the sidebar showing something untrue.
+  const snapshot = useCallback(() => ({
+    docs: queryClient.getQueryData<DocMeta[]>(DOCS_KEY),
+    trash: queryClient.getQueryData<DocMeta[]>(TRASH_KEY),
+  }), [queryClient, DOCS_KEY, TRASH_KEY]);
+
+  const rollback = useCallback((prev: { docs?: DocMeta[]; trash?: DocMeta[] } | undefined) => {
+    if (!prev) return;
+    if (prev.docs) queryClient.setQueryData<DocMeta[]>(DOCS_KEY, prev.docs);
+    if (prev.trash) queryClient.setQueryData<DocMeta[]>(TRASH_KEY, prev.trash);
+  }, [queryClient, DOCS_KEY, TRASH_KEY]);
+
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => restoreDocument(id, token),
+    scope: DOCUMENT_MUTATION_SCOPE,
+    onMutate: (id) => {
+      const prev = snapshot();
+      const restored = prev.trash?.find((d) => d.id === id);
+      queryClient.setQueryData<DocMeta[]>(TRASH_KEY, (old = []) => old.filter((d) => d.id !== id));
+      if (restored) {
+        queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) =>
+          old.some((d) => d.id === id) ? old : [{ id, title: restored.title, updatedAt: restored.updatedAt }, ...old],
+        );
+      }
+      return prev;
+    },
+    onError: (err, _id, prev) => { console.error('Failed to restore document:', err); rollback(prev); },
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: DOCS_KEY }); },
+  });
+
+  const purgeMutation = useMutation({
+    mutationFn: (id: string) => purgeDocument(id, token),
+    scope: DOCUMENT_MUTATION_SCOPE,
+    onMutate: (id) => {
+      const prev = snapshot();
+      queryClient.setQueryData<DocMeta[]>(TRASH_KEY, (old = []) => old.filter((d) => d.id !== id));
+      return prev;
+    },
+    onError: (err, _id, prev) => { console.error('Failed to delete document:', err); rollback(prev); },
+  });
+
+  const emptyTrashMutation = useMutation({
+    mutationFn: () => emptyTrash(token),
+    scope: DOCUMENT_MUTATION_SCOPE,
+    onMutate: () => {
+      const prev = snapshot();
+      queryClient.setQueryData<DocMeta[]>(TRASH_KEY, []);
+      return prev;
+    },
+    onError: (err, _vars, prev) => { console.error('Failed to empty the trash:', err); rollback(prev); },
   });
 
   return {
@@ -158,8 +246,17 @@ export function useDocumentStore(token: string | null) {
     // create() is awaitable so the editor gets the real DB id before Hocuspocus connects
     create: async (): Promise<void> => { await createMutation.mutateAsync(); },
     rename,
+    /** Moves the document to the trash — reversible */
     remove: (id: string) => removeMutation.mutate(id),
     activate,
     touch,
+    trashed,
+    trashOpen,
+    /** Opening the trash is what loads it */
+    setTrashOpen,
+    restore: (id: string) => restoreMutation.mutate(id),
+    /** Destroys a trashed document and its content */
+    purge: (id: string) => purgeMutation.mutate(id),
+    emptyTrash: () => emptyTrashMutation.mutate(),
   };
 }

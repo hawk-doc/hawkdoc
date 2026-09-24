@@ -18,11 +18,16 @@ CREATE TABLE IF NOT EXISTS documents (
   title      TEXT NOT NULL DEFAULT 'Untitled',
   yjs_state  BYTEA,                        -- Yjs binary state (full snapshot)
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ                    -- set when trashed; NULL = active
 );
 
+-- Existing installs predating the trash feature
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+-- Listing the sidebar (active documents) and the trash are both covered here
 CREATE INDEX IF NOT EXISTS documents_owner_updated
-  ON documents (owner_id, updated_at DESC);
+  ON documents (owner_id, deleted_at, updated_at DESC);
 
 -- document_versions stores incremental Yjs update deltas (not full snapshots)
 CREATE TABLE IF NOT EXISTS document_versions (

@@ -2,7 +2,29 @@ import { Router } from 'express';
 import { z } from 'zod';
 import query from '../db.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { hocuspocusServer } from '../hocuspocus.js';
+import { redis, docBufferKey } from '../redis.js';
 import type { Request } from 'express';
+
+/**
+ * Disconnect anyone still editing a document whose state just changed.
+ * onLoadDocument refuses trashed documents, so clients can't reconnect; the
+ * disconnect itself persists each session's final state, which is what a
+ * later restore should bring back.
+ */
+function endCollabSessions(docId: string): void {
+  hocuspocusServer.closeConnections(docId);
+}
+
+/** Drop a destroyed document's buffered Yjs state so nothing is left behind */
+async function discardBufferedState(docId: string): Promise<void> {
+  try {
+    await redis.del(docBufferKey(docId));
+  } catch (err) {
+    // A stale buffer can't recreate a deleted row; the flush scheduler clears it
+    console.error(`Failed to clear buffered state for ${docId}:`, err);
+  }
+}
 
 export const documentsRouter = Router();
 
@@ -16,26 +38,45 @@ const UpdateDocSchema = z.object({
   title: z.string().min(1).max(500).optional(),
 });
 
+// ?trash=true lists the trash instead of the active documents
+const ListQuerySchema = z.object({
+  trash: z.enum(['true', 'false']).optional(),
+});
+
+// Document ids are UUIDs; without this an id like "abc" reaches PostgreSQL
+// and comes back as a 500 instead of a validation error.
+const DocIdSchema = z.object({
+  id: z.string().uuid(),
+});
+
 // List documents for the authenticated user
 documentsRouter.get('/', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { trash } = ListQuerySchema.parse(req.query);
+    const trashed = trash === 'true';
     const result = await query<{
       id: string;
       title: string;
       updated_at: string;
       created_at: string;
+      deleted_at: string | null;
     }>(
-      `SELECT id, title, updated_at, created_at
+      `SELECT id, title, updated_at, created_at, deleted_at
        FROM documents
        WHERE owner_id = $1
-       ORDER BY updated_at DESC`,
+         AND deleted_at IS ${trashed ? 'NOT NULL' : 'NULL'}
+       ORDER BY ${trashed ? 'deleted_at' : 'updated_at'} DESC`,
       [userId],
     );
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
@@ -43,6 +84,7 @@ documentsRouter.get('/', async (req: Request, res) => {
 documentsRouter.get('/:id', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
     const result = await query<{
       id: string;
       title: string;
@@ -51,8 +93,8 @@ documentsRouter.get('/:id', async (req: Request, res) => {
     }>(
       `SELECT id, title, yjs_state, updated_at
        FROM documents
-       WHERE id = $1 AND owner_id = $2`,
-      [req.params['id'], userId],
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`,
+      [id, userId],
     );
 
     const doc = result.rows[0];
@@ -68,8 +110,12 @@ documentsRouter.get('/:id', async (req: Request, res) => {
       updatedAt: doc.updated_at,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
@@ -101,14 +147,15 @@ documentsRouter.post('/', async (req: Request, res) => {
 documentsRouter.patch('/:id', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
     const body = UpdateDocSchema.parse(req.body);
 
     const result = await query<{ id: string; title: string }>(
       `UPDATE documents
        SET title = COALESCE($1, title), updated_at = NOW()
-       WHERE id = $2 AND owner_id = $3
+       WHERE id = $2 AND owner_id = $3 AND deleted_at IS NULL
        RETURNING id, title`,
-      [body.title, req.params['id'], userId],
+      [body.title, id, userId],
     );
 
     if (result.rows.length === 0) {
@@ -127,13 +174,17 @@ documentsRouter.patch('/:id', async (req: Request, res) => {
   }
 });
 
-// Delete a document
+// Move a document to the trash. The Yjs state is kept, so a restore brings
+// the document back exactly as it was.
 documentsRouter.delete('/:id', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
     const result = await query(
-      'DELETE FROM documents WHERE id = $1 AND owner_id = $2 RETURNING id',
-      [req.params['id'], userId],
+      `UPDATE documents SET deleted_at = NOW()
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL
+       RETURNING id`,
+      [id, userId],
     );
 
     if (result.rows.length === 0) {
@@ -141,9 +192,102 @@ documentsRouter.delete('/:id', async (req: Request, res) => {
       return;
     }
 
+    // Nobody should keep editing a document that's left the sidebar
+    endCollabSessions(id);
+
     res.status(204).send();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+// Permanently delete a trashed document. Only reachable for documents that
+// are already in the trash, so a single click can never destroy live work.
+documentsRouter.delete('/:id/permanent', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
+    const result = await query(
+      `DELETE FROM documents
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NOT NULL
+       RETURNING id`,
+      [id, userId],
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Document not found in trash' });
+      return;
+    }
+
+    endCollabSessions(id);
+    await discardBufferedState(id);
+
+    res.status(204).send();
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+// Empty the trash
+documentsRouter.delete('/', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const result = await query<{ id: string }>(
+      'DELETE FROM documents WHERE owner_id = $1 AND deleted_at IS NOT NULL RETURNING id',
+      [userId],
+    );
+
+    for (const row of result.rows) {
+      endCollabSessions(row.id);
+      await discardBufferedState(row.id);
+    }
+
+    res.json({ deleted: result.rows.length });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+// Restore a trashed document
+documentsRouter.post('/:id/restore', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
+    const result = await query<{ id: string; title: string; updated_at: string }>(
+      `UPDATE documents SET deleted_at = NULL
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NOT NULL
+       RETURNING id, title, updated_at`,
+      [id, userId],
+    );
+
+    const doc = result.rows[0];
+    if (!doc) {
+      res.status(404).json({ error: 'Document not found in trash' });
+      return;
+    }
+
+    res.json(doc);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });

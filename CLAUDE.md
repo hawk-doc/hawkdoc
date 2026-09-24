@@ -63,11 +63,17 @@ hawkdoc/
 - Zod env validation at startup (`env.ts`)
 
 ## What Is Planned (not started)
-- Real-time collaboration UI (Yjs + Hocuspocus client)
-- Document list / workspace
 - DOCX import/export
-- Version history
-- User auth UI
+- Version history (the `document_versions` table exists but is unused)
+- Document sharing between users (collaboration is currently owner-only)
+
+## Document Trash
+Deleting a document is a soft delete: `documents.deleted_at` is set, the row
+and its Yjs state are kept, and the sidebar's Trash view can restore it.
+Only "Delete forever" and "Empty trash" remove data, and both confirm first.
+Trashed documents are excluded from the document list and refused by
+Hocuspocus. Signed out, the same model runs on localStorage
+(`hawkdoc-trash`), and a trashed document keeps its content key.
 
 ## Critical Rules — Read Before Writing Any Code
 
