@@ -54,6 +54,22 @@ npm run dev
 
 ---
 
+## Database Changes
+
+The schema lives in `apps/api/src/schema.sql` and is written to be re-runnable
+(`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`). After pulling
+changes that touch it, apply it to your local database:
+
+```bash
+psql "$DATABASE_URL" -f apps/api/src/schema.sql
+```
+
+Recent change: `documents.deleted_at` backs the trash. A `NULL` means the
+document is active; a timestamp means it's in the trash and hidden from the
+sidebar and from collaboration.
+
+---
+
 ## Verifying Your Setup
 
 ```bash
