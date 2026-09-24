@@ -21,6 +21,12 @@ const ListQuerySchema = z.object({
   trash: z.enum(['true', 'false']).optional(),
 });
 
+// Document ids are UUIDs; without this an id like "abc" reaches PostgreSQL
+// and comes back as a 500 instead of a validation error.
+const DocIdSchema = z.object({
+  id: z.string().uuid(),
+});
+
 // List documents for the authenticated user
 documentsRouter.get('/', async (req: Request, res) => {
   try {
@@ -56,6 +62,7 @@ documentsRouter.get('/', async (req: Request, res) => {
 documentsRouter.get('/:id', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
     const result = await query<{
       id: string;
       title: string;
@@ -65,7 +72,7 @@ documentsRouter.get('/:id', async (req: Request, res) => {
       `SELECT id, title, yjs_state, updated_at
        FROM documents
        WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`,
-      [req.params['id'], userId],
+      [id, userId],
     );
 
     const doc = result.rows[0];
@@ -81,8 +88,12 @@ documentsRouter.get('/:id', async (req: Request, res) => {
       updatedAt: doc.updated_at,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
@@ -114,6 +125,7 @@ documentsRouter.post('/', async (req: Request, res) => {
 documentsRouter.patch('/:id', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
     const body = UpdateDocSchema.parse(req.body);
 
     const result = await query<{ id: string; title: string }>(
@@ -121,7 +133,7 @@ documentsRouter.patch('/:id', async (req: Request, res) => {
        SET title = COALESCE($1, title), updated_at = NOW()
        WHERE id = $2 AND owner_id = $3 AND deleted_at IS NULL
        RETURNING id, title`,
-      [body.title, req.params['id'], userId],
+      [body.title, id, userId],
     );
 
     if (result.rows.length === 0) {
@@ -145,11 +157,12 @@ documentsRouter.patch('/:id', async (req: Request, res) => {
 documentsRouter.delete('/:id', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
     const result = await query(
       `UPDATE documents SET deleted_at = NOW()
        WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL
        RETURNING id`,
-      [req.params['id'], userId],
+      [id, userId],
     );
 
     if (result.rows.length === 0) {
@@ -159,8 +172,12 @@ documentsRouter.delete('/:id', async (req: Request, res) => {
 
     res.status(204).send();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
@@ -169,11 +186,12 @@ documentsRouter.delete('/:id', async (req: Request, res) => {
 documentsRouter.delete('/:id/permanent', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
     const result = await query(
       `DELETE FROM documents
        WHERE id = $1 AND owner_id = $2 AND deleted_at IS NOT NULL
        RETURNING id`,
-      [req.params['id'], userId],
+      [id, userId],
     );
 
     if (result.rows.length === 0) {
@@ -183,8 +201,12 @@ documentsRouter.delete('/:id/permanent', async (req: Request, res) => {
 
     res.status(204).send();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
@@ -198,8 +220,12 @@ documentsRouter.delete('/', async (req: Request, res) => {
     );
     res.json({ deleted: result.rows.length });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
@@ -207,11 +233,12 @@ documentsRouter.delete('/', async (req: Request, res) => {
 documentsRouter.post('/:id/restore', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
     const result = await query<{ id: string; title: string; updated_at: string }>(
       `UPDATE documents SET deleted_at = NULL
        WHERE id = $1 AND owner_id = $2 AND deleted_at IS NOT NULL
        RETURNING id, title, updated_at`,
-      [req.params['id'], userId],
+      [id, userId],
     );
 
     const doc = result.rows[0];
@@ -222,7 +249,11 @@ documentsRouter.post('/:id/restore', async (req: Request, res) => {
 
     res.json(doc);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
