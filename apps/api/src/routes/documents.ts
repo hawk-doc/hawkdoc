@@ -140,12 +140,15 @@ documentsRouter.patch('/:id', async (req: Request, res) => {
   }
 });
 
-// Delete a document
+// Move a document to the trash. The Yjs state is kept, so a restore brings
+// the document back exactly as it was.
 documentsRouter.delete('/:id', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
     const result = await query(
-      'DELETE FROM documents WHERE id = $1 AND owner_id = $2 RETURNING id',
+      `UPDATE documents SET deleted_at = NOW()
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL
+       RETURNING id`,
       [req.params['id'], userId],
     );
 
@@ -155,6 +158,30 @@ documentsRouter.delete('/:id', async (req: Request, res) => {
     }
 
     res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Restore a trashed document
+documentsRouter.post('/:id/restore', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const result = await query<{ id: string; title: string; updated_at: string }>(
+      `UPDATE documents SET deleted_at = NULL
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NOT NULL
+       RETURNING id, title, updated_at`,
+      [req.params['id'], userId],
+    );
+
+    const doc = result.rows[0];
+    if (!doc) {
+      res.status(404).json({ error: 'Document not found in trash' });
+      return;
+    }
+
+    res.json(doc);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
