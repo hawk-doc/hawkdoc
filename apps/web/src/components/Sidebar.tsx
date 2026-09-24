@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FilePlus, FileText, Search, Trash2, Undo2, X } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { ConfirmDialog } from './ConfirmDialog';
 
 // Tailwind's `md` — above it the sidebar is a static panel, below it a drawer
 const MD = '(min-width: 768px)';
@@ -19,6 +20,7 @@ interface SidebarProps {
   onTrashOpenChange: (open: boolean) => void;
   onRestore: (id: string) => void;
   onPurge: (id: string) => void;
+  onEmptyTrash: () => void;
   /** Below `md` the sidebar is an overlay drawer that starts closed */
   open: boolean;
   onClose: () => void;
@@ -26,12 +28,14 @@ interface SidebarProps {
 
 export function Sidebar({
   docs, activeId, onActivate, onCreate, onRename, onDelete,
-  trashed, trashOpen, onTrashOpenChange, onRestore, onPurge,
+  trashed, trashOpen, onTrashOpenChange, onRestore, onPurge, onEmptyTrash,
   open, onClose,
 }: SidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [query, setQuery] = useState('');
+  // { id } confirms one document, 'all' confirms emptying the trash
+  const [pendingPurge, setPendingPurge] = useState<DocMeta | 'all' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -116,6 +120,25 @@ export function Sidebar({
         />
       )}
 
+      {pendingPurge && (
+        <ConfirmDialog
+          destructive
+          title={pendingPurge === 'all' ? 'Empty the trash?' : 'Delete forever?'}
+          message={
+            pendingPurge === 'all'
+              ? `${trashed.length} document${trashed.length === 1 ? '' : 's'} will be deleted permanently. This can't be undone.`
+              : `"${pendingPurge.title.trim() || 'Untitled'}" will be deleted permanently. This can't be undone.`
+          }
+          confirmLabel={pendingPurge === 'all' ? 'Empty trash' : 'Delete forever'}
+          onConfirm={() => {
+            if (pendingPurge === 'all') onEmptyTrash();
+            else onPurge(pendingPurge.id);
+            setPendingPurge(null);
+          }}
+          onCancel={() => setPendingPurge(null)}
+        />
+      )}
+
       <aside
         ref={panelRef}
         // Dialog semantics only while it's an overlay; on desktop it's a plain panel
@@ -133,10 +156,20 @@ export function Sidebar({
           {trashOpen ? <>Trash{trashed.length > 0 && <>&nbsp;·&nbsp;{trashed.length}</>}</> : <>Documents{!isEmptyState && <>&nbsp;·&nbsp;{docs.length}</>}</>}
         </span>
         <div className="flex items-center gap-1">
-          {!trashOpen && (
+          {!trashOpen ? (
             <button type="button" title="New document" onClick={() => { void onCreate(); }} className="sidebar-new-btn">
               <FilePlus size={15} />
             </button>
+          ) : (
+            trashed.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setPendingPurge('all')}
+                className="px-1.5 py-0.5 rounded text-[11px] font-medium text-notion-muted dark:text-[#9aa0a6] hover:bg-notion-hover dark:hover:bg-[#2d2f31] hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              >
+                Empty
+              </button>
+            )
           )}
           <button type="button" title="Close documents" onClick={onClose} className="sidebar-new-btn md:hidden">
             <X size={15} />
@@ -185,7 +218,7 @@ export function Sidebar({
                   type="button"
                   title="Delete forever"
                   aria-label={`Delete ${doc.title.trim() || 'Untitled'} forever`}
-                  onClick={() => onPurge(doc.id)}
+                  onClick={() => setPendingPurge(doc)}
                   className="sidebar-delete-btn"
                 >
                   <X size={12} />

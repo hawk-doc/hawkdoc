@@ -15,7 +15,7 @@ function AppShell() {
 
   const {
     docs, activeId, create, rename, remove, activate, touch,
-    trashed, trashOpen, setTrashOpen, restore, purge,
+    trashed, trashOpen, setTrashOpen, restore, purge, emptyTrash,
   } = useDocumentStore(token);
 
   const activeDoc = docs.find((d) => d.id === activeId);
@@ -105,6 +105,7 @@ function AppShell() {
           onTrashOpenChange={setTrashOpen}
           onRestore={restore}
           onPurge={purge}
+          onEmptyTrash={emptyTrash}
         />
 
         <main className="flex-1 overflow-y-auto">
