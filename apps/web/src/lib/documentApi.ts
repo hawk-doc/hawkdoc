@@ -1,4 +1,4 @@
-import { DOCS_LIST_KEY, DOC_KEY_PREFIX, STORAGE_KEY } from '../constants/autosave';
+import { DOCS_LIST_KEY, DOC_KEY_PREFIX, STORAGE_KEY, TRASH_LIST_KEY } from '../constants/autosave';
 import type { AutoSaveData, DocMeta } from '../interfaces';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -7,6 +7,7 @@ interface ApiDocRow {
   id: string;
   title: string;
   updated_at?: string;
+  deleted_at?: string | null;
 }
 
 function toDocMeta(row: ApiDocRow): DocMeta {
@@ -14,6 +15,7 @@ function toDocMeta(row: ApiDocRow): DocMeta {
     id: row.id,
     title: row.title,
     updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
+    ...(row.deleted_at ? { deletedAt: new Date(row.deleted_at).getTime() } : {}),
   };
 }
 
@@ -53,6 +55,17 @@ function genId(): string {
 
 function saveDocs(docs: DocMeta[]): void {
   localStorage.setItem(DOCS_LIST_KEY, JSON.stringify(docs));
+}
+
+// Offline trash. Content stays under its DOC_KEY_PREFIX key while a document
+// sits in the trash, so restoring brings the text back with it.
+function loadLocalTrash(): DocMeta[] {
+  const raw = localStorage.getItem(TRASH_LIST_KEY);
+  return raw ? (JSON.parse(raw) as DocMeta[]) : [];
+}
+
+function saveTrash(docs: DocMeta[]): void {
+  localStorage.setItem(TRASH_LIST_KEY, JSON.stringify(docs));
 }
 
 function loadLocalDocs(): DocMeta[] {
@@ -125,6 +138,17 @@ export async function renameDocument(
   return renamed;
 }
 
+/** Documents in the trash, newest deletion first */
+export async function fetchTrashedDocuments(token: string | null): Promise<DocMeta[]> {
+  if (!token) return [...loadLocalTrash()].sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+
+  const res = await fetch(`${API_URL}/api/documents?trash=true`, { headers: authHeaders(token) });
+  ensureOk(res, token, 'load the trash');
+  const rows = (await res.json()) as ApiDocRow[];
+  return rows.map(toDocMeta);
+}
+
+/** Move a document to the trash. Reversible — nothing is destroyed here. */
 export async function removeDocument(id: string, token: string | null): Promise<void> {
   if (token) {
     const res = await fetch(`${API_URL}/api/documents/${id}`, {
@@ -135,8 +159,61 @@ export async function removeDocument(id: string, token: string | null): Promise<
     return;
   }
 
-  localStorage.removeItem(`${DOC_KEY_PREFIX}${id}`);
+  const doc = loadLocalDocs().find((d) => d.id === id);
+  if (!doc) return;
   saveDocs(loadLocalDocs().filter((d) => d.id !== id));
+  saveTrash([{ ...doc, deletedAt: Date.now() }, ...loadLocalTrash().filter((d) => d.id !== id)]);
+}
+
+export async function restoreDocument(id: string, token: string | null): Promise<DocMeta> {
+  if (token) {
+    const res = await fetch(`${API_URL}/api/documents/${id}/restore`, {
+      method: 'POST',
+      headers: authHeaders(token),
+    });
+    ensureOk(res, token, 'restore document');
+    return toDocMeta((await res.json()) as ApiDocRow);
+  }
+
+  const doc = loadLocalTrash().find((d) => d.id === id);
+  if (!doc) throw new Error(`Document not found in trash: ${id}`);
+  saveTrash(loadLocalTrash().filter((d) => d.id !== id));
+  const restored: DocMeta = { id: doc.id, title: doc.title, updatedAt: doc.updatedAt };
+  saveDocs([restored, ...loadLocalDocs().filter((d) => d.id !== id)]);
+  return restored;
+}
+
+/** Delete a trashed document for good, with its content. */
+export async function purgeDocument(id: string, token: string | null): Promise<void> {
+  if (token) {
+    const res = await fetch(`${API_URL}/api/documents/${id}/permanent`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    });
+    ensureOk(res, token, 'delete document permanently');
+    return;
+  }
+
+  localStorage.removeItem(`${DOC_KEY_PREFIX}${id}`);
+  saveTrash(loadLocalTrash().filter((d) => d.id !== id));
+}
+
+/** Empty the trash. Returns how many documents were destroyed. */
+export async function emptyTrash(token: string | null): Promise<number> {
+  if (token) {
+    const res = await fetch(`${API_URL}/api/documents`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    });
+    ensureOk(res, token, 'empty the trash');
+    const { deleted } = (await res.json()) as { deleted: number };
+    return deleted;
+  }
+
+  const trashed = loadLocalTrash();
+  for (const doc of trashed) localStorage.removeItem(`${DOC_KEY_PREFIX}${doc.id}`);
+  saveTrash([]);
+  return trashed.length;
 }
 
 export async function saveDocContent(docId: string, data: AutoSaveData): Promise<void> {

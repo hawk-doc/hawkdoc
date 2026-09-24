@@ -26,6 +26,8 @@ export interface DocMeta {
   id: string;
   title: string;
   updatedAt: number;
+  /** When the document was moved to the trash; absent for active documents */
+  deletedAt?: number;
 }
 
 export interface EditorToolbarProps {
