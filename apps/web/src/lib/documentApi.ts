@@ -161,8 +161,10 @@ export async function removeDocument(id: string, token: string | null): Promise<
 
   const doc = loadLocalDocs().find((d) => d.id === id);
   if (!doc) return;
-  saveDocs(loadLocalDocs().filter((d) => d.id !== id));
+  // Write the destination list first: setItem can throw (quota), and losing
+  // the entry from both lists would strand the document with no way back.
   saveTrash([{ ...doc, deletedAt: Date.now() }, ...loadLocalTrash().filter((d) => d.id !== id)]);
+  saveDocs(loadLocalDocs().filter((d) => d.id !== id));
 }
 
 export async function restoreDocument(id: string, token: string | null): Promise<DocMeta> {
@@ -177,9 +179,11 @@ export async function restoreDocument(id: string, token: string | null): Promise
 
   const doc = loadLocalTrash().find((d) => d.id === id);
   if (!doc) throw new Error(`Document not found in trash: ${id}`);
-  saveTrash(loadLocalTrash().filter((d) => d.id !== id));
   const restored: DocMeta = { id: doc.id, title: doc.title, updatedAt: doc.updatedAt };
+  // Destination first, as above — a document in both lists briefly is
+  // recoverable, a document in neither is not.
   saveDocs([restored, ...loadLocalDocs().filter((d) => d.id !== id)]);
+  saveTrash(loadLocalTrash().filter((d) => d.id !== id));
   return restored;
 }
 
