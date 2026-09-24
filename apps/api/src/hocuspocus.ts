@@ -66,7 +66,7 @@ export const hocuspocusServer = Server.configure({
     if (buffered) {
       // Ownership check even for cached state
       const owned = await query<{ id: string }>(
-        'SELECT id FROM documents WHERE id = $1 AND owner_id = $2',
+        'SELECT id FROM documents WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL',
         [docId, userId],
       );
       if (!owned.rows[0]) throw new Error('Document not found or access denied');
@@ -77,7 +77,7 @@ export const hocuspocusServer = Server.configure({
     // 2. Fall back to PostgreSQL — ownership verified by WHERE clause
     try {
       const result = await query<{ yjs_state: Buffer | null }>(
-        'SELECT yjs_state FROM documents WHERE id = $1 AND owner_id = $2',
+        'SELECT yjs_state FROM documents WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL',
         [docId, userId],
       );
       if (!result.rows[0]) throw new Error('Document not found or access denied');
