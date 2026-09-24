@@ -27,13 +27,37 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
+  // Focus the confirm button on open and hand focus back on close, so
+  // dismissing the dialog doesn't drop the user at the top of the page.
   useEffect(() => {
+    const returnTo = document.activeElement as HTMLElement | null;
     confirmRef.current?.focus();
+    return () => returnTo?.focus();
   }, []);
 
+  // ARIA marks this modal; it doesn't keep Tab inside it
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled])');
+      if (!items?.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !dialogRef.current?.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !dialogRef.current?.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [onCancel]);
@@ -42,6 +66,7 @@ export function ConfirmDialog({
     <div className="fixed inset-0 z-[300] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" onClick={onCancel} aria-hidden="true" />
       <div
+        ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-label={title}
