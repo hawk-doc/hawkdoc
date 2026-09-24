@@ -2,7 +2,29 @@ import { Router } from 'express';
 import { z } from 'zod';
 import query from '../db.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { hocuspocusServer } from '../hocuspocus.js';
+import { redis, docBufferKey } from '../redis.js';
 import type { Request } from 'express';
+
+/**
+ * Disconnect anyone still editing a document whose state just changed.
+ * onLoadDocument refuses trashed documents, so clients can't reconnect; the
+ * disconnect itself persists each session's final state, which is what a
+ * later restore should bring back.
+ */
+function endCollabSessions(docId: string): void {
+  hocuspocusServer.closeConnections(docId);
+}
+
+/** Drop a destroyed document's buffered Yjs state so nothing is left behind */
+async function discardBufferedState(docId: string): Promise<void> {
+  try {
+    await redis.del(docBufferKey(docId));
+  } catch (err) {
+    // A stale buffer can't recreate a deleted row; the flush scheduler clears it
+    console.error(`Failed to clear buffered state for ${docId}:`, err);
+  }
+}
 
 export const documentsRouter = Router();
 
@@ -170,6 +192,9 @@ documentsRouter.delete('/:id', async (req: Request, res) => {
       return;
     }
 
+    // Nobody should keep editing a document that's left the sidebar
+    endCollabSessions(id);
+
     res.status(204).send();
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -199,6 +224,9 @@ documentsRouter.delete('/:id/permanent', async (req: Request, res) => {
       return;
     }
 
+    endCollabSessions(id);
+    await discardBufferedState(id);
+
     res.status(204).send();
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -218,6 +246,12 @@ documentsRouter.delete('/', async (req: Request, res) => {
       'DELETE FROM documents WHERE owner_id = $1 AND deleted_at IS NOT NULL RETURNING id',
       [userId],
     );
+
+    for (const row of result.rows) {
+      endCollabSessions(row.id);
+      await discardBufferedState(row.id);
+    }
+
     res.json({ deleted: result.rows.length });
   } catch (err) {
     if (err instanceof z.ZodError) {
