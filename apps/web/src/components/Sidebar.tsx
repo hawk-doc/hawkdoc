@@ -159,7 +159,10 @@ export function Sidebar({
         aria-label={isDrawer ? 'Documents' : undefined}
         tabIndex={isDrawer ? -1 : undefined}
         onKeyDown={onPanelKeyDown}
-        className={`sidebar fixed bottom-0 left-0 top-[52px] z-50 transition-transform duration-200 outline-none md:static md:z-auto md:translate-x-0 md:transition-none ${
+        // h-auto so the drawer's height comes from its top/bottom insets; the
+        // .sidebar class's h-full would run it past the bottom of the screen
+        // and push the trash toggle out of reach.
+        className={`sidebar fixed bottom-0 left-0 top-[52px] z-50 h-auto transition-transform duration-200 outline-none md:static md:z-auto md:h-full md:translate-x-0 md:transition-none ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
