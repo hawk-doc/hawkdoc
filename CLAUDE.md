@@ -215,6 +215,19 @@ URL.revokeObjectURL(url);
 - Do NOT use ProseMirror or TipTap — use Lexical
 - Do NOT import `LexicalErrorBoundary` as default — use named import `{ LexicalErrorBoundary }`
 
+## Tests
+
+```bash
+npm test --workspace=apps/api   # integration tests; needs docker compose up -d
+npm test --workspace=apps/web   # jsdom tests
+```
+
+- API tests mount the Express app via `createApp()` from `apps/api/src/app.ts`
+  (`index.ts` owns the servers) and run against a real PostgreSQL and Redis.
+- Web tests use Vitest + jsdom + Testing Library.
+- Add tests next to what they cover: `src/routes/documents.trash.test.ts`,
+  `src/hooks/useDocumentStore.test.tsx`.
+
 ## Running the Project
 ```bash
 # Install all dependencies
