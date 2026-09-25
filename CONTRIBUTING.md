@@ -79,6 +79,31 @@ curl http://localhost:3001/healthz
 
 ---
 
+## Running the Tests
+
+```bash
+docker compose up -d                  # the API tests need PostgreSQL and Redis
+npm test --workspace=apps/api         # integration tests against a real database
+npm test --workspace=apps/web         # jsdom tests, no services needed
+npm test --workspaces --if-present    # both
+```
+
+The API suite talks to a real database on purpose — those routes are thin over
+PostgreSQL, so ownership rules and soft-delete filters only hold up when
+tested against it. It defaults to the docker-compose credentials and honours
+`DATABASE_URL` / `REDIS_URL` if you set them. Each test registers its own user,
+so runs don't collide, but they do leave rows behind: `docker compose down -v`
+resets.
+
+The web suite runs in jsdom with no services.
+
+CI currently runs type checks, lint and build on every PR — **not** these
+suites. Running the API suite there needs PostgreSQL and Redis service
+containers in `.github/workflows/ci.yml`; until that lands, run both locally
+before pushing.
+
+---
+
 ## Before Every Commit
 
 The pre-commit hook runs these automatically and blocks the commit on failure:

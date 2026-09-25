@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Test suites: Vitest in both workspaces — API integration tests against PostgreSQL (trash lifecycle, access control, validation) and jsdom tests for the offline document store, title sync and session expiry. Run them with `npm test` in each workspace; CI does not run them yet
 - Trash for documents: deleting moves a document to the trash instead of destroying it, and it can be restored from the sidebar's Trash view. Permanently deleting one document or emptying the trash asks for confirmation first. Works signed in (PostgreSQL) and signed out (localStorage)
 - Lexical-based editor with H1, H2, H3, paragraph, bullet list, ordered list, code block, quote, divider
 - Slash `/` command menu with keyboard navigation
