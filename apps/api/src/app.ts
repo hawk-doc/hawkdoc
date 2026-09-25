@@ -3,6 +3,7 @@ import { env } from './env.js';
 import { authRouter } from './routes/auth.js';
 import { documentsRouter } from './routes/documents.js';
 import { uploadsRouter, UPLOADS_DIR } from './routes/uploads.js';
+import { checkHealth, isHealthy } from './health.js';
 
 /**
  * Builds the Express app without starting any listeners, so tests can mount
@@ -53,8 +54,20 @@ export function createApp() {
   app.use('/api/documents', documentsRouter);
   app.use('/api/uploads', uploadsRouter);
 
+  // Checks its dependencies: a process that can't reach PostgreSQL or Redis
+  // can't serve documents, and a health check that ignores them tells a load
+  // balancer to keep sending traffic to it. Probes are bounded and deduplicated
+  // so a hanging dependency still answers promptly. See health.ts.
   app.get('/healthz', (_req, res) => {
-    res.json({ status: 'ok', ts: new Date().toISOString() });
+    void (async () => {
+      const report = await checkHealth();
+      const healthy = isHealthy(report);
+      res.status(healthy ? 200 : 503).json({
+        status: healthy ? 'ok' : 'degraded',
+        ...report,
+        ts: new Date().toISOString(),
+      });
+    })();
   });
   // Global error handler — CORS headers must also be set here because Express
   // error handlers bypass all previous middleware when called via next(err).

@@ -27,7 +27,7 @@ cd hawkdoc
 # 2. Install all dependencies (web + api + root tools)
 npm install
 
-# 3. Start PostgreSQL and Redis via Docker
+# 3. Start PostgreSQL and Redis via Docker (the schema is applied on first run)
 docker compose up -d
 
 # 4. Copy environment files
