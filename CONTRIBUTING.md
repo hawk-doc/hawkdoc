@@ -97,7 +97,10 @@ resets.
 
 The web suite runs in jsdom with no services.
 
-Both suites run in CI on every PR, against service containers.
+CI currently runs type checks, lint and build on every PR — **not** these
+suites. Running the API suite there needs PostgreSQL and Redis service
+containers in `.github/workflows/ci.yml`; until that lands, run both locally
+before pushing.
 
 ---
 

@@ -10,10 +10,18 @@ const b64 = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\
 /** An unsigned JWT is fine here — only the exp claim is read client-side */
 const jwt = (expiresInSec: number) => `${b64({ alg: 'HS256' })}.${b64({ userId: USER.id, exp: Math.floor(Date.now() / 1000) + expiresInSec })}.sig`;
 
-function wrapper() {
+function harness() {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } });
-  return ({ children }: { children: ReactNode }) =>
+  const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(QueryClientProvider, { client }, createElement(AuthProvider, null, children));
+  return { client, wrapper };
+}
+
+/** The documents query starts empty, so wait for the request itself to fail */
+async function documentsQueryFailed(client: QueryClient) {
+  await waitFor(() =>
+    expect(client.getQueryCache().findAll({ queryKey: ['documents'] }).some((q) => q.state.status === 'error')).toBe(true),
+  );
 }
 
 const signedIn = (token: string) => {
@@ -21,7 +29,11 @@ const signedIn = (token: string) => {
   localStorage.setItem('hawkdoc-user', JSON.stringify(USER));
 };
 
-const render = () => renderHook(() => ({ auth: useAuth(), store: useDocumentStore(useAuth().token) }), { wrapper: wrapper() });
+const render = () => {
+  const { client, wrapper } = harness();
+  const view = renderHook(() => ({ auth: useAuth(), store: useDocumentStore(useAuth().token) }), { wrapper });
+  return { ...view, client };
+};
 
 const respondWith = (status: number, body: unknown = []) => {
   globalThis.fetch = vi.fn(async () => ({ ok: status < 400, status, json: async () => body, text: async () => '' }) as Response) as unknown as typeof fetch;
@@ -45,8 +57,9 @@ describe('session expiry', () => {
   it('signs out when the API rejects the token', async () => {
     signedIn(jwt(3600));
     respondWith(401, { error: 'Invalid or expired token' });
-    const { result } = render();
+    const { result, client } = render();
 
+    await documentsQueryFailed(client);
     await waitFor(() => expect(result.current.auth.token).toBeNull());
     expect(result.current.auth.sessionExpired).toBe(true);
     expect(localStorage.getItem('hawkdoc-token')).toBeNull();
@@ -55,11 +68,14 @@ describe('session expiry', () => {
   it('keeps the session when a request fails for another reason', async () => {
     signedIn(jwt(3600));
     respondWith(500, { error: 'boom' });
-    const { result } = render();
+    const { result, client } = render();
 
-    await waitFor(() => expect(result.current.store.docs).toEqual([]));
+    // an empty list is also the starting state, so assert on the failure
+    await documentsQueryFailed(client);
+
     expect(result.current.auth.token).not.toBeNull();
     expect(result.current.auth.sessionExpired).toBe(false);
+    expect(localStorage.getItem('hawkdoc-token')).not.toBeNull();
   });
 
   it('signs out when the token expires while the tab is open', async () => {

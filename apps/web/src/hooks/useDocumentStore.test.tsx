@@ -7,10 +7,13 @@ import { useDocumentStore } from './useDocumentStore';
 const TOKEN = 'test-token';
 const docRow = (id: string, title: string) => ({ id, title, updated_at: new Date().toISOString() });
 
-function wrapper() {
+function harness() {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } });
-  return ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children);
+  const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children);
+  return { client, wrapper };
 }
+
+const TRASH_KEY = ['documents', TOKEN, 'trash'];
 
 const calls = () => (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls as [string, RequestInit][];
 const patches = () => calls().filter(([, init]) => init?.method === 'PATCH');
@@ -26,9 +29,21 @@ beforeEach(() => {
 });
 
 const renderStore = async () => {
-  const view = renderHook(() => useDocumentStore(TOKEN), { wrapper: wrapper() });
+  const { client, wrapper } = harness();
+  const view = renderHook(() => useDocumentStore(TOKEN), { wrapper });
   await waitFor(() => expect(view.result.current.docs).toHaveLength(2));
-  return view;
+  return { ...view, client };
+};
+
+/** The trash list is fetched when opened; don't act until it has arrived */
+const openTrash = async (view: Awaited<ReturnType<typeof renderStore>>) => {
+  act(() => { view.result.current.setTrashOpen(true); });
+  await waitFor(() => expect(view.client.getQueryState(TRASH_KEY)?.status).toBe('success'));
+};
+
+/** Mutations settle across several async steps; wait them out before asserting */
+const settled = async (view: Awaited<ReturnType<typeof renderStore>>) => {
+  await waitFor(() => expect(view.client.isMutating()).toBe(0));
 };
 
 describe('title sync', () => {
@@ -76,9 +91,10 @@ describe('title sync', () => {
 
 describe('trash', () => {
   it('moves a document into the trash list straight away', async () => {
-    const { result } = await renderStore();
-    act(() => { result.current.setTrashOpen(true); });
-    await waitFor(() => expect(result.current.trashOpen).toBe(true));
+    const view = await renderStore();
+    const { result } = view;
+    await openTrash(view);
+    expect(result.current.trashed).toHaveLength(0);
 
     act(() => { result.current.remove('doc-1'); });
 
@@ -87,17 +103,29 @@ describe('trash', () => {
   });
 
   it('puts the document back when the delete fails', async () => {
-    const { result } = await renderStore();
-    act(() => { result.current.setTrashOpen(true); });
-    await waitFor(() => expect(result.current.trashOpen).toBe(true));
+    const view = await renderStore();
+    const { result } = view;
+    await openTrash(view);
     act(() => { result.current.remove('doc-1'); });
     await waitFor(() => expect(result.current.trashed).toHaveLength(1));
+    // let the trashing finish, so the 404 below belongs to the purge
+    await settled(view);
 
-    // the server has already lost it — purging 404s
-    globalThis.fetch = vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}), text: async () => '' }) as Response) as unknown as typeof fetch;
+    // the server has already lost it — purging 404s. The delay keeps the
+    // optimistic removal on screen long enough to assert on it; without it
+    // the rollback lands in the same tick.
+    globalThis.fetch = vi.fn(async () => {
+      await new Promise((r) => setTimeout(r, 150));
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '' } as Response;
+    }) as unknown as typeof fetch;
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     act(() => { result.current.purge('doc-1'); });
+
+    // it leaves the trash optimistically...
+    await waitFor(() => expect(result.current.trashed.map((d) => d.id)).not.toContain('doc-1'));
+    // ...and the failed request puts it back
     await waitFor(() => expect(result.current.trashed.map((d) => d.id)).toContain('doc-1'));
+    await settled(view);
   });
 });
