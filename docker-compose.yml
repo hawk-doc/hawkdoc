@@ -9,6 +9,10 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Applied automatically the first time the volume is created. After
+      # schema changes on an existing volume, re-run it yourself:
+      #   psql "$DATABASE_URL" -f apps/api/src/schema.sql
+      - ./apps/api/src/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
 
   redis:
     image: redis:7-alpine
