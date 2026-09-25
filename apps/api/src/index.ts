@@ -6,6 +6,7 @@ import { uploadsRouter, UPLOADS_DIR } from './routes/uploads.js';
 import { hocuspocusServer, waitForDisconnectWrites } from './hocuspocus.js';
 import { redis, startFlushScheduler, flushBufferedDocs } from './redis.js';
 import query, { pool } from './db.js';
+import { checkHealth, isHealthy } from './health.js';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -53,8 +54,20 @@ app.use('/api/auth', authRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/uploads', uploadsRouter);
 
+// Checks its dependencies: a process that can't reach PostgreSQL or Redis
+// can't serve documents, and a health check that ignores them tells a load
+// balancer to keep sending traffic to it. Probes are bounded and deduplicated
+// so a hanging dependency still answers promptly. See health.ts.
 app.get('/healthz', (_req, res) => {
-  res.json({ status: 'ok', ts: new Date().toISOString() });
+  void (async () => {
+    const report = await checkHealth();
+    const healthy = isHealthy(report);
+    res.status(healthy ? 200 : 503).json({
+      status: healthy ? 'ok' : 'degraded',
+      ...report,
+      ts: new Date().toISOString(),
+    });
+  })();
 });
 
 async function persistDocState(docId: string, update: Buffer): Promise<void> {

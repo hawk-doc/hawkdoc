@@ -11,8 +11,6 @@ hawkdoc/
 ├── apps/
 │   ├── web/          # React + TypeScript + Tailwind + Lexical (frontend)
 │   └── api/          # Node.js + Express + Hocuspocus + Yjs (backend)
-├── packages/
-│   └── shared/       # Shared types, constants, utilities
 ├── docs/             # Screenshots and assets for README
 ├── CLAUDE.md
 ├── package.json      # Root workspace (npm workspaces)

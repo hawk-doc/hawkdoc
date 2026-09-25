@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JWT authentication
 
 ### Changed
+- `docker compose up` now applies `schema.sql` when the database volume is first created
+- Removed the unused `packages/shared` workspace
 - Sign-in form and the header sign-in button now use the app's near-black primary instead of blue, matching the Export button (inverted in dark mode for contrast)
 - The UI now works on phones and tablets: the document page fits the viewport instead of scrolling sideways, the toolbar stays on one row (secondary controls move into a "More options" panel below `lg`), and the sidebar becomes a drawer below `md`. Desktop is unchanged
 - Initial JavaScript cut from 1,938 KB to 515 KB (gzip 626 KB → 159 KB). The PDF renderer loads on first export (preloaded when the pointer reaches Export), and the collaboration stack loads only for signed-in users
@@ -34,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document title edits sync to storage after an 800ms debounce instead of on every keystroke; the sidebar still updates instantly, and pending edits flush on document switch, delete-cancel, and tab close
 
 ### Fixed
+- `/healthz` reported OK even when PostgreSQL or Redis was unreachable; it now checks both, bounds each probe, and answers 503 when either is down
+- The document title could exceed the 500-character limit the API enforces, so the save failed silently
 - Text typed in collaborative (signed-in) documents was never synced or saved — it didn't reach the server or other tabs and was lost on reload
 - The editor had no accessible name for screen readers (`aria-label` wasn't forwarded by Lexical's `ContentEditable`)
 - Out-of-order title `PATCH` requests could leave a stale title on the server; title writes now run serially
