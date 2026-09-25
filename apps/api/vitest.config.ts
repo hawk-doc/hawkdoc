@@ -10,6 +10,8 @@ export default defineConfig({
     setupFiles: ['src/test/setup.ts'],
     // Each file gets its own user and documents, but they share a database
     fileParallelism: false,
+    // Without this a spy in one test leaks into the next
+    restoreMocks: true,
     testTimeout: 15_000,
     hookTimeout: 20_000,
   },
