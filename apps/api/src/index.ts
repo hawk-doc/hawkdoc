@@ -53,8 +53,23 @@ app.use('/api/auth', authRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/uploads', uploadsRouter);
 
+// Checks its dependencies: a process that can't reach PostgreSQL or Redis
+// can't serve documents, and a health check that ignores them tells a load
+// balancer to keep sending traffic to it.
 app.get('/healthz', (_req, res) => {
-  res.json({ status: 'ok', ts: new Date().toISOString() });
+  void (async () => {
+    const [postgres, redisStatus] = await Promise.all([
+      query('SELECT 1').then(() => 'ok' as const, () => 'down' as const),
+      redis.ping().then(() => 'ok' as const, () => 'down' as const),
+    ]);
+    const healthy = postgres === 'ok' && redisStatus === 'ok';
+    res.status(healthy ? 200 : 503).json({
+      status: healthy ? 'ok' : 'degraded',
+      postgres,
+      redis: redisStatus,
+      ts: new Date().toISOString(),
+    });
+  })();
 });
 
 async function persistDocState(docId: string, update: Buffer): Promise<void> {
