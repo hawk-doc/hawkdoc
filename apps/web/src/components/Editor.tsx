@@ -32,7 +32,7 @@ import { FindReplacePlugin } from './FindReplacePlugin';
 import { DraggableBlockPlugin } from './DraggableBlockPlugin';
 import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
 import { exportPdf } from '../lib/pdfExport';
-import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES } from '../constants/editor';
+import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES, MAX_TITLE_LENGTH } from '../constants/editor';
 import type { SlashMenuState } from '../interfaces';
 
 // ─── Slash + template-variable detection plugin ───────────────────────────────
@@ -264,6 +264,9 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
               onChange={(e) => onTitleChange(e.target.value)}
               placeholder="Untitled"
               rows={1}
+              // The API rejects titles longer than this; stop them here rather
+              // than letting the save fail with a 400 the user never sees.
+              maxLength={MAX_TITLE_LENGTH}
               className="w-full text-[28px] sm:text-[34px] lg:text-[40px] font-bold text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368]
                          border-none outline-none bg-transparent mb-8 leading-tight tracking-tight
                          resize-none overflow-hidden block"
