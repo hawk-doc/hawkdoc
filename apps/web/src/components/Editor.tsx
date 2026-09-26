@@ -33,6 +33,7 @@ import { DraggableBlockPlugin } from './DraggableBlockPlugin';
 import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
 import { exportPdf } from '../lib/pdfExport';
 import { exportDocx } from '../lib/docxExport';
+import { importDocx } from '../lib/docxImport';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES, MAX_TITLE_LENGTH } from '../constants/editor';
 import type { SlashMenuState } from '../interfaces';
 
@@ -168,6 +169,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
   const closeSlashMenu = useCallback(() => setSlashMenu(null), []);
   const [isExporting, setIsExporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [collabStatus, setCollabStatus] = useState<CollabStatus>('connecting');
   const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
@@ -224,6 +226,20 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     }
   }, [editorState, title, isExporting]);
 
+  const handleImportDOCX = useCallback(async (file: File) => {
+    if (!editorInstance) return;
+    setImportError(null);
+    setIsExporting(true);
+    try {
+      await importDocx(editorInstance, file);
+    } catch (err) {
+      // Import replaces the document, so a failure has to be visible
+      setImportError(err instanceof Error ? err.message : 'Could not import that document.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [editorInstance]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
@@ -256,11 +272,28 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
           editor={editorInstance}
           onExportPDF={handleExportPDF}
           onExportDOCX={handleExportDOCX}
+          onImportDOCX={(file) => { void handleImportDOCX(file); }}
           isSaving={isSaving || isExporting}
           title={title}
           onToggleFocusMode={() => setFocusMode(true)}
           collabStatus={isCollab ? collabStatus : undefined}
         />
+      )}
+
+      {importError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 px-4 py-2 text-[13px] bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-b border-red-200 dark:border-red-900"
+        >
+          <span>{importError}</span>
+          <button
+            type="button"
+            onClick={() => setImportError(null)}
+            className="text-xs font-medium underline underline-offset-2 hover:opacity-80"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
 
       {/* Gray canvas — fixed full-screen overlay in focus mode */}

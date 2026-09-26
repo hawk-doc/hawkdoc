@@ -34,6 +34,7 @@ export interface EditorToolbarProps {
   editor: LexicalEditor;
   onExportPDF: () => void;
   onExportDOCX: () => void;
+  onImportDOCX: (file: File) => void;
   isSaving: boolean;
   title: string;
   onToggleFocusMode: () => void;

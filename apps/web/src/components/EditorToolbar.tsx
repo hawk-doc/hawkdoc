@@ -47,6 +47,7 @@ import {
   FileText,
   FileDown,
   FileType2,
+  FileUp,
   Undo2,
   Redo2,
   Check,
@@ -59,6 +60,7 @@ import {
 } from 'lucide-react';
 import { preloadPdfExport } from '../lib/pdfExport';
 import { preloadDocxExport } from '../lib/docxExport';
+import { preloadDocxImport } from '../lib/docxImport';
 
 
 
@@ -89,7 +91,7 @@ const HIGHLIGHT_COLORS = [
 ];
 
 
-export function EditorToolbar({ editor, onExportPDF, onExportDOCX, isSaving, title, onToggleFocusMode, collabStatus }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX, isSaving, title, onToggleFocusMode, collabStatus }: EditorToolbarProps) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [blockType, setBlockType] = useState<BlockType>('paragraph');
@@ -123,6 +125,7 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, isSaving, tit
   const colorRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docxInputRef = useRef<HTMLInputElement>(null);
 
   const updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -665,8 +668,8 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, isSaving, tit
             type="button"
             className="flex items-center gap-1.5 h-7 px-2.5 sm:px-3 bg-notion-text text-white rounded-lg text-sm font-medium hover:bg-opacity-80 transition-opacity"
             onClick={() => setExportOpen((v) => !v)}
-            onPointerEnter={() => { preloadPdfExport(); preloadDocxExport(); }}
-            onFocus={() => { preloadPdfExport(); preloadDocxExport(); }}
+            onPointerEnter={() => { preloadPdfExport(); preloadDocxExport(); preloadDocxImport(); }}
+            onFocus={() => { preloadPdfExport(); preloadDocxExport(); preloadDocxImport(); }}
             title="Export"
           >
             <Download size={13} />
@@ -685,6 +688,25 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, isSaving, tit
                 icon={<FileType2 size={14} className="text-sky-600" />}
                 label="Export as Word (.docx)"
                 onClick={() => { onExportDOCX(); setExportOpen(false); }}
+              />
+
+              <div className="my-1 border-t border-notion-border dark:border-[#3c4043]" />
+
+              <ExportItem
+                icon={<FileUp size={14} className="text-sky-600" />}
+                label="Import Word (.docx)"
+                onClick={() => { docxInputRef.current?.click(); setExportOpen(false); }}
+              />
+              <input
+                ref={docxInputRef}
+                type="file"
+                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onImportDOCX(file);
+                  e.target.value = '';
+                }}
               />
               <ExportItem
                 icon={<FileDown size={14} className="text-blue-500" />}
