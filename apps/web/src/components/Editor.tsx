@@ -227,7 +227,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
   }, [editorState, title, isExporting]);
 
   const handleImportDOCX = useCallback(async (file: File) => {
-    if (!editorInstance) return;
+    if (!editorInstance || isExporting) return;
     setImportError(null);
     setIsExporting(true);
     try {
@@ -238,7 +238,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     } finally {
       setIsExporting(false);
     }
-  }, [editorInstance]);
+  }, [editorInstance, isExporting]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

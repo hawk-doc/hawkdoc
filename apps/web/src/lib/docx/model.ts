@@ -99,7 +99,7 @@ function listItemsOf(node: LexicalNode, ordered: boolean, level: number): Block[
     // A nested list arrives as a child of its list item
     const nested = (item.children ?? []).filter((c) => c.type === 'list');
     const ownRuns = runsOf({ ...item, children: (item.children ?? []).filter((c) => c.type !== 'list') });
-    const blocks: Block[] = ownRuns.length ? [{ kind: 'listItem', ordered, level, runs: ownRuns }] : [];
+    const blocks: Block[] = ownRuns.length || nested.length ? [{ kind: 'listItem', ordered, level, runs: ownRuns }] : [];
     for (const child of nested) {
       blocks.push(...listItemsOf(child, child.listType === 'number', level + 1));
     }

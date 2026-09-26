@@ -17,7 +17,7 @@ export async function docxToHtml(file: File): Promise<string> {
     throw new DocxImportError(`That file is ${Math.round(file.size / 1024 / 1024)}MB. The limit is ${MAX_DOCX_BYTES / 1024 / 1024}MB.`);
   }
   // .doc is a different (binary) format that mammoth can't read
-  if (file.type && file.type !== DOCX_MIME && !file.name.toLowerCase().endsWith('.docx')) {
+  if (file.type !== DOCX_MIME && !file.name.toLowerCase().endsWith('.docx')) {
     throw new DocxImportError('That file is not a .docx. Word 97-2003 documents (.doc) need converting first.');
   }
 

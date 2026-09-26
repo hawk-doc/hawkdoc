@@ -79,6 +79,19 @@ describe('document model', () => {
     ]);
   });
 
+  it('keeps a parent with no text above its nested list', () => {
+    expect(toBlocks(state({
+      type: 'list', listType: 'bullet', children: [{
+        type: 'listitem', children: [{
+          type: 'list', listType: 'number', children: [{ type: 'listitem', children: [text('nested')] }],
+        }],
+      }],
+    }))).toEqual<Block[]>([
+      { kind: 'listItem', ordered: false, level: 0, runs: [] },
+      { kind: 'listItem', ordered: true, level: 1, runs: [{ text: 'nested' }] },
+    ]);
+  });
+
   it('exports template variables as their placeholder', () => {
     const blocks = toBlocks(state(para(text('Hi '), { type: 'template-variable', variableName: 'name' })));
     expect(blocks[0]).toEqual<Block>({ kind: 'paragraph', runs: [{ text: 'Hi ' }, { text: '{{name}}' }] });

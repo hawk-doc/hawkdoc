@@ -43,13 +43,54 @@ function textRuns(runs: Run[]): (TextRun | ExternalHyperlink)[] {
   });
 }
 
+type ImageType = 'png' | 'jpg' | 'gif' | 'bmp';
+
+function imageType(data: ArrayBuffer, contentType: string | null): ImageType | null {
+  const bytes = new Uint8Array(data);
+  const startsWith = (...signature: number[]) => signature.every((byte, index) => bytes[index] === byte);
+  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'png';
+  if (startsWith(0xff, 0xd8, 0xff)) return 'jpg';
+  if (startsWith(0x47, 0x49, 0x46, 0x38, 0x37, 0x61) || startsWith(0x47, 0x49, 0x46, 0x38, 0x39, 0x61)) return 'gif';
+  if (startsWith(0x42, 0x4d)) return 'bmp';
+  // Word/docx cannot embed WebP, even if a server labels it as PNG.
+  if (startsWith(0x52, 0x49, 0x46, 0x46) && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP') return null;
+  switch (contentType?.split(';')[0].trim().toLowerCase()) {
+    case 'image/png': return 'png';
+    case 'image/jpeg': return 'jpg';
+    case 'image/gif': return 'gif';
+    case 'image/bmp': return 'bmp';
+    default: return null;
+  }
+}
+
+async function imageDimensions(data: ArrayBuffer, type: ImageType): Promise<{ width: number; height: number }> {
+  const url = URL.createObjectURL(new Blob([data], { type: `image/${type === 'jpg' ? 'jpeg' : type}` }));
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('Could not decode image'));
+      image.src = url;
+    });
+    const { naturalWidth: width, naturalHeight: height } = image;
+    if (width <= 0 || height <= 0) throw new Error('Invalid image dimensions');
+    const scale = Math.min(1, 480 / width, 320 / height);
+    return { width: width * scale, height: height * scale };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 async function imageParagraph(src: string): Promise<Paragraph | null> {
   try {
     const res = await fetch(src);
     if (!res.ok) return null;
     const data = await res.arrayBuffer();
+    const type = imageType(data, res.headers.get('Content-Type'));
+    if (!type) return null;
+    const transformation = await imageDimensions(data, type);
     return new Paragraph({
-      children: [new ImageRun({ data, transformation: { width: 480, height: 320 }, type: 'png' })],
+      children: [new ImageRun({ data, transformation, type })],
       spacing: { before: 120, after: 120 },
     });
   } catch {
