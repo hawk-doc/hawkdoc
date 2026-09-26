@@ -46,6 +46,7 @@ hawkdoc/
 - Template variable injection — `{{variable_name}}` becomes a `TemplateVariableNode` (styled chip)
 - PDF export with watermark via Export menu in toolbar (`DocumentPDF.tsx`)
 - Markdown and HTML export (in toolbar Export dropdown)
+- Word export and import — `Export as Word (.docx)` and `Import Word (.docx)` in the Export menu
 - Auto-save with 800ms debounce to localStorage (`useAutoSave.ts`)
 - Editable document title
 - Code block with copy-to-clipboard (`CodeBlockPlugin.tsx`)
@@ -61,9 +62,23 @@ hawkdoc/
 - Zod env validation at startup (`env.ts`)
 
 ## What Is Planned (not started)
-- DOCX import/export
 - Version history (the `document_versions` table exists but is unused)
 - Document sharing between users (collaboration is currently owner-only)
+
+## Word (.docx) Import and Export
+
+Export is two layers, so the mapping can be tested without generating a file:
+`lib/docx/model.ts` turns Lexical's serialised state into blocks (headings,
+runs with formatting and links, nested lists, code, dividers, page breaks,
+images, tables), and `lib/docx/render.ts` writes those blocks with the `docx`
+package. `lib/docxExport.ts` loads the renderer on demand — it must stay out
+of the initial bundle, like the PDF renderer.
+
+Import goes the other way: `lib/docx/import.ts` converts the file to HTML with
+mammoth, and `lib/docxImport.ts` turns that HTML into Lexical nodes in a single
+editor update, so it is one undo step. Files over 10MB and non-.docx files are
+refused with a message; the editor shows a dismissable alert because import
+replaces the document.
 
 ## Document Trash
 Deleting a document is a soft delete: `documents.deleted_at` is set, the row
