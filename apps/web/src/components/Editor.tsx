@@ -32,6 +32,7 @@ import { FindReplacePlugin } from './FindReplacePlugin';
 import { DraggableBlockPlugin } from './DraggableBlockPlugin';
 import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
 import { exportPdf } from '../lib/pdfExport';
+import { exportDocx } from '../lib/docxExport';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES, MAX_TITLE_LENGTH } from '../constants/editor';
 import type { SlashMenuState } from '../interfaces';
 
@@ -211,6 +212,18 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     }
   }, [editorState, title, isExporting]);
 
+  const handleExportDOCX = useCallback(async () => {
+    if (!editorState || isExporting) return;
+    setIsExporting(true);
+    try {
+      await exportDocx(editorState, title);
+    } catch (err) {
+      console.error('DOCX export failed:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [editorState, title, isExporting]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
@@ -242,6 +255,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
         <EditorToolbar
           editor={editorInstance}
           onExportPDF={handleExportPDF}
+          onExportDOCX={handleExportDOCX}
           isSaving={isSaving || isExporting}
           title={title}
           onToggleFocusMode={() => setFocusMode(true)}

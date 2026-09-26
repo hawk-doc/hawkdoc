@@ -46,6 +46,7 @@ import {
   Download,
   FileText,
   FileDown,
+  FileType2,
   Undo2,
   Redo2,
   Check,
@@ -57,6 +58,7 @@ import {
   ClipboardCopy,
 } from 'lucide-react';
 import { preloadPdfExport } from '../lib/pdfExport';
+import { preloadDocxExport } from '../lib/docxExport';
 
 
 
@@ -87,7 +89,7 @@ const HIGHLIGHT_COLORS = [
 ];
 
 
-export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFocusMode, collabStatus }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onExportPDF, onExportDOCX, isSaving, title, onToggleFocusMode, collabStatus }: EditorToolbarProps) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [blockType, setBlockType] = useState<BlockType>('paragraph');
@@ -663,8 +665,8 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
             type="button"
             className="flex items-center gap-1.5 h-7 px-2.5 sm:px-3 bg-notion-text text-white rounded-lg text-sm font-medium hover:bg-opacity-80 transition-opacity"
             onClick={() => setExportOpen((v) => !v)}
-            onPointerEnter={preloadPdfExport}
-            onFocus={preloadPdfExport}
+            onPointerEnter={() => { preloadPdfExport(); preloadDocxExport(); }}
+            onFocus={() => { preloadPdfExport(); preloadDocxExport(); }}
             title="Export"
           >
             <Download size={13} />
@@ -678,6 +680,11 @@ export function EditorToolbar({ editor, onExportPDF, isSaving, title, onToggleFo
                 icon={<FileText size={14} className="text-red-500" />}
                 label="Export as PDF"
                 onClick={() => { onExportPDF(); setExportOpen(false); }}
+              />
+              <ExportItem
+                icon={<FileType2 size={14} className="text-sky-600" />}
+                label="Export as Word (.docx)"
+                onClick={() => { onExportDOCX(); setExportOpen(false); }}
               />
               <ExportItem
                 icon={<FileDown size={14} className="text-blue-500" />}

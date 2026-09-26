@@ -33,6 +33,7 @@ export interface DocMeta {
 export interface EditorToolbarProps {
   editor: LexicalEditor;
   onExportPDF: () => void;
+  onExportDOCX: () => void;
   isSaving: boolean;
   title: string;
   onToggleFocusMode: () => void;
