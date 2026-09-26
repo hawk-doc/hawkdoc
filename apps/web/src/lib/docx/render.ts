@@ -110,14 +110,17 @@ async function elementFor(block: Block): Promise<(Paragraph | Table)[]> {
   }
 }
 
-/** Builds the .docx for a document's blocks, titled with the document title */
-export async function renderDocx(blocks: Block[], title: string): Promise<Blob> {
+/**
+ * Builds the Word document for a set of blocks. Separate from packing it into
+ * a file so tests can read the WordprocessingML it produces.
+ */
+export async function buildDocument(blocks: Block[], title: string): Promise<Document> {
   const body: (Paragraph | Table)[] = [
     new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: title || 'Untitled' })], alignment: AlignmentType.LEFT }),
   ];
   for (const block of blocks) body.push(...(await elementFor(block)));
 
-  const doc = new Document({
+  return new Document({
     title: title || 'Untitled',
     numbering: {
       config: [
@@ -127,6 +130,9 @@ export async function renderDocx(blocks: Block[], title: string): Promise<Blob> 
     },
     sections: [{ children: body }],
   });
+}
 
-  return Packer.toBlob(doc);
+/** Packs the document into a .docx file */
+export async function renderDocx(blocks: Block[], title: string): Promise<Blob> {
+  return Packer.toBlob(await buildDocument(blocks, title));
 }
