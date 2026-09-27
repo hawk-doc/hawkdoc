@@ -4,6 +4,7 @@ import query from '../db.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { hocuspocusServer } from '../hocuspocus.js';
 import { redis, docBufferKey } from '../redis.js';
+import { listVersions, reconstructVersion } from '../versions.js';
 import type { Request } from 'express';
 
 /**
@@ -48,6 +49,22 @@ const ListQuerySchema = z.object({
 const DocIdSchema = z.object({
   id: z.string().uuid(),
 });
+
+const VersionParamsSchema = DocIdSchema.extend({
+  versionId: z.string().uuid(),
+});
+
+/**
+ * Version history hangs off a document, so it answers 404 under exactly the
+ * same conditions the document itself does: not yours, or in the trash.
+ */
+async function ownsActiveDocument(docId: string, userId: string): Promise<boolean> {
+  const result = await query<{ id: string }>(
+    'SELECT id FROM documents WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL',
+    [docId, userId],
+  );
+  return result.rows.length > 0;
+}
 
 // List documents for the authenticated user
 documentsRouter.get('/', async (req: Request, res) => {
@@ -109,6 +126,65 @@ documentsRouter.get('/:id', async (req: Request, res) => {
       yjsState: doc.yjs_state ? doc.yjs_state.toString('base64') : null,
       updatedAt: doc.updated_at,
     });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+// A document's version history, newest first. Only metadata — each version's
+// content is a separate request, since rebuilding one is not free.
+documentsRouter.get('/:id/versions', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
+
+    if (!(await ownsActiveDocument(id, userId))) {
+      res.status(404).json({ error: 'Document not found' });
+      return;
+    }
+
+    const versions = await listVersions(id);
+    res.json(
+      versions.map((version) => ({
+        id: version.id,
+        createdAt: version.createdAt.toISOString(),
+        sizeBytes: version.sizeBytes,
+      })),
+    );
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+// The document's full state as of one version, for the client to show and
+// restore from. Base64 like GET /:id, so both speak the same currency.
+documentsRouter.get('/:id/versions/:versionId', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const { id, versionId } = VersionParamsSchema.parse(req.params);
+
+    if (!(await ownsActiveDocument(id, userId))) {
+      res.status(404).json({ error: 'Document not found' });
+      return;
+    }
+
+    const state = await reconstructVersion(id, versionId);
+    if (!state) {
+      res.status(404).json({ error: 'Version not found' });
+      return;
+    }
+
+    res.json({ id: versionId, yjsState: state.toString('base64') });
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.flatten() });
