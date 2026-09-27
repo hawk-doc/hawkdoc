@@ -28,13 +28,16 @@ export function versionDay(timestamp: number, now = Date.now()): string {
   });
 }
 
-/** How long ago, for the newest version's "last saved" line */
-export function versionAge(timestamp: number, now = Date.now()): string {
+/**
+ * How long ago a version was taken, or null past a day — by then the day
+ * heading above it already says when, and repeating it reads as noise.
+ */
+export function versionAge(timestamp: number, now = Date.now()): string | null {
   const diff = now - timestamp;
   if (diff < MINUTE) return 'just now';
   if (diff < HOUR) return `${Math.floor(diff / MINUTE)}m ago`;
   if (diff < 24 * HOUR) return `${Math.floor(diff / HOUR)}h ago`;
-  return versionDay(timestamp, now);
+  return null;
 }
 
 export interface VersionDay {

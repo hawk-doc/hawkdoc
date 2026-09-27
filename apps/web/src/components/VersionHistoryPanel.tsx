@@ -186,6 +186,8 @@ export function VersionHistoryPanel({
               {dayVersions.map((version) => {
                 const isSelected = version.id === selectedId;
                 const isNewest = version.id === versions[0]?.id;
+                const age = versionAge(version.createdAt);
+                const meta = isNewest ? ['latest', age].filter(Boolean).join(' · ') : age;
                 return (
                   <button
                     key={version.id}
@@ -199,15 +201,17 @@ export function VersionHistoryPanel({
                     }`}
                   >
                     <span>{versionTime(version.createdAt)}</span>
-                    <span
-                      className={
-                        isSelected
-                          ? 'text-[11px] opacity-70'
-                          : 'text-[11px] text-notion-muted dark:text-[#5f6368]'
-                      }
-                    >
-                      {isNewest ? `latest · ${versionAge(version.createdAt)}` : versionAge(version.createdAt)}
-                    </span>
+                    {meta && (
+                      <span
+                        className={
+                          isSelected
+                            ? 'text-[11px] opacity-70'
+                            : 'text-[11px] text-notion-muted dark:text-[#5f6368]'
+                        }
+                      >
+                        {meta}
+                      </span>
+                    )}
                   </button>
                 );
               })}
