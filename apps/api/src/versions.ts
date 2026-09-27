@@ -30,7 +30,9 @@ export type RecordOutcome =
   /** The document hasn't changed since the newest version */
   | 'unchanged'
   /** The newest version is too recent; the edits land in the next one */
-  | 'too-soon';
+  | 'too-soon'
+  /** The document was deleted while its last state was being written */
+  | 'no-document';
 
 interface LatestRow {
   state_vector: Buffer | null;
@@ -96,11 +98,15 @@ export async function recordVersion(
     delta = Buffer.from(Y.diffUpdate(state, newest.state_vector));
   }
 
-  await query(
+  // INSERT ... SELECT rather than VALUES: closing a permanently deleted
+  // document's editing sessions writes its final state, and by then the row is
+  // gone. This records nothing instead of failing the foreign key.
+  const inserted = await query(
     `INSERT INTO document_versions (document_id, update_data, state_vector)
-     VALUES ($1, $2, $3)`,
+     SELECT id, $2, $3 FROM documents WHERE id = $1`,
     [docId, delta, vector],
   );
+  if (inserted.rowCount === 0) return 'no-document';
 
   await pruneVersions(docId);
   return 'created';
@@ -191,4 +197,21 @@ export async function reconstructVersion(
 
   const merged = Y.mergeUpdates(result.rows.map((row) => new Uint8Array(row.update_data)));
   return Buffer.from(merged);
+}
+
+/**
+ * Record a version as part of saving a document. History is secondary to the
+ * save itself, so a failure here is logged and swallowed rather than allowed
+ * to fail the write that triggered it.
+ */
+export async function tryRecordVersion(
+  docId: string,
+  state: Buffer,
+  options: { force?: boolean } = {},
+): Promise<void> {
+  try {
+    await recordVersion(docId, state, options);
+  } catch (err) {
+    console.error(`Failed to record a version for ${docId}:`, err);
+  }
 }
