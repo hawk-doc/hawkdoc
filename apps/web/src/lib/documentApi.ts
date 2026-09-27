@@ -20,7 +20,7 @@ function toDocMeta(row: ApiDocRow): DocMeta {
   };
 }
 
-function authHeaders(token: string, withBody = false): HeadersInit {
+export function authHeaders(token: string, withBody = false): HeadersInit {
   return withBody
     ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
     : { Authorization: `Bearer ${token}` };
@@ -45,7 +45,8 @@ export class UnauthorizedError extends Error {
   }
 }
 
-function ensureOk(res: Response, token: string, action: string): void {
+/** Shared by every authenticated call so a 401 always ends the session */
+export function ensureOk(res: Response, token: string, action: string): void {
   if (res.status === 401) throw new UnauthorizedError(token);
   if (!res.ok) throw new Error(`Failed to ${action} (${res.status})`);
 }
