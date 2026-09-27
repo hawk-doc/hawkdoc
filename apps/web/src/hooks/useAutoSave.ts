@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import type { EditorState } from 'lexical';
 import { DOC_KEY_PREFIX, DEBOUNCE_MS } from '../constants/autosave';
 import { saveDocContent } from '../lib/documentApi';
+import { recordLocalVersion } from '../lib/versions/localVersions';
 import type { AutoSaveData } from '../interfaces';
 
 export function loadDocContent(docId: string): AutoSaveData | null {
@@ -29,7 +30,12 @@ export function useAutoSave(
   const pendingDataRef = useRef<AutoSaveData | null>(null);
 
   const saveMutation = useMutation({
-    mutationFn: (data: AutoSaveData) => saveDocContent(docId, data),
+    mutationFn: async (data: AutoSaveData) => {
+      await saveDocContent(docId, data);
+      // Offline documents keep their own history; the snapshot is throttled
+      // inside recordLocalVersion, not taken on every save.
+      recordLocalVersion(docId, data.content);
+    },
   });
 
   useEffect(() => {

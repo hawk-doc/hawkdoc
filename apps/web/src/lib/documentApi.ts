@@ -1,4 +1,5 @@
 import { DOCS_LIST_KEY, DOC_KEY_PREFIX, STORAGE_KEY, TRASH_LIST_KEY } from '../constants/autosave';
+import { clearLocalVersions } from './versions/localVersions';
 import type { AutoSaveData, DocMeta } from '../interfaces';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -199,6 +200,7 @@ export async function purgeDocument(id: string, token: string | null): Promise<v
   }
 
   localStorage.removeItem(`${DOC_KEY_PREFIX}${id}`);
+  clearLocalVersions(id);
   saveTrash(loadLocalTrash().filter((d) => d.id !== id));
 }
 
@@ -215,7 +217,10 @@ export async function emptyTrash(token: string | null): Promise<number> {
   }
 
   const trashed = loadLocalTrash();
-  for (const doc of trashed) localStorage.removeItem(`${DOC_KEY_PREFIX}${doc.id}`);
+  for (const doc of trashed) {
+    localStorage.removeItem(`${DOC_KEY_PREFIX}${doc.id}`);
+    clearLocalVersions(doc.id);
+  }
   saveTrash([]);
   return trashed.length;
 }
