@@ -85,7 +85,11 @@ describe('version history over the API', () => {
 describe('version history offline', () => {
   it('lists and reads the local snapshots', async () => {
     const start = Date.now();
-    recordLocalVersion(DOC, JSON.stringify({ root: { children: [] } }), start);
+    recordLocalVersion(
+      DOC,
+      JSON.stringify({ root: { children: [{ children: [{ text: 'earlier' }] }] } }),
+      start,
+    );
     recordLocalVersion(
       DOC,
       JSON.stringify({ root: { children: [{ children: [{ text: 'later' }] }] } }),
@@ -104,7 +108,11 @@ describe('version history offline', () => {
 
   it('never reaches the network', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch');
-    recordLocalVersion(DOC, JSON.stringify({ root: { children: [] } }), Date.now());
+    recordLocalVersion(
+      DOC,
+      JSON.stringify({ root: { children: [{ children: [{ text: 'offline work' }] }] } }),
+      Date.now(),
+    );
 
     const versions = await fetchVersions(DOC, OFFLINE);
     await fetchVersionContent(DOC, versions[0]!.id, OFFLINE);

@@ -18,7 +18,39 @@ function state(text: string): string {
 beforeEach(() => { localStorage.clear(); });
 afterEach(() => { vi.restoreAllMocks(); });
 
+const EMPTY = JSON.stringify({
+  root: { type: 'root', children: [{ type: 'paragraph', children: [] }] },
+});
+
 describe('local version snapshots', () => {
+  it('does not start a history with an empty document', () => {
+    // The editor reports its state the moment it mounts; snapshotting that
+    // would leave the throttle holding back the first real content
+    const start = Date.now();
+    expect(recordLocalVersion(DOC, EMPTY, start)).toBe(false);
+    expect(recordLocalVersion(DOC, JSON.stringify({ root: { children: [] } }), start)).toBe(false);
+    expect(listLocalVersions(DOC)).toEqual([]);
+
+    // The first typed character is what starts it, without waiting
+    expect(recordLocalVersion(DOC, state('first words'), start + 500)).toBe(true);
+    expect(listLocalVersions(DOC)).toHaveLength(1);
+  });
+
+  it('starts a history for a document holding only an image', () => {
+    // "Empty" means nothing a reader would notice, not "no text"
+    const imageOnly = JSON.stringify({
+      root: { type: 'root', children: [{ type: 'image', src: '/uploads/a.png' }] },
+    });
+    expect(recordLocalVersion(DOC, imageOnly, Date.now())).toBe(true);
+  });
+
+  it('keeps an empty state once a history exists, because clearing is an edit', () => {
+    const start = Date.now();
+    recordLocalVersion(DOC, state('some writing'), start);
+    expect(recordLocalVersion(DOC, EMPTY, start + LOCAL_VERSION_INTERVAL_MS)).toBe(true);
+    expect(listLocalVersions(DOC)).toHaveLength(2);
+  });
+
   it('records the first snapshot and reads it back', () => {
     const now = Date.now();
     expect(recordLocalVersion(DOC, state('first'), now)).toBe(true);

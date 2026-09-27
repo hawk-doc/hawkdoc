@@ -78,6 +78,36 @@ function persist(docId: string, versions: LocalVersion[]): boolean {
   return false;
 }
 
+interface SerializedNode {
+  type?: string;
+  text?: string;
+  children?: SerializedNode[];
+}
+
+/** Anything a reader would notice: text, or a node that isn't just a wrapper */
+function hasSubstance(node: SerializedNode): boolean {
+  if (typeof node.text === 'string' && node.text.length > 0) return true;
+  if (node.type && !['root', 'paragraph', 'linebreak'].includes(node.type)) return true;
+  return (node.children ?? []).some(hasSubstance);
+}
+
+/**
+ * An editor state with nothing in it — a document that was just opened.
+ *
+ * The editor reports its state as soon as it mounts, so without this the first
+ * snapshot of a new document would be the empty one, and the throttle would
+ * then hold back the real content for the next five minutes.
+ */
+function isEmpty(content: string): boolean {
+  try {
+    const parsed = JSON.parse(content) as { root?: SerializedNode };
+    return !(parsed.root?.children ?? []).some(hasSubstance);
+  } catch {
+    // Unreadable rather than empty: keep it, so nothing is silently dropped
+    return false;
+  }
+}
+
 /**
  * Snapshot `content` if the newest snapshot is old enough and the document has
  * actually changed. Returns whether one was taken.
@@ -85,6 +115,10 @@ function persist(docId: string, versions: LocalVersion[]): boolean {
 export function recordLocalVersion(docId: string, content: string, now = Date.now()): boolean {
   const versions = listLocalVersions(docId);
   const newest = versions[0];
+
+  // Don't start a history with an empty document. Once there is one, an empty
+  // state is a real edit — someone cleared the document — and is kept.
+  if (!newest && isEmpty(content)) return false;
 
   if (newest) {
     if (now - newest.createdAt < LOCAL_VERSION_INTERVAL_MS) return false;
