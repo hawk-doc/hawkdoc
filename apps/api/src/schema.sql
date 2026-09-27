@@ -29,13 +29,24 @@ ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS documents_owner_updated
   ON documents (owner_id, deleted_at, updated_at DESC);
 
--- document_versions stores incremental Yjs update deltas (not full snapshots)
+-- document_versions stores incremental Yjs update deltas (not full snapshots).
+-- Each row holds the changes since the row before it, so the state at any
+-- version is the merge of every delta up to and including it. state_vector
+-- describes the document as of this version, which is what the next delta is
+-- computed against; seq orders the chain (created_at can tie).
 CREATE TABLE IF NOT EXISTS document_versions (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-  update_data BYTEA NOT NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id  UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  update_data  BYTEA NOT NULL,
+  state_vector BYTEA,
+  seq          BIGSERIAL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS document_versions_document_id
-  ON document_versions (document_id, created_at DESC);
+-- Existing installs predating version history
+ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS state_vector BYTEA;
+ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS seq BIGSERIAL;
+
+-- Walking one document's chain, oldest first, and finding its newest version
+CREATE INDEX IF NOT EXISTS document_versions_document_seq
+  ON document_versions (document_id, seq);
