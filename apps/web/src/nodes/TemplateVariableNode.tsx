@@ -34,9 +34,11 @@ export class TemplateVariableNode extends DecoratorNode<ReactNode> {
     this.__variableName = variableName;
   }
 
+  // Built literally, like ImageNode: DecoratorNode's exportJSON is a base
+  // method that throws, so spreading it makes every editorState.toJSON() on a
+  // document containing a variable fail — autosave and the exporters included.
   exportJSON(): SerializedTemplateVariableNode {
     return {
-      ...super.exportJSON(),
       type: 'template-variable',
       version: 1,
       variableName: this.__variableName,
