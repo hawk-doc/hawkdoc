@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Version history: a document's past states are kept as it is edited — one every few minutes and one at the end of each editing session — and the toolbar's History panel lists them by day, previews any of them and restores it. Restoring is an ordinary edit, so collaborators see it, it becomes a version of its own and it can be undone. Versions are stored as Yjs deltas, so a long history costs about what the document does; each document keeps its fifty most recent. Signed out, the same panel reads snapshots kept in the browser
 - Word documents: `Export as Word (.docx)` keeps headings, bold/italic/underline/strikethrough, inline code, links, nested lists, quotes, code blocks, page breaks, images and tables; `Import Word (.docx)` reads a Word file into the editor. Both load on demand, so neither adds to the initial bundle
 - Test suites: Vitest in both workspaces — API integration tests against PostgreSQL (trash lifecycle, access control, validation) and jsdom tests for the offline document store, title sync and session expiry. Run them with `npm test` in each workspace; CI does not run them yet
 - Trash for documents: deleting moves a document to the trash instead of destroying it, and it can be restored from the sidebar's Trash view. Permanently deleting one document or emptying the trash asks for confirmation first. Works signed in (PostgreSQL) and signed out (localStorage)
@@ -38,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document title edits sync to storage after an 800ms debounce instead of on every keystroke; the sidebar still updates instantly, and pending edits flush on document switch, delete-cancel, and tab close
 
 ### Fixed
+- Documents containing a `{{template_variable}}` could not be serialized: `editorState.toJSON()` threw, which broke offline auto-save and the PDF and Word exports for exactly the documents the feature exists for
+- `@lexical/yjs` resolved to a version that bundled its own copy of Lexical, so any runtime use of the collaboration binding threw "Unable to find an active editor state"
 - `/healthz` reported OK even when PostgreSQL or Redis was unreachable; it now checks both, bounds each probe, and answers 503 when either is down
 - The document title could exceed the 500-character limit the API enforces, so the save failed silently
 - Text typed in collaborative (signed-in) documents was never synced or saved — it didn't reach the server or other tabs and was lost on reload

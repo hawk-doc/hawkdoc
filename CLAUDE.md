@@ -47,6 +47,7 @@ hawkdoc/
 - PDF export with watermark via Export menu in toolbar (`DocumentPDF.tsx`)
 - Markdown and HTML export (in toolbar Export dropdown)
 - Word export and import — `Export as Word (.docx)` and `Import Word (.docx)` in the Export menu
+- Version history — the toolbar's History button opens a panel listing past versions, previews one and restores it (`VersionHistoryPanel.tsx`)
 - Auto-save with 800ms debounce to localStorage (`useAutoSave.ts`)
 - Editable document title
 - Code block with copy-to-clipboard (`CodeBlockPlugin.tsx`)
@@ -62,7 +63,6 @@ hawkdoc/
 - Zod env validation at startup (`env.ts`)
 
 ## What Is Planned (not started)
-- Version history (the `document_versions` table exists but is unused)
 - Document sharing between users (collaboration is currently owner-only)
 
 ## Word (.docx) Import and Export
@@ -79,6 +79,36 @@ mammoth, and `lib/docxImport.ts` turns that HTML into Lexical nodes in a single
 editor update, so it is one undo step. Files over 10MB and non-.docx files are
 refused with a message; the editor shows a dismissable alert because import
 replaces the document.
+
+## Version History
+
+Versions are Yjs update **deltas** in `document_versions`, never snapshots:
+each row holds what changed since the row before it, `state_vector` describes
+the document as of that version (what the next delta is diffed against) and
+`seq` orders the chain. The state at a version is the merge of every delta up
+to it — see `reconstructVersion` in `apps/api/src/versions.ts`.
+
+`recordVersion` runs from both save paths (the Redis flush and the Hocuspocus
+disconnect, the latter unthrottled), skips unchanged states, and keeps the
+newest `MAX_VERSIONS_PER_DOC`. Pruning **merges** the deltas it drops into the
+oldest surviving version — deleting them would break every version rebuilt
+from the chain.
+
+The client reads a version through the same binding live collaboration uses
+(`lib/versions/decode.ts`): a Lexical editor with no root element, a provider
+that connects to nothing, and the Yjs state replayed into it. Do not write a
+second Yjs-to-Lexical converter — it would drift from what the editor renders.
+`lib/versions/decode.ts` must stay out of the initial bundle.
+
+Restoring writes the old content inside `editor.update()`
+(`lib/versions/restore.ts`), so it travels through Yjs like any other edit:
+collaborators see it, it is recorded as a new version and it can be undone.
+Never restore with `setEditorState` — that bypasses Yjs and desynchronises
+everyone else.
+
+Signed out there is no Yjs, so `lib/versions/localVersions.ts` keeps snapshots
+of the editor state in localStorage instead, throttled the same way and capped;
+they give way rather than failing a save when the quota is reached.
 
 ## Document Trash
 Deleting a document is a soft delete: `documents.deleted_at` is set, the row
@@ -240,6 +270,8 @@ npm test --workspace=apps/web   # jsdom tests
 - Web tests use Vitest + jsdom + Testing Library.
 - Add tests next to what they cover: `src/routes/documents.trash.test.ts`,
   `src/hooks/useDocumentStore.test.tsx`.
+- `src/test/collab.ts` (web) builds the Yjs state a collaborative document
+  would hold, so tests can work with what the API really stores.
 
 ## Running the Project
 ```bash
