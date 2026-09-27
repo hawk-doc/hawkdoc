@@ -35,6 +35,7 @@ export interface EditorToolbarProps {
   onExportPDF: () => void;
   onExportDOCX: () => void;
   onImportDOCX: (file: File) => void;
+  onOpenHistory: () => void;
   isSaving: boolean;
   title: string;
   onToggleFocusMode: () => void;

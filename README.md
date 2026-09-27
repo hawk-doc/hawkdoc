@@ -112,8 +112,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup guide, Windows instruction
 | Auto-save (localStorage) | Working |
 | Backend API (Express) | Skeleton |
 | Auth (JWT backend) | Skeleton |
-| Real-time collaboration (Yjs) | Planned |
-| DOCX import/export | Planned |
+| Real-time collaboration (Yjs) | Working |
+| DOCX import/export | Working |
+| Version history | Working |
 
 The UI is intentionally minimal at this stage. Design improvements will come later.
 
@@ -121,11 +122,11 @@ The UI is intentionally minimal at this stage. Design improvements will come lat
 
 ## Roadmap
 
-- [ ] Real-time collaboration (Hocuspocus + Yjs)
+- [x] Real-time collaboration (Hocuspocus + Yjs)
 - [ ] User auth UI (JWT backend is ready)
 - [ ] Document list and workspace
-- [ ] DOCX import/export
-- [ ] Version history
+- [x] DOCX import/export
+- [x] Version history
 
 ---
 

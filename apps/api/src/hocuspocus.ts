@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from './env.js';
 import query from './db.js';
 import { redis, docBufferKey, deleteBufferIfUnchanged } from './redis.js';
+import { tryRecordVersion } from './versions.js';
 import * as Y from 'yjs';
 import type { HocuspocusContext } from './interfaces/index.js';
 import { INVALID_TOKEN_REASON } from './constants/auth.js';
@@ -23,12 +24,13 @@ export async function waitForDisconnectWrites(): Promise<void> {
 }
 
 async function persistOnDisconnect(docId: string, document: Y.Doc): Promise<void> {
+  let state: Uint8Array | null = null;
   try {
     // Read the buffer before encoding: everything in it is included in the
     // state we write, so it's safe to drop — unless another client changed
     // the document meanwhile, in which case the newer buffer is kept.
     const buffered = await redis.getBuffer(docBufferKey(docId));
-    const state = Y.encodeStateAsUpdate(document);
+    state = Y.encodeStateAsUpdate(document);
     await query(
       `UPDATE documents SET yjs_state = $1, updated_at = NOW() WHERE id = $2`,
       [Buffer.from(state), docId],
@@ -36,7 +38,12 @@ async function persistOnDisconnect(docId: string, document: Y.Doc): Promise<void
     if (buffered) await deleteBufferIfUnchanged(docId, buffered);
   } catch (err) {
     console.error(`Failed to flush on disconnect for ${docId}:`, err);
+    return;
   }
+
+  // The end of an editing session is worth a version whatever the clock says,
+  // so this one isn't throttled. An unchanged document still records nothing.
+  await tryRecordVersion(docId, Buffer.from(state), { force: true });
 }
 
 export const hocuspocusServer = Server.configure({

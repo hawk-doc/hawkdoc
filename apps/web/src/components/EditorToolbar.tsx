@@ -57,6 +57,7 @@ import {
   Highlighter,
   Maximize2,
   ClipboardCopy,
+  History,
 } from 'lucide-react';
 import { preloadPdfExport } from '../lib/pdfExport';
 import { preloadDocxExport } from '../lib/docxExport';
@@ -91,7 +92,7 @@ const HIGHLIGHT_COLORS = [
 ];
 
 
-export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX, isSaving, title, onToggleFocusMode, collabStatus }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX, onOpenHistory, isSaving, title, onToggleFocusMode, collabStatus }: EditorToolbarProps) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [blockType, setBlockType] = useState<BlockType>('paragraph');
@@ -661,6 +662,17 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
         )}
 
         <Sep />
+
+        {/* Version history */}
+        <button
+          type="button"
+          onClick={onOpenHistory}
+          title="Version history"
+          aria-label="Version history"
+          className="flex h-8 w-8 items-center justify-center rounded text-[#444746] transition-colors hover:bg-[#f1f3f4] dark:text-[#c4c7c5] dark:hover:bg-[#2d2f31]"
+        >
+          <History size={16} />
+        </button>
 
         {/* Export dropdown */}
         <div className="relative" ref={exportRef}>

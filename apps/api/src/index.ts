@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { hocuspocusServer, waitForDisconnectWrites } from './hocuspocus.js';
 import { redis, startFlushScheduler, flushBufferedDocs } from './redis.js';
 import query, { pool } from './db.js';
+import { tryRecordVersion } from './versions.js';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -13,6 +14,9 @@ async function persistDocState(docId: string, update: Buffer): Promise<void> {
     `UPDATE documents SET yjs_state = $1, updated_at = NOW() WHERE id = $2`,
     [update, docId],
   );
+  // Throttled inside recordVersion, so a document saved every 30 seconds
+  // collects a version every few minutes rather than every flush.
+  await tryRecordVersion(docId, update);
 }
 
 // Flush scheduler: buffer Redis → PostgreSQL every 30s

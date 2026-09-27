@@ -1,4 +1,5 @@
 import { DOCS_LIST_KEY, DOC_KEY_PREFIX, STORAGE_KEY, TRASH_LIST_KEY } from '../constants/autosave';
+import { clearLocalVersions } from './versions/localVersions';
 import type { AutoSaveData, DocMeta } from '../interfaces';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -19,7 +20,7 @@ function toDocMeta(row: ApiDocRow): DocMeta {
   };
 }
 
-function authHeaders(token: string, withBody = false): HeadersInit {
+export function authHeaders(token: string, withBody = false): HeadersInit {
   return withBody
     ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
     : { Authorization: `Bearer ${token}` };
@@ -44,7 +45,8 @@ export class UnauthorizedError extends Error {
   }
 }
 
-function ensureOk(res: Response, token: string, action: string): void {
+/** Shared by every authenticated call so a 401 always ends the session */
+export function ensureOk(res: Response, token: string, action: string): void {
   if (res.status === 401) throw new UnauthorizedError(token);
   if (!res.ok) throw new Error(`Failed to ${action} (${res.status})`);
 }
@@ -199,6 +201,7 @@ export async function purgeDocument(id: string, token: string | null): Promise<v
   }
 
   localStorage.removeItem(`${DOC_KEY_PREFIX}${id}`);
+  clearLocalVersions(id);
   saveTrash(loadLocalTrash().filter((d) => d.id !== id));
 }
 
@@ -215,7 +218,10 @@ export async function emptyTrash(token: string | null): Promise<number> {
   }
 
   const trashed = loadLocalTrash();
-  for (const doc of trashed) localStorage.removeItem(`${DOC_KEY_PREFIX}${doc.id}`);
+  for (const doc of trashed) {
+    localStorage.removeItem(`${DOC_KEY_PREFIX}${doc.id}`);
+    clearLocalVersions(doc.id);
+  }
   saveTrash([]);
   return trashed.length;
 }

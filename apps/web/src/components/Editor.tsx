@@ -34,8 +34,12 @@ import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
 import { exportPdf } from '../lib/pdfExport';
 import { exportDocx } from '../lib/docxExport';
 import { importDocx } from '../lib/docxImport';
+import { VersionHistoryPanel } from './VersionHistoryPanel';
+import { restoreEditorState } from '../lib/versions/restore';
+import { preloadVersionHistory } from '../lib/versionApi';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES, MAX_TITLE_LENGTH } from '../constants/editor';
 import type { SlashMenuState } from '../interfaces';
+import type { SerializedEditorState } from 'lexical';
 
 // ─── Slash + template-variable detection plugin ───────────────────────────────
 
@@ -171,6 +175,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
   const [isExporting, setIsExporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [collabStatus, setCollabStatus] = useState<CollabStatus>('connecting');
   const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
   const onPaperRef = useCallback((el: HTMLDivElement | null) => { setAnchorElem(el); }, []);
@@ -240,6 +245,17 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     }
   }, [editorInstance, isExporting]);
 
+  const handleOpenHistory = useCallback(() => {
+    // Reading a version needs the Yjs binding; fetch it while the list loads
+    if (isCollab) preloadVersionHistory();
+    setHistoryOpen(true);
+  }, [isCollab]);
+
+  const handleRestoreVersion = useCallback((state: SerializedEditorState) => {
+    if (!editorInstance) return;
+    restoreEditorState(editorInstance, state);
+  }, [editorInstance]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
@@ -273,6 +289,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
           onExportPDF={handleExportPDF}
           onExportDOCX={handleExportDOCX}
           onImportDOCX={(file) => { void handleImportDOCX(file); }}
+          onOpenHistory={handleOpenHistory}
           isSaving={isSaving || isExporting}
           title={title}
           onToggleFocusMode={() => setFocusMode(true)}
@@ -406,6 +423,15 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
       {editorInstance && <BubbleMenu editor={editorInstance} />}
 
     </div>
+
+    {/* Version history — a drawer over the document */}
+    <VersionHistoryPanel
+      docId={docId}
+      token={collabToken ?? null}
+      open={historyOpen}
+      onClose={() => setHistoryOpen(false)}
+      onRestore={handleRestoreVersion}
+    />
 
     {/* Focus mode — floating exit button */}
     {focusMode && (
