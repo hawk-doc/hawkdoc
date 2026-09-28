@@ -39,6 +39,9 @@ const DAY_HEADING = new Date(at(10)).toLocaleDateString(undefined, {
   month: 'long',
 });
 
+/** Stands in for a version whose content the API refuses to return */
+const FAILS = '__fails__';
+
 interface ServerHistory {
   versions: { id: string; createdAt: string; sizeBytes: number }[];
   content: Record<string, string>;
@@ -50,6 +53,9 @@ function mockApi(history: ServerHistory | { error: number }) {
       return { ok: false, status: history.error, json: async () => ({}), text: async () => '' } as Response;
     }
     const match = /\/versions\/(.+)$/.exec(url);
+    if (match && history.content[match[1]!] === FAILS) {
+      return { ok: false, status: 500, json: async () => ({}), text: async () => '' } as Response;
+    }
     const body = match
       ? { id: match[1], yjsState: history.content[match[1]!] }
       : history.versions;
@@ -317,5 +323,30 @@ describe('version history diff', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Version preview').textContent)
       .toContain('the newest text'));
+  });
+});
+
+describe('version history panel, loading the comparison', () => {
+  it('keeps a failing earlier version out of the Document tab', async () => {
+    // The panel opens on Document while the comparison defaults to the
+    // previous version, so that request must not colour this view.
+    mockApi({
+      versions: [
+        { id: 'v2', createdAt: AT_11, sizeBytes: 30 },
+        { id: 'v1', createdAt: AT_10, sizeBytes: 800 },
+      ],
+      content: { v1: FAILS, v2: versionState('the newest text') },
+    });
+
+    renderPanel(TOKEN);
+
+    await waitFor(() => expect(screen.getByLabelText('Version preview').textContent)
+      .toContain('the newest text'));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByText(/Reading this version/)).toBeNull();
+
+    // On the Changes tab the same failure is exactly what the reader needs
+    fireEvent.click(changesTab());
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
   });
 });

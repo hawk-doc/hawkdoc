@@ -143,8 +143,12 @@ export function VersionHistoryPanel({
   );
 
   const canCompareCurrent = getCurrentState !== undefined;
-  const comparingLoading = isPreviewLoading || (compareWith === 'previous' && isPreviousLoading);
-  const comparingError = previewError ?? (compareWith === 'previous' ? previousError : null);
+  // The panel opens on Document while the comparison defaults to the previous
+  // version, so that request is in flight behind a view that doesn't use it.
+  // Only the Changes tab should show its progress or its failures.
+  const usesPrevious = view === 'changes' && compareWith === 'previous';
+  const comparingLoading = isPreviewLoading || (usesPrevious && isPreviousLoading);
+  const comparingError = previewError ?? (usesPrevious ? previousError : null);
   const noEarlierVersion = compareWith === 'previous' && previousId === null && !isPreviewLoading;
 
   return (
