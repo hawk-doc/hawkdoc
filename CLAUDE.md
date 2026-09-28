@@ -47,7 +47,7 @@ hawkdoc/
 - PDF export with watermark via Export menu in toolbar (`DocumentPDF.tsx`)
 - Markdown and HTML export (in toolbar Export dropdown)
 - Word export and import — `Export as Word (.docx)` and `Import Word (.docx)` in the Export menu
-- Version history — the toolbar's History button opens a panel listing past versions, previews one and restores it (`VersionHistoryPanel.tsx`)
+- Version history — the toolbar's History button opens a panel listing past versions, previews one, shows what changed in it, and restores it (`VersionHistoryPanel.tsx`)
 - Auto-save with 800ms debounce to localStorage (`useAutoSave.ts`)
 - Editable document title
 - Code block with copy-to-clipboard (`CodeBlockPlugin.tsx`)
@@ -64,6 +64,37 @@ hawkdoc/
 
 ## What Is Planned (not started)
 - Document sharing between users (collaboration is currently owner-only)
+
+### Version history follow-ups
+Highest value first. The constraint on each line is the part worth keeping —
+each was worked out against the shipped code, not guessed at.
+
+- **Named versions.** "Save a version now" with a label, plus a `pinned` column
+  so a named version outlives the cap. `pruneVersions` merges rather than
+  drops, so pinned rows only need excluding from the candidates.
+- **A guaranteed recovery point before destructive actions.**
+  `POST /api/documents/:id/versions` to force one, called before a Word import
+  and before a restore — both replace the whole document. It also covers a tab
+  that dies without closing its socket, where the final state otherwise waits
+  out the five-minute throttle.
+- **Export a version without restoring it.** The preview already holds the
+  decoded state; wire it to `lib/docxExport.ts` and `lib/pdfExport.ts`.
+- **Copy one block out of a version** instead of replacing the document.
+  `lib/versions/restore.ts` already parses serialised nodes — apply it to a
+  selection rather than the whole root.
+- **Say what a version is worth** in the list: a word-count delta rather than
+  `sizeBytes`, which the API returns today and the UI ignores.
+- **Arrow-key navigation** through the version list, and an `aria-live` region
+  for the preview while it loads. Escape and the Tab trap are already there.
+- **Attribution** (`document_versions.created_by`). A version spans a whole
+  flush window, so it is a *set* of contributors, not one user. Build it with
+  document sharing — it is near-pointless while collaboration is owner-only.
+- **Retention thinning** instead of the flat cap of fifty: keep everything for
+  a day, hourly for a week, daily beyond, reusing the merge-on-prune code so
+  history reaches back months at the same row count.
+- **Offline history is per-browser and invisible anywhere else**, and the panel
+  does not say so. Either say it in the empty state, or sync local snapshots up
+  on first sign-in.
 
 ## Word (.docx) Import and Export
 
@@ -109,6 +140,25 @@ everyone else.
 Signed out there is no Yjs, so `lib/versions/localVersions.ts` keeps snapshots
 of the editor state in localStorage instead, throttled the same way and capped;
 they give way rather than failing a save when the quota is reached.
+
+### Comparing versions
+`lib/versions/diff.ts` compares two decoded states and `VersionDiff.tsx`
+renders the result; the panel's Changes tab compares the selected version
+either with the one before it or with the document as it stands. The
+comparison is **structural**: documents are flattened into the blocks a reader
+recognises (paragraphs, list items, table rows), matched with a
+longest-common-subsequence pass, and blocks that survived in edited form are
+compared again word by word. Diffing serialised JSON or plain text would
+report a moved paragraph as a deletion plus an insertion, and a list as
+changed whenever one bullet is added. A heading's level is part of its
+identity, so H2 → H1 registers.
+
+Matching is quadratic, so it runs over a flat typed table and stops at
+`MAX_BLOCKS`, reporting the comparison as truncated. Keep the rendering in
+`<ins>`/`<del>` with text markers — a diff that works only in colour doesn't
+work for everyone. Do **not** reach for Yjs snapshot attribution
+(`Y.snapshot`): it requires `gc: false`, which makes every document grow
+forever.
 
 ## Document Trash
 Deleting a document is a soft delete: `documents.deleted_at` is set, the row

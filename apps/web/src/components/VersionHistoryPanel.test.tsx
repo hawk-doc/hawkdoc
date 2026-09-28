@@ -39,6 +39,9 @@ const DAY_HEADING = new Date(at(10)).toLocaleDateString(undefined, {
   month: 'long',
 });
 
+/** Stands in for a version whose content the API refuses to return */
+const FAILS = '__fails__';
+
 interface ServerHistory {
   versions: { id: string; createdAt: string; sizeBytes: number }[];
   content: Record<string, string>;
@@ -50,6 +53,9 @@ function mockApi(history: ServerHistory | { error: number }) {
       return { ok: false, status: history.error, json: async () => ({}), text: async () => '' } as Response;
     }
     const match = /\/versions\/(.+)$/.exec(url);
+    if (match && history.content[match[1]!] === FAILS) {
+      return { ok: false, status: 500, json: async () => ({}), text: async () => '' } as Response;
+    }
     const body = match
       ? { id: match[1], yjsState: history.content[match[1]!] }
       : history.versions;
@@ -57,7 +63,36 @@ function mockApi(history: ServerHistory | { error: number }) {
   }) as unknown as typeof fetch;
 }
 
-function renderPanel(token: string | null, onRestore = vi.fn()) {
+/** A serialised editor state holding one paragraph, as the editor would report */
+function currentDocument(text: string): SerializedEditorState {
+  return {
+    root: {
+      type: 'root', version: 1, direction: null, format: '', indent: 0,
+      children: [{
+        type: 'paragraph', version: 1, direction: null, format: '', indent: 0,
+        children: [{ type: 'text', version: 1, text, detail: 0, format: 0, mode: 'normal', style: '' }],
+      }],
+    },
+  } as unknown as SerializedEditorState;
+}
+
+const TWO_VERSIONS = {
+  versions: [
+    { id: 'v2', createdAt: AT_11, sizeBytes: 30 },
+    { id: 'v1', createdAt: AT_10, sizeBytes: 800 },
+  ],
+  content: { v1: versionState('the older text'), v2: versionState('the newest text') },
+};
+
+const changesTab = () => screen.getByRole('tab', { name: 'Changes' });
+const insertions = () => [...document.querySelectorAll('ins')].map((node) => node.textContent?.trim());
+const deletions = () => [...document.querySelectorAll('del')].map((node) => node.textContent?.trim());
+
+function renderPanel(
+  token: string | null,
+  onRestore = vi.fn(),
+  getCurrentState?: () => SerializedEditorState | null,
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(QueryClientProvider, { client }, children);
@@ -68,6 +103,7 @@ function renderPanel(token: string | null, onRestore = vi.fn()) {
       open: true,
       onClose: vi.fn(),
       onRestore,
+      ...(getCurrentState ? { getCurrentState } : {}),
     }),
     { wrapper },
   );
@@ -204,5 +240,113 @@ describe('version history panel', () => {
     await waitFor(() => expect(screen.getByLabelText('Version preview').textContent)
       .toContain('saved offline'));
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('version history diff', () => {
+  it('shows what changed in the selected version, word by word', async () => {
+    mockApi(TWO_VERSIONS);
+    renderPanel(TOKEN);
+    await waitFor(() => expect(versionButtons()).toHaveLength(2));
+
+    fireEvent.click(changesTab());
+
+    // v2 is selected by default, so this compares it with v1
+    await waitFor(() => expect(insertions()).toContain('newest'));
+    expect(deletions()).toContain('older');
+    expect(screen.getByText(/1 edited/)).toBeTruthy();
+  });
+
+  it('compares the version with the document as it stands', async () => {
+    mockApi(TWO_VERSIONS);
+    renderPanel(TOKEN, vi.fn(), () => currentDocument('the newest text with an ending'));
+    await waitFor(() => expect(versionButtons()).toHaveLength(2));
+
+    fireEvent.click(changesTab());
+    await waitFor(() => expect(insertions().length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole('button', { name: 'current' }));
+
+    await waitFor(() => expect(insertions().join(' ')).toContain('with an ending'));
+    expect(deletions()).toEqual([]);
+  });
+
+  it('says when a version has nothing before it', async () => {
+    mockApi(TWO_VERSIONS);
+    renderPanel(TOKEN, vi.fn(), () => currentDocument('anything'));
+    await waitFor(() => expect(versionButtons()).toHaveLength(2));
+
+    // The oldest version is the last row
+    fireEvent.click(versionButtons()[1]!);
+    fireEvent.click(changesTab());
+
+    await waitFor(() => expect(screen.getByText(/earliest version kept/)).toBeTruthy());
+    expect(screen.getByRole('button', { name: /Compare it with the document/ })).toBeTruthy();
+  });
+
+  it('reports two identical versions as unchanged rather than blank', async () => {
+    mockApi({
+      versions: [
+        { id: 'v2', createdAt: AT_11, sizeBytes: 30 },
+        { id: 'v1', createdAt: AT_10, sizeBytes: 30 },
+      ],
+      content: { v1: versionState('untouched'), v2: versionState('untouched') },
+    });
+    renderPanel(TOKEN);
+    await waitFor(() => expect(versionButtons()).toHaveLength(2));
+
+    fireEvent.click(changesTab());
+
+    await waitFor(() => expect(screen.getByText('Nothing changed in this version.')).toBeTruthy());
+  });
+
+  it('offers no document comparison when the editor cannot provide one', async () => {
+    mockApi(TWO_VERSIONS);
+    renderPanel(TOKEN);
+    await waitFor(() => expect(versionButtons()).toHaveLength(2));
+
+    fireEvent.click(changesTab());
+
+    await waitFor(() => expect(insertions().length).toBeGreaterThan(0));
+    expect(screen.queryByRole('button', { name: 'current' })).toBeNull();
+  });
+
+  it('keeps showing the version itself on the Document tab', async () => {
+    mockApi(TWO_VERSIONS);
+    renderPanel(TOKEN);
+    await waitFor(() => expect(versionButtons()).toHaveLength(2));
+
+    fireEvent.click(changesTab());
+    await waitFor(() => expect(insertions().length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Document' }));
+
+    await waitFor(() => expect(screen.getByLabelText('Version preview').textContent)
+      .toContain('the newest text'));
+  });
+});
+
+describe('version history panel, loading the comparison', () => {
+  it('keeps a failing earlier version out of the Document tab', async () => {
+    // The panel opens on Document while the comparison defaults to the
+    // previous version, so that request must not colour this view.
+    mockApi({
+      versions: [
+        { id: 'v2', createdAt: AT_11, sizeBytes: 30 },
+        { id: 'v1', createdAt: AT_10, sizeBytes: 800 },
+      ],
+      content: { v1: FAILS, v2: versionState('the newest text') },
+    });
+
+    renderPanel(TOKEN);
+
+    await waitFor(() => expect(screen.getByLabelText('Version preview').textContent)
+      .toContain('the newest text'));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByText(/Reading this version/)).toBeNull();
+
+    // On the Changes tab the same failure is exactly what the reader needs
+    fireEvent.click(changesTab());
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
   });
 });

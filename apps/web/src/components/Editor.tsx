@@ -251,6 +251,13 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     setHistoryOpen(true);
   }, [isCollab]);
 
+  // Read on demand rather than passed down: the editor state changes on every
+  // keystroke, and handing it to the panel as a prop would re-render it with
+  // every one of them.
+  const getCurrentState = useCallback((): SerializedEditorState | null => (
+    editorInstance ? editorInstance.getEditorState().toJSON() : null
+  ), [editorInstance]);
+
   const handleRestoreVersion = useCallback((state: SerializedEditorState) => {
     if (!editorInstance) return;
     restoreEditorState(editorInstance, state);
@@ -431,6 +438,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
       open={historyOpen}
       onClose={() => setHistoryOpen(false)}
       onRestore={handleRestoreVersion}
+      getCurrentState={getCurrentState}
     />
 
     {/* Focus mode — floating exit button */}
