@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { History, RotateCcw, X } from 'lucide-react';
 import type { SerializedEditorState } from 'lexical';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
@@ -6,6 +6,8 @@ import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { ConfirmDialog } from './ConfirmDialog';
+import { VersionDiff } from './VersionDiff';
+import { diffEditorStates } from '../lib/versions/diff';
 import { useDocumentVersions } from '../hooks/useDocumentVersions';
 import { EDITOR_NODES, EDITOR_THEME } from '../constants/editor';
 import { groupVersionsByDay, versionAge, versionTime } from '../lib/versions/format';
@@ -19,7 +21,17 @@ interface VersionHistoryPanelProps {
   onClose: () => void;
   /** Hands the chosen version's content back to the editor to apply */
   onRestore: (state: SerializedEditorState) => void;
+  /**
+   * The document as it stands, read when the panel opens so a version can be
+   * compared with it. A callback rather than a prop: the editor's state changes
+   * on every keystroke, and a changing prop would re-render the panel with it.
+   */
+  getCurrentState?: () => SerializedEditorState | null;
 }
+
+/** What a version is compared against */
+type CompareBase = 'previous' | 'current';
+type PaneView = 'document' | 'changes';
 
 /** The selected version, rendered by the editor itself so it looks exactly right */
 function VersionPreview({ state, versionId }: { state: SerializedEditorState; versionId: string }) {
@@ -54,16 +66,26 @@ function VersionPreview({ state, versionId }: { state: SerializedEditorState; ve
 }
 
 export function VersionHistoryPanel({
-  docId, token, open, onClose, onRestore,
+  docId, token, open, onClose, onRestore, getCurrentState,
 }: VersionHistoryPanelProps) {
   const {
     versions, isLoading, error,
     selectedId, select,
     preview, isPreviewLoading, previewError,
+    previousId, previous, isPreviousLoading, previousError,
   } = useDocumentVersions(docId, token, open);
   const [confirming, setConfirming] = useState(false);
+  const [view, setView] = useState<PaneView>('document');
+  const [compareWith, setCompareWith] = useState<CompareBase>('previous');
+  const [currentState, setCurrentState] = useState<SerializedEditorState | null>(null);
   const panelRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  // The panel covers the document behind a backdrop, so what it captures on
+  // open stays true for as long as it is open.
+  useEffect(() => {
+    if (open) setCurrentState(getCurrentState?.() ?? null);
+  }, [open, getCurrentState]);
 
   useEffect(() => {
     if (!open) return;
@@ -108,6 +130,22 @@ export function VersionHistoryPanel({
 
   const selected = versions.find((version) => version.id === selectedId);
   const canRestore = preview !== null && !isPreviewLoading;
+
+  // Comparing with the previous version answers "what changed here"; comparing
+  // with the document answers "what would restoring this undo".
+  const [before, after] = compareWith === 'current'
+    ? [preview, currentState]
+    : [previous, preview];
+
+  const diff = useMemo(
+    () => (before && after ? diffEditorStates(before, after) : null),
+    [before, after],
+  );
+
+  const canCompareCurrent = getCurrentState !== undefined;
+  const comparingLoading = isPreviewLoading || (compareWith === 'previous' && isPreviousLoading);
+  const comparingError = previewError ?? (compareWith === 'previous' ? previousError : null);
+  const noEarlierVersion = compareWith === 'previous' && previousId === null && !isPreviewLoading;
 
   return (
     <>
@@ -219,18 +257,108 @@ export function VersionHistoryPanel({
           ))}
         </div>
 
-        {/* Preview of the selected version */}
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          {isPreviewLoading && (
-            <p className="text-[13px] text-notion-muted dark:text-[#9aa0a6]">Reading this version…</p>
-          )}
-          {previewError && (
-            <p role="alert" className="text-[13px] text-red-600 dark:text-red-400">
-              {previewError.message}
+        {/* What the pane shows: the version itself, or what changed in it */}
+        {versions.length > 0 && (
+          <div className="flex flex-shrink-0 items-center gap-2 border-b border-notion-border px-3 py-1.5 dark:border-[#3c4043]">
+            <div role="tablist" aria-label="Version view" className="flex gap-1">
+              {([['document', 'Document'], ['changes', 'Changes']] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  id={`version-tab-${value}`}
+                  aria-selected={view === value}
+                  aria-controls="version-pane"
+                  onClick={() => setView(value)}
+                  className={`rounded-md px-2 py-1 text-[12px] font-medium transition-colors ${
+                    view === value
+                      ? 'bg-notion-text text-white dark:bg-[#e8eaed] dark:text-[#202020]'
+                      : 'text-notion-muted hover:bg-notion-hover dark:text-[#9aa0a6] dark:hover:bg-[#2d2f31]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {view === 'changes' && canCompareCurrent && (
+              <div className="ml-auto flex items-center gap-1 text-[11px] text-notion-muted dark:text-[#5f6368]">
+                <span>compared with</span>
+                {([['previous', 'previous'], ['current', 'current']] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={compareWith === value}
+                    onClick={() => setCompareWith(value)}
+                    className={`rounded px-1.5 py-0.5 transition-colors ${
+                      compareWith === value
+                        ? 'bg-black/5 font-semibold text-notion-text dark:bg-white/10 dark:text-[#e8eaed]'
+                        : 'hover:bg-notion-hover dark:hover:bg-[#2d2f31]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* The selected version, or the comparison */}
+        <div
+          id="version-pane"
+          role="tabpanel"
+          aria-labelledby={`version-tab-${view}`}
+          className="flex-1 overflow-y-auto px-4 py-4"
+        >
+          {comparingLoading && (
+            <p className="text-[13px] text-notion-muted dark:text-[#9aa0a6]">
+              {view === 'changes' ? 'Comparing…' : 'Reading this version…'}
             </p>
           )}
-          {preview && selectedId && !isPreviewLoading && (
+
+          {comparingError && !comparingLoading && (
+            <p role="alert" className="text-[13px] text-red-600 dark:text-red-400">
+              {comparingError.message}
+            </p>
+          )}
+
+          {view === 'document' && preview && selectedId && !isPreviewLoading && !previewError && (
             <VersionPreview state={preview} versionId={selectedId} />
+          )}
+
+          {view === 'changes' && !comparingLoading && !comparingError && (
+            noEarlierVersion ? (
+              <p className="text-[13px] leading-relaxed text-notion-muted dark:text-[#9aa0a6]">
+                This is the earliest version kept, so there is nothing before it to compare.
+                {canCompareCurrent && (
+                  <>
+                    {' '}
+                    <button
+                      type="button"
+                      onClick={() => setCompareWith('current')}
+                      className="font-medium underline underline-offset-2 hover:opacity-80"
+                    >
+                      Compare it with the document instead
+                    </button>
+                    .
+                  </>
+                )}
+              </p>
+            ) : diff ? (
+              <VersionDiff
+                diff={diff}
+                identicalMessage={
+                  compareWith === 'current'
+                    ? 'This version matches the document as it is now.'
+                    : 'Nothing changed in this version.'
+                }
+              />
+            ) : (
+              <p className="text-[13px] text-notion-muted dark:text-[#9aa0a6]">
+                There is nothing to compare yet.
+              </p>
+            )
           )}
         </div>
 
