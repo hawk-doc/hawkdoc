@@ -49,7 +49,7 @@ export interface VersionDiff {
  * compared up to this point and reported as truncated. A document this long
  * is far past what the editor's A4 page is for.
  */
-const MAX_BLOCKS = 800;
+export const MAX_BLOCKS = 800;
 
 /** Above this, a block is reported as replaced rather than diffed word by word */
 const MAX_TOKENS = 600;

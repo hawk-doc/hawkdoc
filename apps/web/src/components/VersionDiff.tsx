@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MAX_BLOCKS } from '../lib/versions/diff';
 import type { DiffBlock, DiffRun, VersionDiff as Diff } from '../lib/versions/diff';
 
 /**
@@ -101,6 +102,19 @@ function Context({ blocks }: { blocks: DiffBlock[] }) {
   );
 }
 
+/**
+ * Shown whenever a comparison stopped early — including when everything it did
+ * compare matched, where "nothing changed" on its own would claim more than
+ * the comparison can support.
+ */
+function TruncationNotice() {
+  return (
+    <p className="mb-2 rounded bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+      This document is long enough that only its first {MAX_BLOCKS} blocks were compared.
+    </p>
+  );
+}
+
 function summarize(diff: Diff): string {
   const parts = [
     diff.added > 0 ? `${diff.added} added` : null,
@@ -126,7 +140,10 @@ function groupBlocks(blocks: DiffBlock[]): DiffBlock[][] {
 export function VersionDiff({ diff, identicalMessage }: VersionDiffProps) {
   if (diff.isIdentical) {
     return (
-      <p className="text-[13px] text-notion-muted dark:text-[#9aa0a6]">{identicalMessage}</p>
+      <>
+        {diff.truncated && <TruncationNotice />}
+        <p className="text-[13px] text-notion-muted dark:text-[#9aa0a6]">{identicalMessage}</p>
+      </>
     );
   }
 
@@ -136,11 +153,7 @@ export function VersionDiff({ diff, identicalMessage }: VersionDiffProps) {
         {summarize(diff)}
       </p>
 
-      {diff.truncated && (
-        <p className="mb-2 rounded bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-          This document is long enough that only its first 800 blocks were compared.
-        </p>
-      )}
+      {diff.truncated && <TruncationNotice />}
 
       {groupBlocks(diff.blocks).map((group) =>
         group[0]?.status === 'unchanged'
