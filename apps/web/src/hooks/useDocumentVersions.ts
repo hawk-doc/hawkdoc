@@ -16,6 +16,11 @@ export interface DocumentVersionsState {
   preview: SerializedEditorState | null;
   isPreviewLoading: boolean;
   previewError: Error | null;
+  /** The version recorded before the selected one, if the history still has it */
+  previousId: string | null;
+  previous: SerializedEditorState | null;
+  isPreviousLoading: boolean;
+  previousError: Error | null;
 }
 
 /**
@@ -54,6 +59,20 @@ export function useDocumentVersions(
     staleTime: Infinity,
   });
 
+  // The list runs newest first, so the version before the selected one is the
+  // next entry down. Comparing against it is what "changes in this version"
+  // means; it shares the content query, so stepping through a history reads
+  // each version at most once.
+  const selectedIndex = versions.findIndex((version) => version.id === selectedId);
+  const previousId = selectedIndex >= 0 ? versions[selectedIndex + 1]?.id ?? null : null;
+
+  const previous = useQuery({
+    queryKey: [VERSION_CONTENT_QUERY_KEY, docId, previousId, token],
+    queryFn: () => fetchVersionContent(docId, previousId!, token),
+    enabled: open && previousId !== null,
+    staleTime: Infinity,
+  });
+
   const select = useCallback((versionId: string) => { setPicked(versionId); }, []);
 
   return {
@@ -65,5 +84,9 @@ export function useDocumentVersions(
     preview: content.data ?? null,
     isPreviewLoading: content.isPending && selectedId !== null && open,
     previewError: content.error,
+    previousId,
+    previous: previous.data ?? null,
+    isPreviousLoading: previous.isPending && previousId !== null && open,
+    previousError: previous.error,
   };
 }
