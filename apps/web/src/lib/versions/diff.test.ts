@@ -160,7 +160,7 @@ describe('diffEditorStates', () => {
     expect(diffEditorStates(many(900, 'line'), many(900, 'line')).truncated).toBe(true);
   });
 
-  it('stays fast on a document of realistic length', () => {
+  it('matches a long document instead of rewriting it', () => {
     const before = doc(...Array.from({ length: 300 }, (_, i) => para(`Paragraph number ${i}.`)));
     const after = doc(
       ...Array.from({ length: 300 }, (_, i) => para(i === 150 ? 'Paragraph number edited.' : `Paragraph number ${i}.`)),
@@ -168,8 +168,17 @@ describe('diffEditorStates', () => {
 
     const started = performance.now();
     const diff = diffEditorStates(before, after);
-    expect(performance.now() - started).toBeLessThan(500);
+    const elapsed = performance.now() - started;
+
+    // What actually matters, and doesn't depend on the machine: one edit
+    // found, and the other 299 paragraphs matched rather than being reported
+    // as 299 deletions followed by 299 insertions.
     expect(diff.changed).toBe(1);
     expect(diff.added + diff.removed).toBe(0);
+    expect(diff.blocks).toHaveLength(300);
+
+    // A loose smoke bound on top: this runs in tens of milliseconds, so
+    // seconds would mean the matching changed shape, not a busy test runner.
+    expect(elapsed).toBeLessThan(3_000);
   });
 });
