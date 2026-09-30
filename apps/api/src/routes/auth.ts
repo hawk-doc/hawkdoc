@@ -6,14 +6,25 @@ import { signToken } from '../middleware/auth.js';
 
 export const authRouter = Router();
 
+// Email addresses are matched case-insensitively, so normalise once here:
+// "Ada@Example.com" and "ada@example.com" are the same account.
+const EmailSchema = z.string().trim().toLowerCase().email();
+
+// PostgreSQL's unique_violation
+const UNIQUE_VIOLATION = '23505';
+
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === UNIQUE_VIOLATION;
+}
+
 const RegisterSchema = z.object({
-  email: z.string().email(),
+  email: EmailSchema,
   password: z.string().min(8),
   name: z.string().min(1).max(100),
 });
 
 const LoginSchema = z.object({
-  email: z.string().email(),
+  email: EmailSchema,
   password: z.string(),
 });
 
@@ -36,7 +47,7 @@ authRouter.post('/register', async (req, res) => {
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.flatten() });
-    } else if (err instanceof Error && err.message.includes('unique')) {
+    } else if (isUniqueViolation(err)) {
       res.status(409).json({ error: 'Email already registered' });
     } else {
       console.error(err);
@@ -55,22 +66,24 @@ authRouter.post('/login', async (req, res) => {
       name: string;
       password_hash: string;
     }>(
-      'SELECT id, email, name, password_hash FROM users WHERE email = $1',
+      // LOWER() so accounts registered before emails were normalised still sign in
+      'SELECT id, email, name, password_hash FROM users WHERE LOWER(email) = $1',
       [body.email],
     );
 
-    const user = result.rows[0];
-    if (!user) {
+    const matches: typeof result.rows = [];
+    for (const user of result.rows) {
+      if (await bcrypt.compare(body.password, user.password_hash)) {
+        matches.push(user);
+      }
+    }
+
+    if (matches.length !== 1) {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
 
-    const valid = await bcrypt.compare(body.password, user.password_hash);
-    if (!valid) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
+    const user = matches[0];
     const token = signToken({ userId: user.id, email: user.email });
     res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
   } catch (err) {

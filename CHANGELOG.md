@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document title edits sync to storage after an 800ms debounce instead of on every keystroke; the sidebar still updates instantly, and pending edits flush on document switch, delete-cancel, and tab close
 
 ### Fixed
+- Sign-in no longer depends on how an email address is capitalised. Addresses are trimmed and lower-cased on register and login, preventing case-only duplicates among new registrations. Legacy mixed-case addresses are not rewritten, so a new case-only duplicate of a legacy account remains possible. Login succeeds only when exactly one matching account accepts the password. A duplicate address is now detected by PostgreSQL's error code rather than by its message text
 - Documents containing a `{{template_variable}}` could not be serialized: `editorState.toJSON()` threw, which broke offline auto-save and the PDF and Word exports for exactly the documents the feature exists for
 - `@lexical/yjs` resolved to a version that bundled its own copy of Lexical, so any runtime use of the collaboration binding threw "Unable to find an active editor state"
 - `/healthz` reported OK even when PostgreSQL or Redis was unreachable; it now checks both, bounds each probe, and answers 503 when either is down
