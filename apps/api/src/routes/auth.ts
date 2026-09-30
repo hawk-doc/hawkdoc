@@ -71,18 +71,19 @@ authRouter.post('/login', async (req, res) => {
       [body.email],
     );
 
-    const user = result.rows[0];
-    if (!user) {
+    const matches: typeof result.rows = [];
+    for (const user of result.rows) {
+      if (await bcrypt.compare(body.password, user.password_hash)) {
+        matches.push(user);
+      }
+    }
+
+    if (matches.length !== 1) {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
 
-    const valid = await bcrypt.compare(body.password, user.password_hash);
-    if (!valid) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
+    const user = matches[0];
     const token = signToken({ userId: user.id, email: user.email });
     res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
   } catch (err) {
