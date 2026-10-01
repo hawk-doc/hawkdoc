@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JWT authentication
 
 ### Changed
+- `PATCH /api/documents/:id` with no fields to update now answers 400 instead of silently bumping `updated_at` and reordering the document list
 - `docker compose up` now applies `schema.sql` when the database volume is first created
 - Removed the unused `packages/shared` workspace
 - Sign-in form and the header sign-in button now use the app's near-black primary instead of blue, matching the Export button (inverted in dark mode for contrast)

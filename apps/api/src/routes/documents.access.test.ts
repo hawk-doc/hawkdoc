@@ -75,6 +75,18 @@ describe('document input validation', () => {
     await request(app).patch(`/api/documents/${doc.id}`).set(user.auth).send({ title: 'a'.repeat(500) }).expect(200);
   });
 
+  it('rejects an update that changes nothing without touching updated_at', async () => {
+    const user = await signUp();
+    const doc = await createDoc(user, 'Stable');
+    const read = async () =>
+      (await request(app).get(`/api/documents/${doc.id}`).set(user.auth).expect(200)).body as { updatedAt: string };
+    const before = await read();
+
+    await request(app).patch(`/api/documents/${doc.id}`).set(user.auth).send({}).expect(400);
+
+    expect((await read()).updatedAt).toBe(before.updatedAt);
+  });
+
   it('defaults an omitted title to Untitled', async () => {
     const user = await signUp();
     const res = await request(app).post('/api/documents').set(user.auth).send({}).expect(201);
