@@ -4,7 +4,7 @@ import query from '../db.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { hocuspocusServer } from '../hocuspocus.js';
 import { redis, docBufferKey } from '../redis.js';
-import { listVersions, reconstructVersion } from '../versions.js';
+import { listVersions, reconstructVersion, tryRecordVersion } from '../versions.js';
 import type { Request } from 'express';
 
 /**
@@ -31,13 +31,16 @@ export const documentsRouter = Router();
 
 documentsRouter.use(requireAuth);
 
+/** Also enforced in the editor, so a long title fails before it is typed */
+const MAX_TITLE_LENGTH = 500;
+
 const CreateDocSchema = z.object({
-  title: z.string().min(1).max(500).default('Untitled'),
+  title: z.string().min(1).max(MAX_TITLE_LENGTH).default('Untitled'),
 });
 
 const UpdateDocSchema = z
   .object({
-    title: z.string().min(1).max(500).optional(),
+    title: z.string().min(1).max(MAX_TITLE_LENGTH).optional(),
   })
   // An update that changes nothing must not bump updated_at and reorder the list
   .refine((body) => body.title !== undefined, { message: 'Provide at least one field to update' });
@@ -309,6 +312,67 @@ documentsRouter.post('/', async (req: Request, res) => {
     );
 
     res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+/** Fits a copy's title inside the column, trimming the original, not the mark */
+function copyTitle(title: string): string {
+  const prefix = 'Copy of ';
+  return `${prefix}${title}`.slice(0, MAX_TITLE_LENGTH);
+}
+
+/**
+ * Duplicate a document, content and all.
+ *
+ * The copy is a document in its own right: its own id, its own history from
+ * this moment on. The content comes from the Redis buffer when one is there,
+ * because that is what the author last saw — PostgreSQL may be up to thirty
+ * seconds behind it.
+ */
+documentsRouter.post('/:id/duplicate', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
+
+    const source = await query<{ title: string; yjs_state: Buffer | null }>(
+      `SELECT title, yjs_state FROM documents
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`,
+      [id, userId],
+    );
+    const original = source.rows[0];
+    if (!original) {
+      res.status(404).json({ error: 'Document not found' });
+      return;
+    }
+
+    let state = original.yjs_state;
+    try {
+      state = (await redis.getBuffer(docBufferKey(id))) ?? state;
+    } catch (err) {
+      // A copy of the saved state beats failing the request outright
+      console.error(`Failed to read buffered state for ${id}:`, err);
+    }
+
+    const created = await query<{ id: string; title: string; created_at: string }>(
+      `INSERT INTO documents (owner_id, title, yjs_state)
+       VALUES ($1, $2, $3)
+       RETURNING id, title, created_at`,
+      [userId, copyTitle(original.title), state],
+    );
+
+    const copy = created.rows[0]!;
+    // So the copy's history holds what it was created from, not just what
+    // happens to it afterwards
+    if (state) await tryRecordVersion(copy.id, state, { force: true });
+
+    res.status(201).json(copy);
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.flatten() });
