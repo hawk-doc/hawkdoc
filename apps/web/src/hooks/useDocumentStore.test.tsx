@@ -24,7 +24,12 @@ beforeEach(() => {
     const body = method === 'GET' && url.includes('/api/documents') && !url.includes('trash')
       ? [docRow('doc-1', 'First'), docRow('doc-2', 'Second')]
       : method === 'GET' ? [] : { id: 'doc-1', title: 'ok' };
-    return { ok: true, status: 200, json: async () => body, text: async () => '' } as Response;
+    // The document list is paged, so the client reads the total and the next
+    // page's cursor out of the response headers
+    const headers = new Headers(
+      method === 'GET' && Array.isArray(body) ? { 'X-Total-Count': String(body.length) } : {},
+    );
+    return { ok: true, status: 200, headers, json: async () => body, text: async () => '' } as Response;
   }) as unknown as typeof fetch;
 });
 

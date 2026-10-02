@@ -1,22 +1,64 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ACTIVE_DOC_KEY, DEBOUNCE_MS } from '../constants/autosave';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
+import { ACTIVE_DOC_KEY, DEBOUNCE_MS, SEARCH_DEBOUNCE_MS } from '../constants/autosave';
 import {
   fetchDocuments,
   fetchTrashedDocuments,
   createDocument,
+  duplicateDocument,
   renameDocument,
   removeDocument,
   restoreDocument,
   purgeDocument,
   emptyTrash,
+  type DocumentPage,
 } from '../lib/documentApi';
 import type { DocMeta } from '../interfaces';
+
+/**
+ * The document list arrives a page at a time, so the cache holds pages rather
+ * than one array. These keep that shape out of the mutations, which only ever
+ * want to add, change or drop a document wherever it happens to sit.
+ */
+type DocsCache = InfiniteData<DocumentPage> | undefined;
+
+function flatten(cache: DocsCache): DocMeta[] {
+  return cache?.pages.flatMap((page) => page.docs) ?? [];
+}
+
+function mapDocs(cache: DocsCache, fn: (docs: DocMeta[]) => DocMeta[]): DocsCache {
+  if (!cache) return cache;
+  return { ...cache, pages: cache.pages.map((page) => ({ ...page, docs: fn(page.docs) })) };
+}
+
+/** A new document belongs at the top, which is the first page */
+function prependDoc(cache: DocsCache, doc: DocMeta): DocsCache {
+  if (!cache) return cache;
+  const [first, ...rest] = cache.pages;
+  if (!first) return cache;
+  return {
+    ...cache,
+    pages: [
+      { ...first, docs: [doc, ...first.docs], total: first.total === null ? null : first.total + 1 },
+      ...rest,
+    ],
+  };
+}
 
 // Title writes and deletes share one mutation scope so TanStack runs them
 // serially — an older PATCH can never land after a newer one and roll the
 // title back, and a queued PATCH can't hit a document already deleted.
 const DOCUMENT_MUTATION_SCOPE = { id: 'document' };
+
+interface CacheSnapshot {
+  docs: DocsCache;
+  trash: DocsCache;
+}
 
 interface TitleWrite {
   id: string;
@@ -24,8 +66,13 @@ interface TitleWrite {
   token: string | null;
 }
 
-function docsKey(token: string | null) {
-  return ['documents', token ?? 'local'] as const;
+/** Every cached document list, whatever is being searched for */
+function docsListPrefix(token: string | null) {
+  return ['documents', token ?? 'local', 'list'] as const;
+}
+
+function docsKey(token: string | null, q: string) {
+  return [...docsListPrefix(token), q] as const;
 }
 
 function trashKey(token: string | null) {
@@ -39,26 +86,50 @@ function getStoredActiveId(docs: DocMeta[]): string {
 
 export function useDocumentStore(token: string | null) {
   const queryClient = useQueryClient();
-  const DOCS_KEY = docsKey(token);
-  const { data: docs = [] } = useQuery({
+
+  // Searching is a query, not a filter over what happens to be loaded, so it
+  // waits for a pause in typing before it becomes one.
+  const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const DOCS_KEY = docsKey(token, searchQuery);
+  const docsQuery = useInfiniteQuery({
     queryKey: DOCS_KEY,
-    queryFn: () => fetchDocuments(token),
+    queryFn: ({ pageParam }) => fetchDocuments(token, { q: searchQuery, cursor: pageParam }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: DocumentPage) => last.nextCursor,
   });
+  const docs = useMemo(() => flatten(docsQuery.data), [docsQuery.data]);
+  const total = docsQuery.data?.pages[0]?.total ?? null;
 
   const TRASH_KEY = trashKey(token);
   // Only fetched once the user opens the trash
   const [trashOpen, setTrashOpen] = useState(false);
-  const { data: trashed = [] } = useQuery({
+  const trashQuery = useInfiniteQuery({
     queryKey: TRASH_KEY,
-    queryFn: () => fetchTrashedDocuments(token),
+    queryFn: ({ pageParam }) => fetchTrashedDocuments(token, { cursor: pageParam }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: DocumentPage) => last.nextCursor,
     enabled: trashOpen,
   });
+  const trashed = useMemo(() => flatten(trashQuery.data), [trashQuery.data]);
 
   const [activeId, setActiveId] = useState<string>(() => getStoredActiveId(docs));
 
+  // A document missing from the loaded pages isn't necessarily gone: it may be
+  // further down the list, or filtered out by a search. Only fall back to the
+  // top of the list when the whole of it is loaded and the document isn't in
+  // it — otherwise opening the app would quietly switch document.
+  const listIsComplete = !docsQuery.hasNextPage && searchQuery === '';
   const resolvedActiveId = docs.some((d) => d.id === activeId)
     ? activeId
-    : (docs[0]?.id ?? '');
+    : listIsComplete
+      ? (docs[0]?.id ?? '')
+      : activeId;
 
   const switchTo = useCallback((id: string) => {
     setActiveId(id);
@@ -67,19 +138,33 @@ export function useDocumentStore(token: string | null) {
 
   const setCachedTitle = useCallback(
     (id: string, title: string) => {
-      queryClient.setQueryData<DocMeta[]>(docsKey(token), (old = []) =>
-        old.map((d) => (d.id === id ? { ...d, title, updatedAt: Date.now() } : d)),
+      queryClient.setQueryData<DocsCache>(DOCS_KEY, (old) =>
+        mapDocs(old, (list) =>
+          list.map((d) => (d.id === id ? { ...d, title, updatedAt: Date.now() } : d)),
+        ),
       );
     },
-    [queryClient, token],
+    [queryClient, DOCS_KEY],
   );
 
   const createMutation = useMutation({
     mutationFn: () => createDocument(token),
     onSuccess: (newDoc) => {
-      queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) => [newDoc, ...old]);
+      queryClient.setQueryData<DocsCache>(DOCS_KEY, (old) => prependDoc(old, newDoc));
       switchTo(newDoc.id);
     },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: (id: string) => duplicateDocument(id, token),
+    scope: DOCUMENT_MUTATION_SCOPE,
+    onSuccess: (copy) => {
+      queryClient.setQueryData<DocsCache>(DOCS_KEY, (old) => prependDoc(old, copy));
+      // Other searches hold a list without the copy in it
+      void queryClient.invalidateQueries({ queryKey: docsListPrefix(token), refetchType: 'none' });
+      switchTo(copy.id);
+    },
+    onError: (err) => { console.error('Failed to duplicate document:', err); },
   });
 
   // Persists a title. The cache is updated optimistically by the callers, so
@@ -156,24 +241,21 @@ export function useDocumentStore(token: string | null) {
     scope: DOCUMENT_MUTATION_SCOPE,
     onError: (err, _id, context) => {
       console.error('Failed to move document to the trash:', err);
-      const prev = context as { docs?: DocMeta[]; trash?: DocMeta[] } | undefined;
-      if (prev?.docs) queryClient.setQueryData<DocMeta[]>(DOCS_KEY, prev.docs);
-      if (prev?.trash) queryClient.setQueryData<DocMeta[]>(TRASH_KEY, prev.trash);
+      rollback(context as CacheSnapshot | undefined);
     },
     onMutate: (removedId) => {
       cancelPendingTitle(removedId);
-      const before = {
-        docs: queryClient.getQueryData<DocMeta[]>(DOCS_KEY),
-        trash: queryClient.getQueryData<DocMeta[]>(TRASH_KEY),
-      };
-      const prev = queryClient.getQueryData<DocMeta[]>(DOCS_KEY) ?? [];
-      const removed = prev.find((d) => d.id === removedId);
-      const next = prev.filter((d) => d.id !== removedId);
-      queryClient.setQueryData<DocMeta[]>(DOCS_KEY, next);
+      const before = snapshot();
+      const loaded = flatten(before.docs);
+      const removed = loaded.find((d) => d.id === removedId);
+      const next = loaded.filter((d) => d.id !== removedId);
+      queryClient.setQueryData<DocsCache>(DOCS_KEY, (old) =>
+        mapDocs(old, (list) => list.filter((d) => d.id !== removedId)),
+      );
       // Show it in the trash straight away if that list has been loaded
       if (removed) {
-        queryClient.setQueryData<DocMeta[]>(TRASH_KEY, (old) =>
-          old ? [{ ...removed, deletedAt: Date.now() }, ...old] : old,
+        queryClient.setQueryData<DocsCache>(TRASH_KEY, (old) =>
+          prependDoc(old, { ...removed, deletedAt: Date.now() }),
         );
       }
       if (next.length === 0) {
@@ -189,15 +271,15 @@ export function useDocumentStore(token: string | null) {
 
   // Optimistic updates are rolled back if the write fails, so a failed
   // restore or delete can't leave the sidebar showing something untrue.
-  const snapshot = useCallback(() => ({
-    docs: queryClient.getQueryData<DocMeta[]>(DOCS_KEY),
-    trash: queryClient.getQueryData<DocMeta[]>(TRASH_KEY),
+  const snapshot = useCallback((): CacheSnapshot => ({
+    docs: queryClient.getQueryData<DocsCache>(DOCS_KEY),
+    trash: queryClient.getQueryData<DocsCache>(TRASH_KEY),
   }), [queryClient, DOCS_KEY, TRASH_KEY]);
 
-  const rollback = useCallback((prev: { docs?: DocMeta[]; trash?: DocMeta[] } | undefined) => {
+  const rollback = useCallback((prev: CacheSnapshot | undefined) => {
     if (!prev) return;
-    if (prev.docs) queryClient.setQueryData<DocMeta[]>(DOCS_KEY, prev.docs);
-    if (prev.trash) queryClient.setQueryData<DocMeta[]>(TRASH_KEY, prev.trash);
+    if (prev.docs) queryClient.setQueryData<DocsCache>(DOCS_KEY, prev.docs);
+    if (prev.trash) queryClient.setQueryData<DocsCache>(TRASH_KEY, prev.trash);
   }, [queryClient, DOCS_KEY, TRASH_KEY]);
 
   const restoreMutation = useMutation({
@@ -205,11 +287,15 @@ export function useDocumentStore(token: string | null) {
     scope: DOCUMENT_MUTATION_SCOPE,
     onMutate: (id) => {
       const prev = snapshot();
-      const restored = prev.trash?.find((d) => d.id === id);
-      queryClient.setQueryData<DocMeta[]>(TRASH_KEY, (old = []) => old.filter((d) => d.id !== id));
+      const restored = flatten(prev.trash).find((d) => d.id === id);
+      queryClient.setQueryData<DocsCache>(TRASH_KEY, (old) =>
+        mapDocs(old, (list) => list.filter((d) => d.id !== id)),
+      );
       if (restored) {
-        queryClient.setQueryData<DocMeta[]>(DOCS_KEY, (old = []) =>
-          old.some((d) => d.id === id) ? old : [{ id, title: restored.title, updatedAt: restored.updatedAt }, ...old],
+        queryClient.setQueryData<DocsCache>(DOCS_KEY, (old) =>
+          flatten(old).some((d) => d.id === id)
+            ? old
+            : prependDoc(old, { id, title: restored.title, updatedAt: restored.updatedAt }),
         );
       }
       return prev;
@@ -223,7 +309,9 @@ export function useDocumentStore(token: string | null) {
     scope: DOCUMENT_MUTATION_SCOPE,
     onMutate: (id) => {
       const prev = snapshot();
-      queryClient.setQueryData<DocMeta[]>(TRASH_KEY, (old = []) => old.filter((d) => d.id !== id));
+      queryClient.setQueryData<DocsCache>(TRASH_KEY, (old) =>
+        mapDocs(old, (list) => list.filter((d) => d.id !== id)),
+      );
       return prev;
     },
     onError: (err, _id, prev) => { console.error('Failed to delete document:', err); rollback(prev); },
@@ -234,7 +322,7 @@ export function useDocumentStore(token: string | null) {
     scope: DOCUMENT_MUTATION_SCOPE,
     onMutate: () => {
       const prev = snapshot();
-      queryClient.setQueryData<DocMeta[]>(TRASH_KEY, []);
+      queryClient.setQueryData<DocsCache>(TRASH_KEY, (old) => mapDocs(old, () => []));
       return prev;
     },
     onError: (err, _vars, prev) => { console.error('Failed to empty the trash:', err); rollback(prev); },
@@ -242,6 +330,15 @@ export function useDocumentStore(token: string | null) {
 
   return {
     docs,
+    /** How many documents match in total, which can exceed the ones loaded */
+    total,
+    isLoading: docsQuery.isPending,
+    hasMore: docsQuery.hasNextPage,
+    loadMore: () => { void docsQuery.fetchNextPage(); },
+    isLoadingMore: docsQuery.isFetchingNextPage,
+    /** What is typed in the search box; the query follows after a pause */
+    search,
+    setSearch,
     activeId: resolvedActiveId,
     // create() is awaitable so the editor gets the real DB id before Hocuspocus connects
     create: async (): Promise<void> => { await createMutation.mutateAsync(); },
@@ -258,5 +355,10 @@ export function useDocumentStore(token: string | null) {
     /** Destroys a trashed document and its content */
     purge: (id: string) => purgeMutation.mutate(id),
     emptyTrash: () => emptyTrashMutation.mutate(),
+    trashHasMore: trashQuery.hasNextPage,
+    loadMoreTrash: () => { void trashQuery.fetchNextPage(); },
+    isLoadingMoreTrash: trashQuery.isFetchingNextPage,
+    /** Copies a document and opens the copy */
+    duplicate: (id: string) => duplicateMutation.mutate(id),
   };
 }
