@@ -99,9 +99,12 @@ function localPage(docs: DocMeta[], options: PageOptions, pageSize = LOCAL_PAGE_
     ? docs.filter((doc) => (doc.title.trim() || 'Untitled').toLowerCase().includes(q))
     : docs;
 
-  const start = options.cursor
-    ? matching.findIndex((doc) => doc.id === options.cursor) + 1
-    : 0;
+  let start = 0;
+  if (options.cursor) {
+    const cursorIndex = matching.findIndex((doc) => doc.id === options.cursor);
+    if (cursorIndex === -1) return { docs: [], nextCursor: null, total: null };
+    start = cursorIndex + 1;
+  }
   const page = matching.slice(start, start + pageSize);
   const last = page[page.length - 1];
 

@@ -145,6 +145,7 @@ export function Sidebar({
 
   const isEmptyState =
     !isSearching &&
+    !hasMore &&
     docs.length === 1 &&
     (!docs[0].title || docs[0].title === 'Untitled');
 

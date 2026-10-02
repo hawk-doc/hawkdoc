@@ -105,3 +105,43 @@ describe('offline document store', () => {
     expect(localStorage.getItem(TRASH_LIST_KEY)).toContain(doc.id);
   });
 });
+
+describe.each([
+  ['documents', DOCS_LIST_KEY, fetchDocuments],
+  ['trash', TRASH_LIST_KEY, fetchTrashedDocuments],
+] as const)('offline %s pagination', (_name, storageKey, fetchPage) => {
+  const docs = Array.from({ length: 51 }, (_, index) => ({
+    id: `doc-${index}`,
+    title: `Document ${index}`,
+    updatedAt: 51 - index,
+    deletedAt: 51 - index,
+  }));
+
+  it('starts at zero without a cursor and continues after a found cursor', async () => {
+    localStorage.setItem(storageKey, JSON.stringify(docs));
+
+    const first = await fetchPage(OFFLINE);
+    expect(first).toEqual({ docs: docs.slice(0, 50), nextCursor: 'doc-49', total: 51 });
+    expect(await fetchPage(OFFLINE, { cursor: first.nextCursor })).toEqual({
+      docs: docs.slice(50), nextCursor: null, total: null,
+    });
+  });
+
+  it('returns an empty page when the cursor document was removed', async () => {
+    localStorage.setItem(storageKey, JSON.stringify(docs));
+    const first = await fetchPage(OFFLINE);
+    localStorage.setItem(storageKey, JSON.stringify(docs.filter((doc) => doc.id !== first.nextCursor)));
+
+    expect(await fetchPage(OFFLINE, { cursor: first.nextCursor })).toEqual({
+      docs: [], nextCursor: null, total: null,
+    });
+  });
+
+  it('returns an empty page when the cursor is outside the search results', async () => {
+    localStorage.setItem(storageKey, JSON.stringify(docs));
+
+    expect(await fetchPage(OFFLINE, { q: 'Document 50', cursor: 'doc-0' })).toEqual({
+      docs: [], nextCursor: null, total: null,
+    });
+  });
+});
