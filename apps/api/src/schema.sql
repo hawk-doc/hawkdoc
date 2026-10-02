@@ -25,9 +25,18 @@ CREATE TABLE IF NOT EXISTS documents (
 -- Existing installs predating the trash feature
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
--- Listing the sidebar (active documents) and the trash are both covered here
-CREATE INDEX IF NOT EXISTS documents_owner_updated
-  ON documents (owner_id, deleted_at, updated_at DESC);
+-- Listing the sidebar (active documents) and the trash are both covered here.
+-- id is part of the key because the list is paginated on (updated_at, id):
+-- without it the tiebreak is unindexed and two documents saved in the same
+-- instant can repeat or disappear across a page boundary.
+DROP INDEX IF EXISTS documents_owner_updated;
+CREATE INDEX IF NOT EXISTS documents_owner_updated_id
+  ON documents (owner_id, deleted_at, updated_at DESC, id DESC);
+
+-- The trash is paginated on (deleted_at, id) for the same reason
+CREATE INDEX IF NOT EXISTS documents_owner_deleted_id
+  ON documents (owner_id, deleted_at DESC, id DESC)
+  WHERE deleted_at IS NOT NULL;
 
 -- document_versions stores incremental Yjs update deltas (not full snapshots).
 -- Each row holds the changes since the row before it, so the state at any
