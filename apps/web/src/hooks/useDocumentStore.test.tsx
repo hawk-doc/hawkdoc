@@ -3,6 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type ReactNode } from 'react';
 import { useDocumentStore } from './useDocumentStore';
+import { SEARCH_DEBOUNCE_MS } from '../constants/autosave';
 
 const TOKEN = 'test-token';
 const docRow = (id: string, title: string) => ({ id, title, updated_at: new Date().toISOString() });
@@ -24,7 +25,12 @@ beforeEach(() => {
     const body = method === 'GET' && url.includes('/api/documents') && !url.includes('trash')
       ? [docRow('doc-1', 'First'), docRow('doc-2', 'Second')]
       : method === 'GET' ? [] : { id: 'doc-1', title: 'ok' };
-    return { ok: true, status: 200, json: async () => body, text: async () => '' } as Response;
+    // The document list is paged, so the client reads the total and the next
+    // page's cursor out of the response headers
+    const headers = new Headers(
+      method === 'GET' && Array.isArray(body) ? { 'X-Total-Count': String(body.length) } : {},
+    );
+    return { ok: true, status: 200, headers, json: async () => body, text: async () => '' } as Response;
   }) as unknown as typeof fetch;
 });
 
@@ -127,5 +133,157 @@ describe('trash', () => {
     // ...and the failed request puts it back
     await waitFor(() => expect(result.current.trashed.map((d) => d.id)).toContain('doc-1'));
     await settled(view);
+  });
+});
+
+// ─── Paging, searching and duplicating ───────────────────────────────────────
+
+/** A server holding `titles`, paging and searching them the way the API does */
+function serveDocuments(titles: string[], pageSize = 2) {
+  const calls: string[] = [];
+  globalThis.fetch = vi.fn(async (url: string, init: RequestInit = {}) => {
+    calls.push(url);
+    const parsed = new URL(url, 'http://api.test');
+
+    if ((init.method ?? 'GET') !== 'GET') {
+      const copy = { id: `copy-${calls.length}`, title: 'Copy of First', updated_at: new Date().toISOString() };
+      return { ok: true, status: 200, headers: new Headers(), json: async () => copy, text: async () => '' } as Response;
+    }
+    if (parsed.searchParams.get('trash') === 'true') {
+      return { ok: true, status: 200, headers: new Headers(), json: async () => [], text: async () => '' } as Response;
+    }
+
+    const q = parsed.searchParams.get('q');
+    const matching = q
+      ? titles.filter((title) => title.toLowerCase().includes(q.toLowerCase()))
+      : titles;
+    const cursor = parsed.searchParams.get('cursor');
+    const start = cursor ? matching.indexOf(cursor) + 1 : 0;
+    const page = matching.slice(start, start + pageSize);
+    const last = page[page.length - 1];
+
+    const headers = new Headers();
+    if (!cursor) headers.set('X-Total-Count', String(matching.length));
+    if (last && start + page.length < matching.length) {
+      headers.set('Link', `</api/documents?cursor=${encodeURIComponent(last)}>; rel="next"`);
+    }
+
+    const body = page.map((title) => ({ id: title, title, updated_at: new Date().toISOString() }));
+    return { ok: true, status: 200, headers, json: async () => body, text: async () => '' } as Response;
+  }) as unknown as typeof fetch;
+  return { calls };
+}
+
+const renderWith = async (expected: number) => {
+  const { client, wrapper } = harness();
+  const view = renderHook(() => useDocumentStore(TOKEN), { wrapper });
+  await waitFor(() => expect(view.result.current.docs).toHaveLength(expected));
+  return { ...view, client };
+};
+
+describe('paging the document list', () => {
+  it('loads one page and says how many there are in total', async () => {
+    serveDocuments(['First', 'Second', 'Third', 'Fourth', 'Fifth']);
+    const { result } = await renderWith(2);
+
+    expect(result.current.docs.map((d) => d.title)).toEqual(['First', 'Second']);
+    expect(result.current.total).toBe(5);
+    expect(result.current.hasMore).toBe(true);
+  });
+
+  it('appends the next page without repeating anything', async () => {
+    serveDocuments(['First', 'Second', 'Third', 'Fourth', 'Fifth']);
+    const view = await renderWith(2);
+
+    act(() => { view.result.current.loadMore(); });
+    await waitFor(() => expect(view.result.current.docs).toHaveLength(4));
+
+    act(() => { view.result.current.loadMore(); });
+    await waitFor(() => expect(view.result.current.hasMore).toBe(false));
+
+    const titles = view.result.current.docs.map((d) => d.title);
+    expect(titles).toEqual(['First', 'Second', 'Third', 'Fourth', 'Fifth']);
+    expect(new Set(titles).size).toBe(5);
+  });
+
+  it('keeps the open document when it sits beyond the loaded pages', async () => {
+    // The stored active document may be far down a long list. Falling back to
+    // the top of the list would switch document behind the user's back.
+    localStorage.setItem('hawkdoc-active-doc', 'Fifth');
+    serveDocuments(['First', 'Second', 'Third', 'Fourth', 'Fifth']);
+
+    const { result } = await renderWith(2);
+
+    expect(result.current.activeId).toBe('Fifth');
+  });
+});
+
+describe('searching documents', () => {
+  it('asks the server once typing stops, not once per keystroke', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { calls } = serveDocuments(['Quarterly report', 'Shopping list']);
+    const view = await renderWith(2);
+    const before = calls.length;
+
+    for (const value of ['q', 'qu', 'qua']) {
+      act(() => { view.result.current.setSearch(value); });
+    }
+    // The box shows every keystroke; the query waits
+    expect(view.result.current.search).toBe('qua');
+    expect(calls.length).toBe(before);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS); });
+    await waitFor(() => expect(view.result.current.docs).toHaveLength(1));
+
+    expect(calls.filter((url) => url.includes('q=qua'))).toHaveLength(1);
+    expect(view.result.current.docs[0]!.title).toBe('Quarterly report');
+  });
+
+  it('does not change which document is open', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    serveDocuments(['First', 'Second', 'Third']);
+    const view = await renderWith(2);
+    act(() => { view.result.current.activate('Second'); });
+    expect(view.result.current.activeId).toBe('Second');
+
+    act(() => { view.result.current.setSearch('Third'); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS); });
+    await waitFor(() => expect(view.result.current.docs.map((d) => d.title)).toEqual(['Third']));
+
+    // Searching is a view over the list, not a change of what you are editing
+    expect(view.result.current.activeId).toBe('Second');
+  });
+});
+
+describe('duplicating a document', () => {
+  it('shows the copy straight away and opens it', async () => {
+    serveDocuments(['First', 'Second']);
+    const view = await renderWith(2);
+
+    act(() => { view.result.current.duplicate('First'); });
+
+    await waitFor(() => expect(view.result.current.docs.map((d) => d.title)).toContain('Copy of First'));
+    expect(view.result.current.docs[0]!.title).toBe('Copy of First');
+    await waitFor(() => expect(view.result.current.activeId).toBe(view.result.current.docs[0]!.id));
+  });
+});
+
+describe('the document you had open', () => {
+  it('is the one that opens again, not whichever was edited last', async () => {
+    localStorage.setItem('hawkdoc-active-doc', 'Second');
+    serveDocuments(['First', 'Second', 'Third'], 50);
+
+    const { result } = await renderWith(3);
+
+    expect(result.current.activeId).toBe('Second');
+  });
+
+  it('falls back to the top of the list when that document is gone', async () => {
+    localStorage.setItem('hawkdoc-active-doc', 'Deleted elsewhere');
+    serveDocuments(['First', 'Second'], 50);
+
+    const { result } = await renderWith(2);
+
+    expect(result.current.activeId).toBe('First');
   });
 });

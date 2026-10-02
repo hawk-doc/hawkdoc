@@ -52,6 +52,7 @@ hawkdoc/
 - Editable document title
 - Code block with copy-to-clipboard (`CodeBlockPlugin.tsx`)
 - `InputDialog.tsx` — reusable modal for link and variable name input (replaces `window.prompt`)
+- Document list — paged (50 at a time, "Show more" at the end), searched on the server from the sidebar box, and documents can be duplicated from the row
 - Image upload — toolbar button uploads to backend via multer, inserts as `ImageNode` (block-level DecoratorNode). Click to select, Backspace/Delete to remove. Persists after refresh. Included in PDF export.
 
 ### Backend (skeleton — not production ready)
@@ -159,6 +160,41 @@ Matching is quadratic, so it runs over a flat typed table and stops at
 work for everyone. Do **not** reach for Yjs snapshot attribution
 (`Y.snapshot`): it requires `gc: false`, which makes every document grow
 forever.
+
+## The Document List
+
+`GET /api/documents` answers with **one page**, not everything: `q` searches
+titles, `limit` sizes the page (50 by default, 100 at most) and `cursor`
+continues. The response stays a plain array — the cursor travels in a
+`Link: …; rel="next"` header and the match count in `X-Total-Count`, both
+listed in `Access-Control-Expose-Headers` or the browser cannot read them.
+
+Pagination is **keyset**, on `(updated_at, id)` for documents and
+`(deleted_at, id)` for the trash. Never switch it to OFFSET: every save
+reorders the list, so an offset lets a row the reader already passed reappear
+on the next page while another slips by unseen. Two rules keep it honest:
+
+- The cursor carries the timestamp **to the microsecond**
+  (`to_char(… 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`). Reading it back through a
+  JavaScript `Date` rounds to the millisecond, and a page boundary inside a
+  group of documents saved in the same instant then loses the rest of them.
+- `id` is in both the sort and the index, because the timestamp alone cannot
+  separate documents saved together.
+
+The client (`lib/documentApi.ts`, `hooks/useDocumentStore.ts`) holds pages
+rather than one array; mutations go through `flatten`, `mapDocs` and
+`prependDoc` so they never need to know that. Searching is a query, debounced
+by `SEARCH_DEBOUNCE_MS` — do not filter the loaded rows instead, or search
+stops finding anything that hasn't been downloaded. A document missing from
+the loaded pages is not necessarily gone, so the open document only falls back
+to the top of the list when the list is complete and it genuinely isn't there.
+
+Offline the same shape is served from localStorage, where a page is a slice
+and the cursor is the id the previous page ended on.
+
+`POST /api/documents/:id/duplicate` copies a document, preferring the Redis
+buffer over `yjs_state` because that is what the author last saw, and records
+the copy's first version from it.
 
 ## Document Trash
 Deleting a document is a soft delete: `documents.deleted_at` is set, the row

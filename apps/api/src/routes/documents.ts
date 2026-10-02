@@ -4,7 +4,7 @@ import query from '../db.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { hocuspocusServer } from '../hocuspocus.js';
 import { redis, docBufferKey } from '../redis.js';
-import { listVersions, reconstructVersion } from '../versions.js';
+import { listVersions, reconstructVersion, tryRecordVersion } from '../versions.js';
 import type { Request } from 'express';
 
 /**
@@ -31,21 +31,65 @@ export const documentsRouter = Router();
 
 documentsRouter.use(requireAuth);
 
+/** Also enforced in the editor, so a long title fails before it is typed */
+const MAX_TITLE_LENGTH = 500;
+
 const CreateDocSchema = z.object({
-  title: z.string().min(1).max(500).default('Untitled'),
+  title: z.string().min(1).max(MAX_TITLE_LENGTH).default('Untitled'),
 });
 
 const UpdateDocSchema = z
   .object({
-    title: z.string().min(1).max(500).optional(),
+    title: z.string().min(1).max(MAX_TITLE_LENGTH).optional(),
   })
   // An update that changes nothing must not bump updated_at and reorder the list
   .refine((body) => body.title !== undefined, { message: 'Provide at least one field to update' });
 
+/** How many documents a page holds when the caller doesn't say */
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 100;
+
 // ?trash=true lists the trash instead of the active documents
 const ListQuerySchema = z.object({
   trash: z.enum(['true', 'false']).optional(),
+  /** Title search; matched anywhere in the title, case-insensitively */
+  q: z.string().trim().max(500).optional(),
+  limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+  /** Opaque: where the previous page stopped, from the Link header */
+  cursor: z.string().max(200).optional(),
 });
+
+interface Cursor {
+  /** The sort timestamp of the last row on the previous page */
+  at: string;
+  id: string;
+}
+
+function encodeCursor(cursor: Cursor): string {
+  return Buffer.from(`${cursor.at}|${cursor.id}`, 'utf8').toString('base64url');
+}
+
+/** Rejects anything we didn't issue rather than letting it reach PostgreSQL */
+function decodeCursor(raw: string): Cursor {
+  const [at, id] = Buffer.from(raw, 'base64url').toString('utf8').split('|');
+  if (!at || !id || Number.isNaN(Date.parse(at)) || !z.string().uuid().safeParse(id).success) {
+    throw new z.ZodError([{
+      code: z.ZodIssueCode.custom,
+      path: ['cursor'],
+      message: 'Invalid cursor',
+    }]);
+  }
+  return { at, id };
+}
+
+/**
+ * `%` and `_` are wildcards to LIKE, so a title search for "100%" would match
+ * far more than the user asked for. The query itself is parameterised; this is
+ * about what the pattern means, not about injection.
+ */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
 
 // Document ids are UUIDs; without this an id like "abc" reaches PostgreSQL
 // and comes back as a 500 instead of a validation error.
@@ -69,27 +113,83 @@ async function ownsActiveDocument(docId: string, userId: string): Promise<boolea
   return result.rows.length > 0;
 }
 
-// List documents for the authenticated user
+/**
+ * List documents for the authenticated user, newest first, a page at a time.
+ *
+ * Paginated on (sort column, id) rather than OFFSET: documents are reordered
+ * by every save, and an offset would let a row the reader already saw reappear
+ * on the next page while another slips past unseen. The cursor travels in a
+ * Link header, so the response stays the array it has always been.
+ */
 documentsRouter.get('/', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
-    const { trash } = ListQuerySchema.parse(req.query);
+    const { trash, q, limit, cursor } = ListQuerySchema.parse(req.query);
     const trashed = trash === 'true';
+    // The trash is ordered by when things were thrown away, not last edited
+    const sortColumn = trashed ? 'deleted_at' : 'updated_at';
+    const position = cursor ? decodeCursor(cursor) : null;
+    const search = q ? `%${escapeLike(q)}%` : null;
+
+    // What the count and the page agree on; the cursor narrows the page only
+    const matching = [
+      'owner_id = $1',
+      `deleted_at IS ${trashed ? 'NOT NULL' : 'NULL'}`,
+      `($2::text IS NULL OR title ILIKE $2 ESCAPE '\\')`,
+    ];
+    const filters = [...matching];
+    const params: unknown[] = [userId, search];
+
+    if (position) {
+      params.push(position.at, position.id);
+      filters.push(`(${sortColumn}, id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+    }
+
+    // One row more than asked for: its presence is what says there is a next
+    // page, without a second query to find out.
+    params.push(limit + 1);
     const result = await query<{
       id: string;
       title: string;
       updated_at: string;
       created_at: string;
       deleted_at: string | null;
+      cursor_at: string;
     }>(
-      `SELECT id, title, updated_at, created_at, deleted_at
+      // cursor_at is the sort timestamp as PostgreSQL holds it, to the
+      // microsecond. Reading it back through a JavaScript Date would round it
+      // to the millisecond, and a page boundary inside a group of documents
+      // saved in the same instant would then exclude the rest of that group —
+      // paging would stop early and quietly lose them.
+      `SELECT id, title, updated_at, created_at, deleted_at,
+              to_char(${sortColumn} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
        FROM documents
-       WHERE owner_id = $1
-         AND deleted_at IS ${trashed ? 'NOT NULL' : 'NULL'}
-       ORDER BY ${trashed ? 'deleted_at' : 'updated_at'} DESC`,
-      [userId],
+       WHERE ${filters.join(' AND ')}
+       ORDER BY ${sortColumn} DESC, id DESC
+       LIMIT $${params.length}`,
+      params,
     );
-    res.json(result.rows);
+
+    const page = result.rows.slice(0, limit);
+    const last = page[page.length - 1];
+    if (result.rows.length > limit && last) {
+      const next = new URL(req.originalUrl, `${req.protocol}://${req.get('host') ?? 'localhost'}`);
+      next.searchParams.set('cursor', encodeCursor({ at: last.cursor_at, id: last.id }));
+      res.setHeader('Link', `<${next.pathname}${next.search}>; rel="next"`);
+    }
+
+    // Only on the first page: counting every match costs as much as the scan
+    // the pagination exists to avoid, and the total doesn't change as you page.
+    if (!position) {
+      const counted = await query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM documents WHERE ${matching.join(' AND ')}`,
+        [userId, search],
+      );
+      res.setHeader('X-Total-Count', counted.rows[0]?.count ?? '0');
+    }
+
+    // cursor_at is bookkeeping for the Link header, not part of a document
+    res.json(page.map(({ cursor_at: _cursor, ...doc }) => doc));
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.flatten() });
@@ -212,6 +312,67 @@ documentsRouter.post('/', async (req: Request, res) => {
     );
 
     res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+/** Fits a copy's title inside the column, trimming the original, not the mark */
+function copyTitle(title: string): string {
+  const prefix = 'Copy of ';
+  return `${prefix}${title}`.slice(0, MAX_TITLE_LENGTH);
+}
+
+/**
+ * Duplicate a document, content and all.
+ *
+ * The copy is a document in its own right: its own id, its own history from
+ * this moment on. The content comes from the Redis buffer when one is there,
+ * because that is what the author last saw — PostgreSQL may be up to thirty
+ * seconds behind it.
+ */
+documentsRouter.post('/:id/duplicate', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
+
+    const source = await query<{ title: string; yjs_state: Buffer | null }>(
+      `SELECT title, yjs_state FROM documents
+       WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`,
+      [id, userId],
+    );
+    const original = source.rows[0];
+    if (!original) {
+      res.status(404).json({ error: 'Document not found' });
+      return;
+    }
+
+    let state = original.yjs_state;
+    try {
+      state = (await redis.getBuffer(docBufferKey(id))) ?? state;
+    } catch (err) {
+      // A copy of the saved state beats failing the request outright
+      console.error(`Failed to read buffered state for ${id}:`, err);
+    }
+
+    const created = await query<{ id: string; title: string; created_at: string }>(
+      `INSERT INTO documents (owner_id, title, yjs_state)
+       VALUES ($1, $2, $3)
+       RETURNING id, title, created_at`,
+      [userId, copyTitle(original.title), state],
+    );
+
+    const copy = created.rows[0]!;
+    // So the copy's history holds what it was created from, not just what
+    // happens to it afterwards
+    if (state) await tryRecordVersion(copy.id, state, { force: true });
+
+    res.status(201).json(copy);
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.flatten() });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FilePlus, FileText, Search, Trash2, Undo2, X } from 'lucide-react';
+import { CopyPlus, FilePlus, FileText, Search, Trash2, Undo2, X } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -33,19 +33,46 @@ interface SidebarProps {
   onRestore: (id: string) => void;
   onPurge: (id: string) => void;
   onEmptyTrash: () => void;
+  onDuplicate: (id: string) => void;
+  /** Search runs against the server, so the box is the store's, not ours */
+  search: string;
+  onSearchChange: (value: string) => void;
+  /** How many documents match in total, which can exceed the ones loaded */
+  total: number | null;
+  hasMore: boolean;
+  onLoadMore: () => void;
+  isLoadingMore: boolean;
+  trashHasMore: boolean;
+  onLoadMoreTrash: () => void;
+  isLoadingMoreTrash: boolean;
   /** Below `md` the sidebar is an overlay drawer that starts closed */
   open: boolean;
   onClose: () => void;
 }
 
+/** Fetches the next page. The list is long enough that it isn't all here. */
+function LoadMore({ onClick, busy, label }: { onClick: () => void; busy: boolean; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className="my-1 w-full rounded-lg px-2 py-1.5 text-[11px] font-medium text-notion-muted transition-colors hover:bg-notion-hover disabled:opacity-60 dark:text-[#9aa0a6] dark:hover:bg-[#2d2f31]"
+    >
+      {busy ? 'Loading…' : label}
+    </button>
+  );
+}
+
 export function Sidebar({
-  docs, activeId, onActivate, onCreate, onRename, onDelete,
+  docs, activeId, onActivate, onCreate, onRename, onDelete, onDuplicate,
   trashed, trashOpen, onTrashOpenChange, onRestore, onPurge, onEmptyTrash,
+  search, onSearchChange, total, hasMore, onLoadMore, isLoadingMore,
+  trashHasMore, onLoadMoreTrash, isLoadingMoreTrash,
   open, onClose,
 }: SidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [query, setQuery] = useState('');
   // { id } confirms one document, 'all' confirms emptying the trash
   const [pendingPurge, setPendingPurge] = useState<DocMeta | 'all' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -112,12 +139,12 @@ export function Sidebar({
     setEditingId(null);
   };
 
-  const sorted = [...docs].sort((a, b) => b.updatedAt - a.updatedAt);
-  const q = query.trim().toLowerCase();
-  const filtered = q ? sorted.filter((d) => (d.title.trim() || 'Untitled').toLowerCase().includes(q)) : sorted;
+  // The server returns them newest first and already matching the search
+  const filtered = docs;
+  const isSearching = search.trim().length > 0;
 
   const isEmptyState =
-    !q &&
+    !isSearching &&
     docs.length === 1 &&
     (!docs[0].title || docs[0].title === 'Untitled');
 
@@ -168,7 +195,7 @@ export function Sidebar({
       >
       <div className="sidebar-header">
         <span className="text-xs font-semibold uppercase tracking-widest text-notion-muted dark:text-[#5f6368]">
-          {trashOpen ? <>Trash{trashed.length > 0 && <>&nbsp;·&nbsp;{trashed.length}</>}</> : <>Documents{!isEmptyState && <>&nbsp;·&nbsp;{docs.length}</>}</>}
+          {trashOpen ? <>Trash{trashed.length > 0 && <>&nbsp;·&nbsp;{trashed.length}</>}</> : <>Documents{!isEmptyState && <>&nbsp;·&nbsp;{total ?? docs.length}</>}</>}
         </span>
         <div className="flex items-center gap-1">
           {!trashOpen ? (
@@ -198,9 +225,10 @@ export function Sidebar({
         <Search size={12} className="sidebar-search-icon" />
         <input
           type="text"
-          placeholder="Filter…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search documents…"
+          aria-label="Search documents"
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
           className="sidebar-search"
         />
       </div>
@@ -217,7 +245,8 @@ export function Sidebar({
               </p>
             </div>
           ) : (
-            trashed.map((doc) => (
+            <>
+            {trashed.map((doc) => (
               <div key={doc.id} className="sidebar-item group">
                 <Trash2 size={13} className="flex-shrink-0 opacity-50" />
                 <span className="flex-1 truncate">{doc.title.trim() || 'Untitled'}</span>
@@ -248,7 +277,11 @@ export function Sidebar({
                   <X size={12} />
                 </button>
               </div>
-            ))
+            ))}
+            {trashHasMore && (
+              <LoadMore onClick={onLoadMoreTrash} busy={isLoadingMoreTrash} label="Show older" />
+            )}
+            </>
           )
         ) : isEmptyState ? (
           <div className="sidebar-empty">
@@ -264,7 +297,8 @@ export function Sidebar({
             <p className="text-xs font-medium">No matches</p>
           </div>
         ) : (
-          filtered.map((doc) => {
+          <>
+          {filtered.map((doc) => {
             const isActive = doc.id === activeId;
             const isEditing = doc.id === editingId;
 
@@ -297,6 +331,18 @@ export function Sidebar({
                 {!isEditing && (
                   <button
                     type="button"
+                    title="Duplicate"
+                    aria-label={`Duplicate ${doc.title.trim() || 'Untitled'}`}
+                    onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
+                    className="sidebar-delete-btn"
+                  >
+                    <CopyPlus size={12} />
+                  </button>
+                )}
+
+                {!isEditing && (
+                  <button
+                    type="button"
                     title="Delete"
                     onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
                     className="sidebar-delete-btn"
@@ -306,7 +352,15 @@ export function Sidebar({
                 )}
               </div>
             );
-          })
+          })}
+          {hasMore && (
+            <LoadMore
+              onClick={onLoadMore}
+              busy={isLoadingMore}
+              label={total === null ? 'Show more' : `Show more (${total - filtered.length} left)`}
+            />
+          )}
+          </>
         )}
       </nav>
 
