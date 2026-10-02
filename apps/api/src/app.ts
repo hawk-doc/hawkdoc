@@ -24,6 +24,9 @@ export function createApp() {
     }
     res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    // Without this the browser hides them, and the document list's paging
+    // cursor and total would be readable only from the server's own logs.
+    res.header('Access-Control-Expose-Headers', 'Link,X-Total-Count');
   }
 
   app.use((req, res, next) => {
