@@ -14,8 +14,10 @@ function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
-    docs, activeId, create, rename, remove, activate, touch,
+    docs, activeId, create, rename, remove, activate, touch, duplicate,
+    total, hasMore, loadMore, isLoadingMore, search, setSearch,
     trashed, trashOpen, setTrashOpen, restore, purge, emptyTrash,
+    trashHasMore, loadMoreTrash, isLoadingMoreTrash,
   } = useDocumentStore(token);
 
   const activeDoc = docs.find((d) => d.id === activeId);
@@ -106,6 +108,16 @@ function AppShell() {
           onRestore={restore}
           onPurge={purge}
           onEmptyTrash={emptyTrash}
+          onDuplicate={duplicate}
+          search={search}
+          onSearchChange={setSearch}
+          total={total}
+          hasMore={hasMore}
+          onLoadMore={loadMore}
+          isLoadingMore={isLoadingMore}
+          trashHasMore={trashHasMore}
+          onLoadMoreTrash={loadMoreTrash}
+          isLoadingMoreTrash={isLoadingMoreTrash}
         />
 
         <main className="flex-1 overflow-y-auto">
