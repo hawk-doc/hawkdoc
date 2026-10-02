@@ -79,9 +79,13 @@ function trashKey(token: string | null) {
   return ['documents', token ?? 'local', 'trash'] as const;
 }
 
-function getStoredActiveId(docs: DocMeta[]): string {
-  const stored = localStorage.getItem(ACTIVE_DOC_KEY);
-  return stored && docs.some((d) => d.id === stored) ? stored : (docs[0]?.id ?? '');
+/**
+ * The document that was open last time. It is read before any document has
+ * loaded, so it cannot be checked against the list here — whether it still
+ * exists is settled once the list is known to be complete.
+ */
+function getStoredActiveId(): string {
+  return localStorage.getItem(ACTIVE_DOC_KEY) ?? '';
 }
 
 export function useDocumentStore(token: string | null) {
@@ -118,7 +122,7 @@ export function useDocumentStore(token: string | null) {
   });
   const trashed = useMemo(() => flatten(trashQuery.data), [trashQuery.data]);
 
-  const [activeId, setActiveId] = useState<string>(() => getStoredActiveId(docs));
+  const [activeId, setActiveId] = useState<string>(getStoredActiveId);
 
   // A document missing from the loaded pages isn't necessarily gone: it may be
   // further down the list, or filtered out by a search. Only fall back to the
