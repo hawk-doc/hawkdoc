@@ -35,9 +35,12 @@ const CreateDocSchema = z.object({
   title: z.string().min(1).max(500).default('Untitled'),
 });
 
-const UpdateDocSchema = z.object({
-  title: z.string().min(1).max(500).optional(),
-});
+const UpdateDocSchema = z
+  .object({
+    title: z.string().min(1).max(500).optional(),
+  })
+  // An update that changes nothing must not bump updated_at and reorder the list
+  .refine((body) => body.title !== undefined, { message: 'Provide at least one field to update' });
 
 // ?trash=true lists the trash instead of the active documents
 const ListQuerySchema = z.object({
