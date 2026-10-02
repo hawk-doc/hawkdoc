@@ -1,8 +1,27 @@
 import { DOCS_LIST_KEY, DOC_KEY_PREFIX, STORAGE_KEY, TRASH_LIST_KEY } from '../constants/autosave';
+import { MAX_TITLE_LENGTH } from '../constants/editor';
 import { clearLocalVersions } from './versions/localVersions';
 import type { AutoSaveData, DocMeta } from '../interfaces';
 
 const API_URL = import.meta.env.VITE_API_URL;
+
+/** Matches the API's default page size, so both stores feel the same */
+const LOCAL_PAGE_SIZE = 50;
+
+/** One page of documents, and where the next one starts */
+export interface DocumentPage {
+  docs: DocMeta[];
+  /** Pass back as `cursor` to continue; null when there is no more */
+  nextCursor: string | null;
+  /** How many documents match in total — only known on the first page */
+  total: number | null;
+}
+
+export interface PageOptions {
+  /** Title search, matched anywhere, case-insensitively */
+  q?: string;
+  cursor?: string | null;
+}
 
 interface ApiDocRow {
   id: string;
@@ -51,6 +70,48 @@ export function ensureOk(res: Response, token: string, action: string): void {
   if (!res.ok) throw new Error(`Failed to ${action} (${res.status})`);
 }
 
+/**
+ * The cursor the API put in its Link header. The header carries a whole URL;
+ * only the cursor matters here, since the client builds its own.
+ */
+function cursorFromLink(link: string | null): string | null {
+  const match = /<([^>]+)>;\s*rel="next"/.exec(link ?? '');
+  if (!match) return null;
+  return new URL(match[1]!, API_URL).searchParams.get('cursor');
+}
+
+function pageUrl(path: string, options: PageOptions, extra?: Record<string, string>): string {
+  const url = new URL(path, API_URL);
+  if (options.q) url.searchParams.set('q', options.q);
+  if (options.cursor) url.searchParams.set('cursor', options.cursor);
+  for (const [key, value] of Object.entries(extra ?? {})) url.searchParams.set(key, value);
+  return url.toString();
+}
+
+/**
+ * Offline there is no server to page, but the same contract has to hold or the
+ * caller would need two shapes. The documents are already in memory, so a page
+ * is a slice of them — the cursor is the id the previous page ended on.
+ */
+function localPage(docs: DocMeta[], options: PageOptions, pageSize = LOCAL_PAGE_SIZE): DocumentPage {
+  const q = options.q?.trim().toLowerCase();
+  const matching = q
+    ? docs.filter((doc) => (doc.title.trim() || 'Untitled').toLowerCase().includes(q))
+    : docs;
+
+  const start = options.cursor
+    ? matching.findIndex((doc) => doc.id === options.cursor) + 1
+    : 0;
+  const page = matching.slice(start, start + pageSize);
+  const last = page[page.length - 1];
+
+  return {
+    docs: page,
+    nextCursor: last && start + page.length < matching.length ? last.id : null,
+    total: options.cursor ? null : matching.length,
+  };
+}
+
 function genId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -90,13 +151,21 @@ function loadLocalDocs(): DocMeta[] {
 
 // When a token is present the documents live in PostgreSQL (and sync over
 // Hocuspocus); without one we fall back to the offline localStorage store.
-export async function fetchDocuments(token: string | null): Promise<DocMeta[]> {
-  if (!token) return loadLocalDocs();
+export async function fetchDocuments(
+  token: string | null,
+  options: PageOptions = {},
+): Promise<DocumentPage> {
+  if (!token) return localPage(loadLocalDocs(), options);
 
-  const res = await fetch(`${API_URL}/api/documents`, { headers: authHeaders(token) });
+  const res = await fetch(pageUrl('/api/documents', options), { headers: authHeaders(token) });
   ensureOk(res, token, 'load documents');
   const rows = (await res.json()) as ApiDocRow[];
-  return rows.map(toDocMeta);
+  const total = res.headers.get('X-Total-Count');
+  return {
+    docs: rows.map(toDocMeta),
+    nextCursor: cursorFromLink(res.headers.get('Link')),
+    total: total === null ? null : Number(total),
+  };
 }
 
 export async function createDocument(token: string | null): Promise<DocMeta> {
@@ -140,14 +209,53 @@ export async function renameDocument(
   return renamed;
 }
 
-/** Documents in the trash, newest deletion first */
-export async function fetchTrashedDocuments(token: string | null): Promise<DocMeta[]> {
-  if (!token) return [...loadLocalTrash()].sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+/** Copy a document, content and all. Offline the content key is copied too. */
+export async function duplicateDocument(id: string, token: string | null): Promise<DocMeta> {
+  if (token) {
+    const res = await fetch(`${API_URL}/api/documents/${id}/duplicate`, {
+      method: 'POST',
+      headers: authHeaders(token),
+    });
+    ensureOk(res, token, 'duplicate document');
+    return toDocMeta((await res.json()) as ApiDocRow);
+  }
 
-  const res = await fetch(`${API_URL}/api/documents?trash=true`, { headers: authHeaders(token) });
+  const docs = loadLocalDocs();
+  const source = docs.find((doc) => doc.id === id);
+  if (!source) throw new Error(`Document not found: ${id}`);
+
+  const copy: DocMeta = {
+    id: genId(),
+    title: `Copy of ${source.title}`.slice(0, MAX_TITLE_LENGTH),
+    updatedAt: Date.now(),
+  };
+  const content = localStorage.getItem(`${DOC_KEY_PREFIX}${id}`);
+  if (content) localStorage.setItem(`${DOC_KEY_PREFIX}${copy.id}`, content);
+  saveDocs([copy, ...docs]);
+  return copy;
+}
+
+/** Documents in the trash, newest deletion first */
+export async function fetchTrashedDocuments(
+  token: string | null,
+  options: PageOptions = {},
+): Promise<DocumentPage> {
+  if (!token) {
+    const trashed = [...loadLocalTrash()].sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+    return localPage(trashed, options);
+  }
+
+  const res = await fetch(pageUrl('/api/documents', options, { trash: 'true' }), {
+    headers: authHeaders(token),
+  });
   ensureOk(res, token, 'load the trash');
   const rows = (await res.json()) as ApiDocRow[];
-  return rows.map(toDocMeta);
+  const total = res.headers.get('X-Total-Count');
+  return {
+    docs: rows.map(toDocMeta),
+    nextCursor: cursorFromLink(res.headers.get('Link')),
+    total: total === null ? null : Number(total),
+  };
 }
 
 /** Move a document to the trash. Reversible — nothing is destroyed here. */

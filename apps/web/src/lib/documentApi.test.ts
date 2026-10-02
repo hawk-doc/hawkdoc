@@ -14,7 +14,7 @@ import { DOCS_LIST_KEY, DOC_KEY_PREFIX, TRASH_LIST_KEY } from '../constants/auto
 
 // Signed out, every one of these runs against localStorage; `null` is the token
 const OFFLINE = null;
-const titles = (docs: { title: string }[]) => docs.map((d) => d.title);
+const titles = (page: { docs: { title: string }[] }) => page.docs.map((d) => d.title);
 const contentOf = (id: string) => localStorage.getItem(`${DOC_KEY_PREFIX}${id}`);
 
 describe('offline document store', () => {
@@ -43,8 +43,8 @@ describe('offline document store', () => {
 
     await restoreDocument(doc.id, OFFLINE);
     expect(contentOf(doc.id)).toContain('root');
-    expect((await fetchDocuments(OFFLINE)).some((d) => d.id === doc.id)).toBe(true);
-    expect(await fetchTrashedDocuments(OFFLINE)).toEqual([]);
+    expect((await fetchDocuments(OFFLINE)).docs.some((d) => d.id === doc.id)).toBe(true);
+    expect((await fetchTrashedDocuments(OFFLINE)).docs).toEqual([]);
   });
 
   it('deletes the content only when a document is purged', async () => {
@@ -55,7 +55,7 @@ describe('offline document store', () => {
     await purgeDocument(doc.id, OFFLINE);
 
     expect(contentOf(doc.id)).toBeNull();
-    expect(await fetchTrashedDocuments(OFFLINE)).toEqual([]);
+    expect((await fetchTrashedDocuments(OFFLINE)).docs).toEqual([]);
   });
 
   it('empties the trash and reports how many went', async () => {
@@ -66,7 +66,7 @@ describe('offline document store', () => {
     await removeDocument(b.id, OFFLINE);
 
     expect(await emptyTrash(OFFLINE)).toBe(2);
-    expect(await fetchTrashedDocuments(OFFLINE)).toEqual([]);
+    expect((await fetchTrashedDocuments(OFFLINE)).docs).toEqual([]);
     expect(contentOf(a.id)).toBeNull();
   });
 
@@ -99,8 +99,8 @@ describe('offline document store', () => {
     Storage.prototype.setItem = original;
 
     const stillSomewhere =
-      (await fetchTrashedDocuments(OFFLINE)).some((d) => d.id === doc.id) ||
-      (await fetchDocuments(OFFLINE)).some((d) => d.id === doc.id);
+      (await fetchTrashedDocuments(OFFLINE)).docs.some((d) => d.id === doc.id) ||
+      (await fetchDocuments(OFFLINE)).docs.some((d) => d.id === doc.id);
     expect(stillSomewhere).toBe(true);
     expect(localStorage.getItem(TRASH_LIST_KEY)).toContain(doc.id);
   });

@@ -5,3 +5,4 @@ export const TRASH_LIST_KEY = 'hawkdoc-trash';
 export const DOC_KEY_PREFIX = 'hawkdoc-doc-';
 export const ACTIVE_DOC_KEY = 'hawkdoc-active-doc';
 export const VERSIONS_KEY_PREFIX = 'hawkdoc-versions-';
+export const SEARCH_DEBOUNCE_MS = 250;
