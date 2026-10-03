@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Sign-in no longer depends on how an email address is capitalised. Addresses are trimmed and lower-cased on register and login, preventing case-only duplicates among new registrations. Legacy mixed-case addresses are not rewritten, so a new case-only duplicate of a legacy account remains possible. Login succeeds only when exactly one matching account accepts the password. A duplicate address is now detected by PostgreSQL's error code rather than by its message text
+- `POST /api/uploads` now requires a signed-in user (it was open to anyone who could reach the API); the editor sends the session token with image uploads and, signed out, reports that signing in is needed
 - Documents containing a `{{template_variable}}` could not be serialized: `editorState.toJSON()` threw, which broke offline auto-save and the PDF and Word exports for exactly the documents the feature exists for
 - `@lexical/yjs` resolved to a version that bundled its own copy of Lexical, so any runtime use of the collaboration binding threw "Unable to find an active editor state"
 - `/healthz` reported OK even when PostgreSQL or Redis was unreachable; it now checks both, bounds each probe, and answers 503 when either is down

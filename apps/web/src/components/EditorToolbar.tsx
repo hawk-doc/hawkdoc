@@ -28,6 +28,7 @@ import { $getNearestNodeOfType, $insertNodeToNearestRoot } from '@lexical/utils'
 import { $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { $createImageNode } from '../nodes/ImageNode';
 import { uploadImage } from '../lib/documentApi';
+import { useAuth } from '../context/AuthContext';
 import { BLOCK_TYPES, FONT_FAMILIES, FONT_SIZES } from '../constants/editor';
 import type { BlockType, EditorToolbarProps } from '../interfaces';
 import {
@@ -326,8 +327,9 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
     setExportOpen(false);
   }, [getMarkdownString]);
 
+  const { token } = useAuth();
   const imageUploadMutation = useMutation({
-    mutationFn: uploadImage,
+    mutationFn: (file: File) => uploadImage(file, token),
     onSuccess: ({ url }, file) => {
       const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001';
       editor.update(() => {
