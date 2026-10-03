@@ -338,11 +338,16 @@ export async function saveDocContent(docId: string, data: AutoSaveData): Promise
   localStorage.setItem(`${DOC_KEY_PREFIX}${docId}`, JSON.stringify(data));
 }
 
-export async function uploadImage(file: File): Promise<{ url: string }> {
+export async function uploadImage(file: File, token: string | null): Promise<{ url: string }> {
+  if (!token) throw new Error('Sign in to upload images');
   const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001';
   const formData = new FormData();
   formData.append('image', file);
-  const res = await fetch(`${apiUrl}/api/uploads`, { method: 'POST', body: formData });
+  const res = await fetch(`${apiUrl}/api/uploads`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: formData,
+  });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Upload failed (${res.status}): ${body}`);

@@ -11,6 +11,7 @@ import {
   IMAGE_EXTENSIONS,
   type ImageMimeType,
 } from '../constants/upload.js';
+import { requireAuth } from '../middleware/auth.js';
 
 export { UPLOADS_DIR };
 
@@ -57,8 +58,7 @@ const upload = multer({
 
 export const uploadsRouter = Router();
 
-// TODO: add requireAuth once auth UI is built
-uploadsRouter.post('/', (req: Request, res: Response, next) => {
+uploadsRouter.post('/', requireAuth, (req: Request, res: Response, next) => {
   upload.single('image')(req, res, (err: unknown) => {
     if (err instanceof multer.MulterError) {
       const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
