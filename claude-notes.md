@@ -13,7 +13,6 @@
 - CronCreate in a cloud session is session-only (dies with the session, 7-day expiry) and has no email/push or timezone options; the local tz is UTC (9:00 IST = `30 3 * * *`).
 
 ## Backlog
-- [ ] (bug) `POST /api/uploads` has `// TODO: add requireAuth` — auth UI now exists; require the token and send it from the web upload code.
 - [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks); registration can still duplicate a legacy mixed-case address.
 - [ ] (enhancement) `pruneVersions` runs unguarded per record; concurrent calls could race (low risk).
 - [ ] (enhancement) No rate limiting on `/api/auth/login` and `/register`.
@@ -21,6 +20,7 @@
 ## History
 - 2026-09-30 | bug | bug/case-insensitive-email | https://github.com/hawk-doc/hawkdoc/pull/27 | open, awaiting owner review (first run with memory; recent history: #23 enhancement/tests, #24-26 features)
 - 2026-10-01 | enhancement | enhancement/reject-empty-document-update | https://github.com/hawk-doc/hawkdoc/pull/28 | open, awaiting owner review (empty PATCH now 400)
+- 2026-10-03 | bug | bug/require-auth-uploads | https://github.com/hawk-doc/hawkdoc/pull/30 | open, awaiting owner review (uploads require auth; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -29,3 +29,4 @@
 - Code on `dev` is already well hardened (zod everywhere, ownership checks); bugs are subtle — read `routes/auth.ts`, uploads, and web upload/auth code rather than running checks (all green at start).
 - Scheduled-run sessions: CronCreate rejects `CRON_TZ=` prefixes (5 fields only); can't be named or given notifications, so the "HawkDoc daily PR" schedule must be set up by the owner in the routines UI.
 - `listDocs` test helper returns titles only; use `GET /api/documents/:id` (`updatedAt`) for timestamps.
+- The "HawkDoc daily PR" schedule was created via CronCreate (id 454aa911, `30 3 * * *`, session-only, no email/push); owner should still set up the real routine in the UI.
