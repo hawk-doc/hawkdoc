@@ -15,12 +15,13 @@
 ## Backlog
 - [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks); registration can still duplicate a legacy mixed-case address.
 - [ ] (enhancement) `pruneVersions` runs unguarded per record; concurrent calls could race (low risk).
-- [ ] (enhancement) No rate limiting on `/api/auth/login` and `/register`.
+- [ ] (enhancement) Set Express `trust proxy` (env-driven) so the auth rate limiter keys on the real client IP behind a proxy; consider Redis-backed limiter for multi-instance.
 
 ## History
 - 2026-09-30 | bug | bug/case-insensitive-email | https://github.com/hawk-doc/hawkdoc/pull/27 | open, awaiting owner review (first run with memory; recent history: #23 enhancement/tests, #24-26 features)
 - 2026-10-01 | enhancement | enhancement/reject-empty-document-update | https://github.com/hawk-doc/hawkdoc/pull/28 | open, awaiting owner review (empty PATCH now 400)
 - 2026-10-03 | bug | bug/require-auth-uploads | https://github.com/hawk-doc/hawkdoc/pull/30 | open, awaiting owner review (uploads require auth; test run of the schedule)
+- 2026-10-04 | enhancement | enhancement/rate-limit-auth | https://github.com/hawk-doc/hawkdoc/pull/31 | open, awaiting owner review (in-memory per-IP limiter on login/register; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -30,3 +31,4 @@
 - Scheduled-run sessions: CronCreate rejects `CRON_TZ=` prefixes (5 fields only); can't be named or given notifications, so the "HawkDoc daily PR" schedule must be set up by the owner in the routines UI.
 - `listDocs` test helper returns titles only; use `GET /api/documents/:id` (`updatedAt`) for timestamps.
 - The "HawkDoc daily PR" schedule was created via CronCreate (id 454aa911, `30 3 * * *`, session-only, no email/push); owner should still set up the real routine in the UI.
+- CronCreate id bd9be73a (2026-10-04, `30 3 * * *`) again session-only; the owner must still create the real routine in the UI. Run `npm test --workspace=apps/api` separately: `--workspaces` output tails only the web results.
