@@ -9,6 +9,9 @@ const EnvSchema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('7d'),
   MAX_FILE_SIZE_MB: z.coerce.number().default(50),
+  // Per client IP, per route, for /api/auth/login and /register
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+  AUTH_RATE_LIMIT_WINDOW_SEC: z.coerce.number().int().positive().default(900),
   ALLOWED_ORIGINS: z
     .string()
     .default('http://localhost:5173')

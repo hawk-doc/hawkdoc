@@ -3,8 +3,16 @@ import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import query from '../db.js';
 import { signToken } from '../middleware/auth.js';
+import { createRateLimiter } from '../middleware/rateLimit.js';
+import { env } from '../env.js';
 
 export const authRouter = Router();
+
+// Separate buckets, so a burst of sign-ups doesn't lock the same client out of
+// signing in
+const limitOptions = { max: env.AUTH_RATE_LIMIT_MAX, windowMs: env.AUTH_RATE_LIMIT_WINDOW_SEC * 1000 };
+const registerLimiter = createRateLimiter(limitOptions);
+const loginLimiter = createRateLimiter(limitOptions);
 
 // Email addresses are matched case-insensitively, so normalise once here:
 // "Ada@Example.com" and "ada@example.com" are the same account.
@@ -28,7 +36,7 @@ const LoginSchema = z.object({
   password: z.string(),
 });
 
-authRouter.post('/register', async (req, res) => {
+authRouter.post('/register', registerLimiter, async (req, res) => {
   try {
     const body = RegisterSchema.parse(req.body);
     const hash = await bcrypt.hash(body.password, 12);
@@ -56,7 +64,7 @@ authRouter.post('/register', async (req, res) => {
   }
 });
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', loginLimiter, async (req, res) => {
   try {
     const body = LoginSchema.parse(req.body);
 
