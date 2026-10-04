@@ -3,6 +3,12 @@ import express from 'express';
 import request from 'supertest';
 import { createRateLimiter } from './rateLimit.js';
 
+/**
+ * Creates a test app with a rate-limited POST /x route and a 60-second window.
+ * @param max - Requests allowed per client IP within each window.
+ * @param now - Clock returning the current time in milliseconds.
+ * @returns An Express app that responds with 204 to requests within the limit.
+ */
 function appWith(max: number, now: () => number) {
   const app = express();
   app.post('/x', createRateLimiter({ max, windowMs: 60_000, now }), (_req, res) => {
