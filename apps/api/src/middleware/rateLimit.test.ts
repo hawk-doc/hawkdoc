@@ -44,4 +44,18 @@ describe('createRateLimiter', () => {
     const res = await request(app).post('/x').expect(429);
     expect(res.headers['retry-after']).toBe('15');
   });
+
+  it('counts clients separately by X-Forwarded-For when trust proxy is set', async () => {
+    const app = appWith(1, () => 0);
+    app.set('trust proxy', 1);
+    await request(app).post('/x').set('X-Forwarded-For', '1.1.1.1').expect(204);
+    await request(app).post('/x').set('X-Forwarded-For', '2.2.2.2').expect(204);
+    await request(app).post('/x').set('X-Forwarded-For', '1.1.1.1').expect(429);
+  });
+
+  it('ignores X-Forwarded-For when trust proxy is off', async () => {
+    const app = appWith(1, () => 0);
+    await request(app).post('/x').set('X-Forwarded-For', '1.1.1.1').expect(204);
+    await request(app).post('/x').set('X-Forwarded-For', '2.2.2.2').expect(429);
+  });
 });

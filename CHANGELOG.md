@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - `POST /api/auth/login` and `/register` are rate limited per client IP (20 requests per 15 minutes each by default; `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_SEC`). Over the limit the API answers 429 with a `Retry-After` header. The counter is in memory, per API process
 
+### Fixed
+- Behind a reverse proxy every client shared the proxy's IP, so the login/register rate limiter counted them together and one busy address could lock everyone out. Set `TRUST_PROXY` to the number of proxies in front of the API (default `0`, unchanged) and the limiter keys on the real client IP
+
 ### Added
 - Duplicate a document, from the sidebar row or `POST /api/documents/:id/duplicate`. The copy takes the content the author last saw — the Redis buffer when there is one, which can be half a minute ahead of PostgreSQL — and its history starts with what it was made from
 - The document list is paged and searched on the server: `GET /api/documents` takes `q`, `limit` and `cursor` and answers with one page plus a `Link` header, the sidebar loads 50 at a time with "Show more", and its search box now finds documents that were never downloaded. Pagination is keyset, so a document edited mid-scroll cannot make a row repeat or vanish
