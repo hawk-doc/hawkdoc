@@ -11,6 +11,7 @@ import { checkHealth, isHealthy } from './health.js';
  */
 export function createApp() {
   const app = express();
+  if (env.TRUST_PROXY > 0) app.set('trust proxy', env.TRUST_PROXY);
 
   // CORS — must be the very first middleware so every response (including
   // errors from body-parser, multer, auth) carries the correct headers.

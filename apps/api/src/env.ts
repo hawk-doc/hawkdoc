@@ -12,6 +12,9 @@ const EnvSchema = z.object({
   // Per client IP, per route, for /api/auth/login and /register
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   AUTH_RATE_LIMIT_WINDOW_SEC: z.coerce.number().int().positive().default(900),
+  // Reverse proxies in front of the API (0 = none). Needed for req.ip, and so the
+  // auth rate limiter, to see the client rather than the proxy
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   ALLOWED_ORIGINS: z
     .string()
     .default('http://localhost:5173')
