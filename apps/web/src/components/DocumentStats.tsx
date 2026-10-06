@@ -7,11 +7,13 @@ const STATS_DEBOUNCE_MS = 400;
 
 const WORDS_PER_MINUTE = 200;
 
+/** Counts whitespace-separated words in the editor's current text content. */
 function countWords(editor: LexicalEditor): number {
   const text = editor.getEditorState().read(() => $getRoot().getTextContent()).trim();
   return text ? text.split(/\s+/).length : 0;
 }
 
+/** Formats reading time at 200 words per minute, or returns null for no words. */
 function readingTime(words: number): string | null {
   if (words === 0) return null;
   const minutes = words / WORDS_PER_MINUTE;

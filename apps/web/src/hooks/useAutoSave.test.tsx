@@ -15,6 +15,7 @@ import { DEBOUNCE_MS } from '../constants/autosave';
 
 const DOC_ID = 'doc-autosave';
 
+/** Provides a query client with retries disabled for autosave hook tests. */
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -22,6 +23,7 @@ function wrapper({ children }: { children: ReactNode }) {
   return createElement(QueryClientProvider, { client }, children);
 }
 
+/** Creates a headless editor with the application node types for autosave tests. */
 function makeEditor(): LexicalEditor {
   return createEditor({
     nodes: EDITOR_NODES,
@@ -47,6 +49,7 @@ function watchSerialization(editor: LexicalEditor) {
 /** Lets the save mutation's promise settle under fake timers */
 const settle = () => act(async () => { await Promise.resolve(); });
 
+/** Advances fake timers inside act to run pending autosave work. */
 const tick = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 
 beforeEach(() => {

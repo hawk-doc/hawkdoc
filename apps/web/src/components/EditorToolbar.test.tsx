@@ -17,6 +17,7 @@ import { EditorToolbar } from './EditorToolbar';
 import { AuthProvider } from '../context/AuthContext';
 import { EDITOR_NODES } from '../constants/editor';
 
+/** Creates a headless editor with the application node types for toolbar tests. */
 function makeEditor(): LexicalEditor {
   return createEditor({ nodes: EDITOR_NODES, onError: (error: Error) => { throw error; } });
 }
@@ -25,6 +26,7 @@ function makeEditor(): LexicalEditor {
 function mountToolbar(editor: LexicalEditor) {
   const counter = { commits: 0 };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  /** Wraps the toolbar in its providers and records React commits with a profiler. */
   const tree = (children: ReactNode) => (
     <QueryClientProvider client={client}>
       <AuthProvider>
@@ -87,6 +89,7 @@ function type(editor: LexicalEditor, char: string): void {
   });
 }
 
+/** Reads the editor's text content for assertions after simulated typing. */
 const textOf = (editor: LexicalEditor) =>
   editor.getEditorState().read(() => $getRoot().getTextContent());
 

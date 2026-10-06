@@ -88,6 +88,7 @@ function getStoredActiveId(): string {
   return localStorage.getItem(ACTIVE_DOC_KEY) ?? '';
 }
 
+/** Manages paginated documents, trash, the active document and mutations for local or API storage. */
 export function useDocumentStore(token: string | null) {
   const queryClient = useQueryClient();
 
@@ -337,27 +338,35 @@ export function useDocumentStore(token: string | null) {
   // are too — where a fresh closure per render would hand every consumer a
   // changed prop each time anything in the app re-rendered.
   const { fetchNextPage: fetchMoreDocs } = docsQuery;
+  /** Requests the next page of documents matching the current search. */
   const loadMore = useCallback(() => { void fetchMoreDocs(); }, [fetchMoreDocs]);
 
   const { fetchNextPage: fetchMoreTrash } = trashQuery;
+  /** Requests the next page of trashed documents. */
   const loadMoreTrash = useCallback(() => { void fetchMoreTrash(); }, [fetchMoreTrash]);
 
   const { mutateAsync: createDoc } = createMutation;
+  /** Creates and activates a document, resolving once its ID is available. */
   const create = useCallback(async (): Promise<void> => { await createDoc(); }, [createDoc]);
 
   const { mutate: removeDoc } = removeMutation;
+  /** Moves a document to the trash with an optimistic cache update. */
   const remove = useCallback((id: string) => { removeDoc(id); }, [removeDoc]);
 
   const { mutate: restoreDoc } = restoreMutation;
+  /** Restores a trashed document to the active document list. */
   const restore = useCallback((id: string) => { restoreDoc(id); }, [restoreDoc]);
 
   const { mutate: purgeDoc } = purgeMutation;
+  /** Permanently deletes a trashed document and its content. */
   const purge = useCallback((id: string) => { purgeDoc(id); }, [purgeDoc]);
 
   const { mutate: duplicateDoc } = duplicateMutation;
+  /** Copies a document and activates the new copy after creation. */
   const duplicate = useCallback((id: string) => { duplicateDoc(id); }, [duplicateDoc]);
 
   const { mutate: emptyTheTrash } = emptyTrashMutation;
+  /** Permanently deletes all trashed documents and their content. */
   const clearTrash = useCallback(() => { emptyTheTrash(); }, [emptyTheTrash]);
 
   return {

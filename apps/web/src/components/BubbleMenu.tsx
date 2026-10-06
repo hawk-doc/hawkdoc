@@ -20,6 +20,7 @@ interface BubbleMenuProps {
   editor: LexicalEditor;
 }
 
+/** Shows inline formatting controls above a non-collapsed editor selection. */
 export function BubbleMenu({ editor }: BubbleMenuProps) {
   const [pos, setPos] = useState<Point | null>(null);
   const [format, setFormat] = useState(EMPTY_FORMAT);

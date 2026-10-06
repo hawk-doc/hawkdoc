@@ -10,10 +10,12 @@ import {
 import { DocumentStats } from './DocumentStats';
 import { EDITOR_NODES } from '../constants/editor';
 
+/** Creates a headless editor with the application node types for statistics tests. */
 function makeEditor(): LexicalEditor {
   return createEditor({ nodes: EDITOR_NODES, onError: (error: Error) => { throw error; } });
 }
 
+/** Replaces the editor content with a paragraph and commits the update immediately. */
 function write(editor: LexicalEditor, text: string): void {
   editor.update(() => {
     const root = $getRoot();
@@ -22,6 +24,7 @@ function write(editor: LexicalEditor, text: string): void {
   }, { discrete: true });
 }
 
+/** Advances fake timers inside act so debounced statistics updates are applied. */
 const tick = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 
 beforeEach(() => { vi.useFakeTimers(); });

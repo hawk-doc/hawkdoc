@@ -63,6 +63,7 @@ export function useAutoSave(
   const saveRef = useRef(saveMutation.mutate);
   saveRef.current = saveMutation.mutate;
 
+  /** Cancels the debounce timer and submits pending content with the latest title. */
   const flush = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -74,6 +75,7 @@ export function useAutoSave(
     saveRef.current({ title: titleRef.current, content: JSON.stringify(state.toJSON()) });
   }, []);
 
+  /** Marks the document as pending and restarts the save debounce timer. */
   const schedule = useCallback(() => {
     pendingRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);

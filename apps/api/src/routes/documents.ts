@@ -113,14 +113,6 @@ async function ownsActiveDocument(docId: string, userId: string): Promise<boolea
   return result.rows.length > 0;
 }
 
-/**
- * List documents for the authenticated user, newest first, a page at a time.
- *
- * Paginated on (sort column, id) rather than OFFSET: documents are reordered
- * by every save, and an offset would let a row the reader already saw reappear
- * on the next page while another slips past unseen. The cursor travels in a
- * Link header, so the response stays the array it has always been.
- */
 interface DocumentPageRow {
   id: string;
   title: string;
@@ -131,6 +123,14 @@ interface DocumentPageRow {
   cursor_at: string;
 }
 
+/**
+ * List documents for the authenticated user, newest first, a page at a time.
+ *
+ * Paginated on (sort column, id) rather than OFFSET: documents are reordered
+ * by every save, and an offset would let a row the reader already saw reappear
+ * on the next page while another slips past unseen. The cursor travels in a
+ * Link header, so the response stays the array it has always been.
+ */
 documentsRouter.get('/', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;

@@ -64,6 +64,7 @@ function LoadMore({ onClick, busy, label }: { onClick: () => void; busy: boolean
   );
 }
 
+/** Displays the supplied document and trash pages with search and document actions. */
 export function Sidebar({
   docs, activeId, onActivate, onCreate, onRename, onDelete, onDuplicate,
   trashed, trashOpen, onTrashOpenChange, onRestore, onPurge, onEmptyTrash,

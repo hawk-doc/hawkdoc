@@ -24,6 +24,7 @@ export function $readSelectionFormat(selection: RangeSelection): SelectionFormat
   };
 }
 
+/** Compares all inline format flags so callers can retain unchanged selection state. */
 export function sameFormat(a: SelectionFormat, b: SelectionFormat): boolean {
   return (
     a.bold === b.bold &&

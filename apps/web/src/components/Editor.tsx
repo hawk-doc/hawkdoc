@@ -163,6 +163,7 @@ interface EditorProps {
   collabUser?: { id: string; name: string };
 }
 
+/** Renders the document editor with local or collaborative persistence, exports and history. */
 export function Editor({ docId, title, onTitleChange, collabToken, collabUser }: EditorProps) {
   const isCollab = !!(collabToken && collabUser);
 
@@ -191,6 +192,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
   // Disable local autosave in collab mode — Hocuspocus handles server-side persistence
   const isSaving = useAutoSave(isCollab ? null : editorInstance, title, docId);
 
+  /** Exports the current editor state as PDF, guarding against concurrent exports. */
   const handleExportPDF = useCallback(async () => {
     if (!editorInstance || isExporting) return;
     setIsExporting(true);
@@ -203,6 +205,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     }
   }, [editorInstance, title, isExporting]);
 
+  /** Exports the current editor state as Word, guarding against concurrent exports. */
   const handleExportDOCX = useCallback(async () => {
     if (!editorInstance || isExporting) return;
     setIsExporting(true);

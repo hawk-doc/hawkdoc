@@ -94,6 +94,7 @@ const HIGHLIGHT_COLORS = [
 ];
 
 
+/** Renders selection-aware formatting controls and document actions for the editor. */
 export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX, onOpenHistory, isSaving, title, onToggleFocusMode, collabStatus }: EditorToolbarProps) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -123,6 +124,7 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docxInputRef = useRef<HTMLInputElement>(null);
 
+  /** Reads the current selection in a Lexical read context and updates toolbar state. */
   const updateToolbar = useCallback(() => {
     const selection = $getSelection();
     if (!$isRangeSelection(selection)) return;

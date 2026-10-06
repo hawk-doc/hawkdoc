@@ -65,6 +65,7 @@ function VersionPreview({ state, versionId }: { state: SerializedEditorState; ve
   );
 }
 
+/** Shows version previews, comparisons and restore controls, fetching earlier content on demand. */
 export function VersionHistoryPanel({
   docId, token, open, onClose, onRestore, getCurrentState,
 }: VersionHistoryPanelProps) {
