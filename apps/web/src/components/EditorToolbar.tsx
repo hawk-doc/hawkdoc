@@ -14,7 +14,7 @@ import {
   COMMAND_PRIORITY_CRITICAL,
 } from 'lexical';
 import { $patchStyleText, $getSelectionStyleValueForProperty } from '@lexical/selection';
-import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
+import { TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { $isHeadingNode, $createHeadingNode } from '@lexical/rich-text';
 import { $isQuoteNode, $createQuoteNode } from '@lexical/rich-text';
 import { $isCodeNode, $createCodeNode } from '@lexical/code';
@@ -30,6 +30,7 @@ import { $createImageNode } from '../nodes/ImageNode';
 import { uploadImage } from '../lib/documentApi';
 import { useAuth } from '../context/AuthContext';
 import { BLOCK_TYPES, FONT_FAMILIES, FONT_SIZES } from '../constants/editor';
+import { $readSelectionFormat, sameFormat, EMPTY_FORMAT } from '../lib/selectionFormat';
 import type { BlockType, EditorToolbarProps } from '../interfaces';
 import {
   Bold,
@@ -97,14 +98,7 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [blockType, setBlockType] = useState<BlockType>('paragraph');
-  const [format, setFormat] = useState({
-    bold: false,
-    italic: false,
-    underline: false,
-    strikethrough: false,
-    code: false,
-    link: false,
-  });
+  const [format, setFormat] = useState(EMPTY_FORMAT);
   const [fontFamily, setFontFamily] = useState('Inter');
   const [fontSize, setFontSize] = useState('16');
   const [fontSizeInput, setFontSizeInput] = useState('16');
@@ -152,14 +146,11 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
       }
     }
 
-    setFormat({
-      bold: selection.hasFormat('bold'),
-      italic: selection.hasFormat('italic'),
-      underline: selection.hasFormat('underline'),
-      strikethrough: selection.hasFormat('strikethrough'),
-      code: selection.hasFormat('code'),
-      link: $isLinkNode(anchorNode.getParent()),
-    });
+    // Typing a character inside a paragraph changes none of what the toolbar
+    // shows. Returning the state React already holds bails it out of the
+    // re-render, which otherwise happened for every keystroke.
+    const nextFormat = $readSelectionFormat(selection);
+    setFormat((prev) => (sameFormat(prev, nextFormat) ? prev : nextFormat));
 
     // Font family
     const rawFamily = $getSelectionStyleValueForProperty(selection, 'font-family', 'Inter');

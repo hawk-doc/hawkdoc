@@ -7,16 +7,13 @@ import {
   FORMAT_TEXT_COMMAND,
   type LexicalEditor,
 } from 'lexical';
-import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
+import { TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { Bold, Italic, Underline, Strikethrough, Code2, Link } from 'lucide-react';
+import { $readSelectionFormat, sameFormat, EMPTY_FORMAT } from '../lib/selectionFormat';
 
-interface FormatState {
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
-  strikethrough: boolean;
-  code: boolean;
-  link: boolean;
+interface Point {
+  top: number;
+  left: number;
 }
 
 interface BubbleMenuProps {
@@ -24,15 +21,8 @@ interface BubbleMenuProps {
 }
 
 export function BubbleMenu({ editor }: BubbleMenuProps) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const [format, setFormat] = useState<FormatState>({
-    bold: false,
-    italic: false,
-    underline: false,
-    strikethrough: false,
-    code: false,
-    link: false,
-  });
+  const [pos, setPos] = useState<Point | null>(null);
+  const [format, setFormat] = useState(EMPTY_FORMAT);
   const ref = useRef<HTMLDivElement>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
@@ -45,15 +35,10 @@ export function BubbleMenu({ editor }: BubbleMenuProps) {
           return;
         }
 
-        const anchorNode = selection.anchor.getNode();
-        setFormat({
-          bold: selection.hasFormat('bold'),
-          italic: selection.hasFormat('italic'),
-          underline: selection.hasFormat('underline'),
-          strikethrough: selection.hasFormat('strikethrough'),
-          code: selection.hasFormat('code'),
-          link: $isLinkNode(anchorNode.getParent()),
-        });
+        // Both of these run on every editor update, so they hand React back
+        // what it already holds when nothing moved or changed.
+        const nextFormat = $readSelectionFormat(selection);
+        setFormat((prev) => (sameFormat(prev, nextFormat) ? prev : nextFormat));
 
         const domSel = window.getSelection();
         if (!domSel || domSel.rangeCount === 0) return;
@@ -61,10 +46,8 @@ export function BubbleMenu({ editor }: BubbleMenuProps) {
         const rect = range.getBoundingClientRect();
         if (rect.width === 0 && rect.height === 0) return;
 
-        setPos({
-          top: rect.top - 48,
-          left: rect.left + rect.width / 2,
-        });
+        const next = { top: rect.top - 48, left: rect.left + rect.width / 2 };
+        setPos((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next));
       });
     });
   }, [editor]);
