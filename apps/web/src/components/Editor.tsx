@@ -192,7 +192,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
   );
 
   // Disable local autosave in collab mode — Hocuspocus handles server-side persistence
-  const isSaving = useAutoSave(isCollab ? null : editorState, title, docId);
+  const isSaving = useAutoSave(isCollab ? null : editorInstance, title, docId);
 
   const wordCount = useMemo(() => {
     if (!editorState) return 0;
