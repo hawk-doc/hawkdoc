@@ -100,7 +100,7 @@ export function useDocumentStore(token: string | null) {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const DOCS_KEY = docsKey(token, searchQuery);
+  const DOCS_KEY = useMemo(() => docsKey(token, searchQuery), [token, searchQuery]);
   const docsQuery = useInfiniteQuery({
     queryKey: DOCS_KEY,
     queryFn: ({ pageParam }) => fetchDocuments(token, { q: searchQuery, cursor: pageParam }),
@@ -110,7 +110,7 @@ export function useDocumentStore(token: string | null) {
   const docs = useMemo(() => flatten(docsQuery.data), [docsQuery.data]);
   const total = docsQuery.data?.pages[0]?.total ?? null;
 
-  const TRASH_KEY = trashKey(token);
+  const TRASH_KEY = useMemo(() => trashKey(token), [token]);
   // Only fetched once the user opens the trash
   const [trashOpen, setTrashOpen] = useState(false);
   const trashQuery = useInfiniteQuery({
@@ -332,37 +332,65 @@ export function useDocumentStore(token: string | null) {
     onError: (err, _vars, prev) => { console.error('Failed to empty the trash:', err); rollback(prev); },
   });
 
+  // Everything handed out below keeps the same identity between renders.
+  // TanStack's mutate and fetchNextPage are already stable, so these wrappers
+  // are too — where a fresh closure per render would hand every consumer a
+  // changed prop each time anything in the app re-rendered.
+  const { fetchNextPage: fetchMoreDocs } = docsQuery;
+  const loadMore = useCallback(() => { void fetchMoreDocs(); }, [fetchMoreDocs]);
+
+  const { fetchNextPage: fetchMoreTrash } = trashQuery;
+  const loadMoreTrash = useCallback(() => { void fetchMoreTrash(); }, [fetchMoreTrash]);
+
+  const { mutateAsync: createDoc } = createMutation;
+  const create = useCallback(async (): Promise<void> => { await createDoc(); }, [createDoc]);
+
+  const { mutate: removeDoc } = removeMutation;
+  const remove = useCallback((id: string) => { removeDoc(id); }, [removeDoc]);
+
+  const { mutate: restoreDoc } = restoreMutation;
+  const restore = useCallback((id: string) => { restoreDoc(id); }, [restoreDoc]);
+
+  const { mutate: purgeDoc } = purgeMutation;
+  const purge = useCallback((id: string) => { purgeDoc(id); }, [purgeDoc]);
+
+  const { mutate: duplicateDoc } = duplicateMutation;
+  const duplicate = useCallback((id: string) => { duplicateDoc(id); }, [duplicateDoc]);
+
+  const { mutate: emptyTheTrash } = emptyTrashMutation;
+  const clearTrash = useCallback(() => { emptyTheTrash(); }, [emptyTheTrash]);
+
   return {
     docs,
     /** How many documents match in total, which can exceed the ones loaded */
     total,
     isLoading: docsQuery.isPending,
     hasMore: docsQuery.hasNextPage,
-    loadMore: () => { void docsQuery.fetchNextPage(); },
+    loadMore,
     isLoadingMore: docsQuery.isFetchingNextPage,
     /** What is typed in the search box; the query follows after a pause */
     search,
     setSearch,
     activeId: resolvedActiveId,
     // create() is awaitable so the editor gets the real DB id before Hocuspocus connects
-    create: async (): Promise<void> => { await createMutation.mutateAsync(); },
+    create,
     rename,
     /** Moves the document to the trash — reversible */
-    remove: (id: string) => removeMutation.mutate(id),
+    remove,
     activate,
     touch,
     trashed,
     trashOpen,
     /** Opening the trash is what loads it */
     setTrashOpen,
-    restore: (id: string) => restoreMutation.mutate(id),
+    restore,
     /** Destroys a trashed document and its content */
-    purge: (id: string) => purgeMutation.mutate(id),
-    emptyTrash: () => emptyTrashMutation.mutate(),
+    purge,
+    emptyTrash: clearTrash,
     trashHasMore: trashQuery.hasNextPage,
-    loadMoreTrash: () => { void trashQuery.fetchNextPage(); },
+    loadMoreTrash,
     isLoadingMoreTrash: trashQuery.isFetchingNextPage,
     /** Copies a document and opens the copy */
-    duplicate: (id: string) => duplicateMutation.mutate(id),
+    duplicate,
   };
 }
