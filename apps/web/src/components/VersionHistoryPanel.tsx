@@ -68,15 +68,21 @@ function VersionPreview({ state, versionId }: { state: SerializedEditorState; ve
 export function VersionHistoryPanel({
   docId, token, open, onClose, onRestore, getCurrentState,
 }: VersionHistoryPanelProps) {
+  const [confirming, setConfirming] = useState(false);
+  const [view, setView] = useState<PaneView>('document');
+  const [compareWith, setCompareWith] = useState<CompareBase>('previous');
+
+  // The panel opens on Document while the comparison defaults to the previous
+  // version. Only the Changes tab reads that version, so it decides both
+  // whether the version is fetched and whose progress and failures show.
+  const usesPrevious = view === 'changes' && compareWith === 'previous';
+
   const {
     versions, isLoading, error,
     selectedId, select,
     preview, isPreviewLoading, previewError,
     previousId, previous, isPreviousLoading, previousError,
-  } = useDocumentVersions(docId, token, open);
-  const [confirming, setConfirming] = useState(false);
-  const [view, setView] = useState<PaneView>('document');
-  const [compareWith, setCompareWith] = useState<CompareBase>('previous');
+  } = useDocumentVersions(docId, token, { open, comparing: usesPrevious });
   const [currentState, setCurrentState] = useState<SerializedEditorState | null>(null);
   const panelRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -143,10 +149,6 @@ export function VersionHistoryPanel({
   );
 
   const canCompareCurrent = getCurrentState !== undefined;
-  // The panel opens on Document while the comparison defaults to the previous
-  // version, so that request is in flight behind a view that doesn't use it.
-  // Only the Changes tab should show its progress or its failures.
-  const usesPrevious = view === 'changes' && compareWith === 'previous';
   const comparingLoading = isPreviewLoading || (usesPrevious && isPreviousLoading);
   const comparingError = previewError ?? (usesPrevious ? previousError : null);
   const noEarlierVersion = compareWith === 'previous' && previousId === null && !isPreviewLoading;

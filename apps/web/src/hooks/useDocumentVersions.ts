@@ -23,6 +23,17 @@ export interface DocumentVersionsState {
   previousError: Error | null;
 }
 
+export interface DocumentVersionsOptions {
+  /** The history panel is open; nothing is fetched before it is */
+  open: boolean;
+  /**
+   * The caller is showing a comparison against the version before the selected
+   * one. Reading a version costs a Yjs chain rebuild on the server, so that
+   * one is only fetched once something is going to show it.
+   */
+  comparing: boolean;
+}
+
 /**
  * The versions of a document and the content of the one being previewed.
  * Nothing is fetched until the history is opened, and each version's content
@@ -32,7 +43,7 @@ export interface DocumentVersionsState {
 export function useDocumentVersions(
   docId: string,
   token: string | null,
-  open: boolean,
+  { open, comparing }: DocumentVersionsOptions,
 ): DocumentVersionsState {
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -69,7 +80,7 @@ export function useDocumentVersions(
   const previous = useQuery({
     queryKey: [VERSION_CONTENT_QUERY_KEY, docId, previousId, token],
     queryFn: () => fetchVersionContent(docId, previousId!, token),
-    enabled: open && previousId !== null,
+    enabled: open && comparing && previousId !== null,
     staleTime: Infinity,
   });
 
@@ -86,7 +97,9 @@ export function useDocumentVersions(
     previewError: content.error,
     previousId,
     previous: previous.data ?? null,
-    isPreviousLoading: previous.isPending && previousId !== null && open,
+    // isLoading, not isPending: a query that hasn't been enabled yet is
+    // pending forever, and that isn't something to show a spinner for.
+    isPreviousLoading: previous.isLoading,
     previousError: previous.error,
   };
 }
