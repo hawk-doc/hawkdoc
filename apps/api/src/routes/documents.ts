@@ -121,6 +121,16 @@ async function ownsActiveDocument(docId: string, userId: string): Promise<boolea
  * on the next page while another slips past unseen. The cursor travels in a
  * Link header, so the response stays the array it has always been.
  */
+interface DocumentPageRow {
+  id: string;
+  title: string;
+  updated_at: string;
+  created_at: string;
+  deleted_at: string | null;
+  /** The sort timestamp at full precision, for the next page's cursor */
+  cursor_at: string;
+}
+
 documentsRouter.get('/', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
@@ -148,27 +158,35 @@ documentsRouter.get('/', async (req: Request, res) => {
     // One row more than asked for: its presence is what says there is a next
     // page, without a second query to find out.
     params.push(limit + 1);
-    const result = await query<{
-      id: string;
-      title: string;
-      updated_at: string;
-      created_at: string;
-      deleted_at: string | null;
-      cursor_at: string;
-    }>(
-      // cursor_at is the sort timestamp as PostgreSQL holds it, to the
-      // microsecond. Reading it back through a JavaScript Date would round it
-      // to the millisecond, and a page boundary inside a group of documents
-      // saved in the same instant would then exclude the rest of that group —
-      // paging would stop early and quietly lose them.
-      `SELECT id, title, updated_at, created_at, deleted_at,
-              to_char(${sortColumn} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
-       FROM documents
-       WHERE ${filters.join(' AND ')}
-       ORDER BY ${sortColumn} DESC, id DESC
-       LIMIT $${params.length}`,
-      params,
-    );
+
+    // The count doesn't depend on the page, so the two go to PostgreSQL
+    // together instead of one after the other. Promise.all subscribes to both
+    // at once, so a failure in either is handled rather than turning up later
+    // as an unhandled rejection.
+    const [result, counted] = await Promise.all([
+      query<DocumentPageRow>(
+        // cursor_at is the sort timestamp as PostgreSQL holds it, to the
+        // microsecond. Reading it back through a JavaScript Date would round it
+        // to the millisecond, and a page boundary inside a group of documents
+        // saved in the same instant would then exclude the rest of that group —
+        // paging would stop early and quietly lose them.
+        `SELECT id, title, updated_at, created_at, deleted_at,
+                to_char(${sortColumn} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
+         FROM documents
+         WHERE ${filters.join(' AND ')}
+         ORDER BY ${sortColumn} DESC, id DESC
+         LIMIT $${params.length}`,
+        params,
+      ),
+      // Only on the first page: counting every match costs as much as the scan
+      // the pagination exists to avoid, and the total doesn't change as you page.
+      position
+        ? null
+        : query<{ count: string }>(
+          `SELECT COUNT(*) AS count FROM documents WHERE ${matching.join(' AND ')}`,
+          [userId, search],
+        ),
+    ]);
 
     const page = result.rows.slice(0, limit);
     const last = page[page.length - 1];
@@ -178,15 +196,7 @@ documentsRouter.get('/', async (req: Request, res) => {
       res.setHeader('Link', `<${next.pathname}${next.search}>; rel="next"`);
     }
 
-    // Only on the first page: counting every match costs as much as the scan
-    // the pagination exists to avoid, and the total doesn't change as you page.
-    if (!position) {
-      const counted = await query<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM documents WHERE ${matching.join(' AND ')}`,
-        [userId, search],
-      );
-      res.setHeader('X-Total-Count', counted.rows[0]?.count ?? '0');
-    }
+    if (counted) res.setHeader('X-Total-Count', counted.rows[0]?.count ?? '0');
 
     // cursor_at is bookkeeping for the Link header, not part of a document
     res.json(page.map(({ cursor_at: _cursor, ...doc }) => doc));
