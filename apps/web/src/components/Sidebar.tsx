@@ -140,7 +140,6 @@ export function Sidebar({
   };
 
   // The server returns them newest first and already matching the search
-  const filtered = docs;
   const isSearching = search.trim().length > 0;
 
   const isEmptyState =
@@ -291,14 +290,14 @@ export function Sidebar({
               Click <strong>+</strong> to create your first document
             </p>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : docs.length === 0 ? (
           <div className="sidebar-empty">
             <Search size={22} className="mb-2 opacity-30" />
             <p className="text-xs font-medium">No matches</p>
           </div>
         ) : (
           <>
-          {filtered.map((doc) => {
+          {docs.map((doc) => {
             const isActive = doc.id === activeId;
             const isEditing = doc.id === editingId;
 
@@ -357,7 +356,7 @@ export function Sidebar({
             <LoadMore
               onClick={onLoadMore}
               busy={isLoadingMore}
-              label={total === null ? 'Show more' : `Show more (${total - filtered.length} left)`}
+              label={total === null ? 'Show more' : `Show more (${total - docs.length} left)`}
             />
           )}
           </>

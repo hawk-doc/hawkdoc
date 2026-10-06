@@ -17,6 +17,16 @@ export interface SlashMenuState {
   anchorRect: DOMRect;
 }
 
+/** Which inline formats apply to the current selection */
+export interface SelectionFormat {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strikethrough: boolean;
+  code: boolean;
+  link: boolean;
+}
+
 export interface AutoSaveData {
   title: string;
   content: string;

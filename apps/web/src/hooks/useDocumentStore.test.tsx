@@ -287,3 +287,26 @@ describe('the document you had open', () => {
     expect(result.current.activeId).toBe('First');
   });
 });
+
+describe('render stability', () => {
+  it('hands out the same callbacks between renders', async () => {
+    const view = await renderStore();
+    const before = view.result.current;
+
+    view.rerender();
+    const after = view.result.current;
+
+    // Every one of these is a prop on the sidebar or the editor. Rebuilding
+    // them per render means a changed prop on everything downstream whenever
+    // anything in the app re-renders — including a pagehide listener that was
+    // torn down and registered again each time.
+    const callbacks = [
+      'loadMore', 'loadMoreTrash', 'create', 'remove', 'restore', 'purge',
+      'duplicate', 'emptyTrash', 'activate', 'touch', 'rename',
+      'setSearch', 'setTrashOpen',
+    ] as const;
+    for (const name of callbacks) {
+      expect(after[name], name).toBe(before[name]);
+    }
+  });
+});

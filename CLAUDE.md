@@ -97,6 +97,53 @@ each was worked out against the shipped code, not guessed at.
   does not say so. Either say it in the empty state, or sync local snapshots up
   on first sign-in.
 
+### Performance follow-ups
+- **Typing in the title re-renders the toolbar**, because `title` is a prop and
+  AppShell owns it so the sidebar can show it live. Splitting that ownership —
+  a local value in the editor, pushed up debounced — is the fix, and it is a
+  change to who owns the title rather than a memoization.
+- **Pending content is lost if the tab closes within the autosave debounce.**
+  The store already flushes titles on `pagehide` with `keepalive`; content
+  could do the same.
+- **The initial bundle is 572kB.** `react-pdf` is already split out; the next
+  candidates are the Lexical node set and the docx renderer.
+
+## Editor Performance
+
+The core principle is zero lag on typing, which means **nothing that scales
+with the document may run per keystroke**. Three rules keep that true, and
+each one was a real cost that showed up in measurement:
+
+- **The editor state stays out of React.** An `OnChangePlugin` that calls
+  `setState` re-renders the toolbar, the bubble menu and the history panel for
+  every character. Anything needing the document reads
+  `editor.getEditorState()` when the user asks for it — that is how the
+  exports and the history panel work — and anything needing to follow it
+  subscribes with `registerUpdateListener` so only that component re-renders.
+- **Serialize inside the debounce, not before it.** `useAutoSave` holds the
+  newest `EditorState` in a ref and calls `toJSON` in the timer. The states
+  are immutable, so holding one costs a reference; serializing per keystroke
+  costs a walk of the whole document whose result is thrown away.
+- **Hand React back the object it already holds.** The toolbar and the bubble
+  menu read the selection on every update. Returning the previous state from
+  the updater (`setFormat((prev) => sameFormat(prev, next) ? prev : next)`,
+  with the comparison in `lib/selectionFormat.ts`) bails React out of the
+  re-render, which is the common case: typing inside a paragraph changes
+  nothing the toolbar shows.
+
+An update that dirties no nodes is a caret move. Autosave and `DocumentStats`
+both skip those — `dirtyElements.size === 0 && dirtyLeaves.size === 0` — so
+clicking around a document neither saves it nor recounts it.
+
+Measured over 150 keystrokes in a headless Chrome against the production
+build: script time fell from ~165ms to ~27ms, style recalculation from 13ms
+to 1ms. In a 3,600-word document the per-keystroke script cost went from
+2.0ms to 0.44ms — the gap widens with the document, which is the point.
+
+Still outstanding: the title is a prop, so typing in it re-renders the
+toolbar. Fixing that means moving who owns the title, since the sidebar shows
+it as you type.
+
 ## Word (.docx) Import and Export
 
 Export is two layers, so the mapping can be tested without generating a file:
@@ -141,6 +188,14 @@ everyone else.
 Signed out there is no Yjs, so `lib/versions/localVersions.ts` keeps snapshots
 of the editor state in localStorage instead, throttled the same way and capped;
 they give way rather than failing a save when the quota is reached.
+
+Reading a version rebuilds a Yjs chain on the server, so the version *before*
+the selected one is only fetched once a comparison is actually on screen
+(`useDocumentVersions`' `comparing` option). Opening the panel therefore costs
+one rebuild rather than two. It is not fewer requests overall — a reader who
+opens the Changes tab pays the same total, just later — and the old eager
+fetch did double as a prefetch of the next version down the list, which is now
+gone. Deliberate prefetching would be a separate decision.
 
 ### Comparing versions
 `lib/versions/diff.ts` compares two decoded states and `VersionDiff.tsx`
@@ -213,6 +268,9 @@ Hocuspocus. Signed out, the same model runs on localStorage
 4. **Template variables** are stored as `TemplateVariableNode` (DecoratorNode), not plain text. They render as styled chips and are replaced on export.
 5. **PDF export runs on the main thread** via `@react-pdf/renderer`. Do not move to a Web Worker — it does not support the APIs required.
 6. **Never use `window.prompt()`** — use `InputDialog.tsx` for any user input dialogs.
+7. **Never put the Lexical editor state into React state.** It changes on every
+   keystroke, so storing it re-renders the whole editor for each character.
+   See "Editor Performance" below.
 
 ### Backend
 1. **Hocuspocus handles all WebSocket/real-time logic** — do not write custom WebSocket code for document sync.

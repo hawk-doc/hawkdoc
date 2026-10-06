@@ -85,6 +85,11 @@ const TWO_VERSIONS = {
 };
 
 const changesTab = () => screen.getByRole('tab', { name: 'Changes' });
+/** Which versions the panel has asked the server to rebuild */
+const reads = (versionId: string) =>
+  (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+    .map(([url]) => String(url))
+    .filter((url) => url.endsWith(`/versions/${versionId}`));
 const insertions = () => [...document.querySelectorAll('ins')].map((node) => node.textContent?.trim());
 const deletions = () => [...document.querySelectorAll('del')].map((node) => node.textContent?.trim());
 
@@ -155,6 +160,24 @@ describe('version history panel', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Version preview').textContent)
       .toContain('the older text'));
+  });
+
+  it('does not read the earlier version until a comparison asks for it', async () => {
+    mockApi(TWO_VERSIONS);
+    renderPanel(TOKEN);
+
+    await waitFor(() => expect(screen.getByLabelText('Version preview').textContent)
+      .toContain('the newest text'));
+
+    // Reading a version costs a Yjs chain rebuild on the server, so the one
+    // before it is left alone while the Document tab is showing.
+    expect(reads('v2')).toHaveLength(1);
+    expect(reads('v1')).toHaveLength(0);
+
+    fireEvent.click(changesTab());
+
+    await waitFor(() => expect(reads('v1')).toHaveLength(1));
+    expect(reads('v2')).toHaveLength(1);
   });
 
   it('confirms before restoring, then hands back that version', async () => {
