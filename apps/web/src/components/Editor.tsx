@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, Fragment, lazy, Suspense } from 'react';
+import { useCallback, useEffect, useRef, useState, Fragment, lazy, Suspense } from 'react';
 import { Minimize2 } from 'lucide-react';
 import {
-  $getRoot,
   $getSelection,
   $isRangeSelection,
   $isTextNode,
-  type EditorState,
   type LexicalEditor,
 } from 'lexical';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
@@ -17,7 +15,6 @@ import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { HorizontalRulePlugin } from '@lexical/react/LexicalHorizontalRulePlugin';
-import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { TRANSFORMERS } from '@lexical/markdown';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
@@ -29,6 +26,7 @@ import type { CollabStatus } from './CollaborationPlugin';
 import { $createTemplateVariableNode } from '../nodes/TemplateVariableNode';
 import { TablePlugin } from './TablePlugin';
 import { FindReplacePlugin } from './FindReplacePlugin';
+import { DocumentStats } from './DocumentStats';
 import { DraggableBlockPlugin } from './DraggableBlockPlugin';
 import { useAutoSave, loadDocContent } from '../hooks/useAutoSave';
 import { exportPdf } from '../lib/pdfExport';
@@ -169,7 +167,6 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
   const isCollab = !!(collabToken && collabUser);
 
   const [editorInstance, setEditorInstance] = useState<LexicalEditor | null>(null);
-  const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
   const closeSlashMenu = useCallback(() => setSlashMenu(null), []);
   const [isExporting, setIsExporting] = useState(false);
@@ -194,42 +191,29 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
   // Disable local autosave in collab mode — Hocuspocus handles server-side persistence
   const isSaving = useAutoSave(isCollab ? null : editorInstance, title, docId);
 
-  const wordCount = useMemo(() => {
-    if (!editorState) return 0;
-    let text = '';
-    editorState.read(() => { text = $getRoot().getTextContent(); });
-    return text.trim() ? text.trim().split(/\s+/).length : 0;
-  }, [editorState]);
-
-  const readingTime = useMemo(() => {
-    if (wordCount === 0) return null;
-    const minutes = wordCount / 200;
-    return minutes < 1 ? '< 1 min read' : `${Math.ceil(minutes)} min read`;
-  }, [wordCount]);
-
   const handleExportPDF = useCallback(async () => {
-    if (!editorState || isExporting) return;
+    if (!editorInstance || isExporting) return;
     setIsExporting(true);
     try {
-      await exportPdf(editorState, title);
+      await exportPdf(editorInstance.getEditorState(), title);
     } catch (err) {
       console.error('PDF export failed:', err);
     } finally {
       setIsExporting(false);
     }
-  }, [editorState, title, isExporting]);
+  }, [editorInstance, title, isExporting]);
 
   const handleExportDOCX = useCallback(async () => {
-    if (!editorState || isExporting) return;
+    if (!editorInstance || isExporting) return;
     setIsExporting(true);
     try {
-      await exportDocx(editorState, title);
+      await exportDocx(editorInstance.getEditorState(), title);
     } catch (err) {
       console.error('DOCX export failed:', err);
     } finally {
       setIsExporting(false);
     }
-  }, [editorState, title, isExporting]);
+  }, [editorInstance, title, isExporting]);
 
   const handleImportDOCX = useCallback(async (file: File) => {
     if (!editorInstance || isExporting) return;
@@ -374,7 +358,6 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
                   <LinkPlugin />
                   <HorizontalRulePlugin />
                   <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
-                  <OnChangePlugin onChange={(state) => setEditorState(state)} />
                   <SlashAndVariablePlugin onSlashMenu={setSlashMenu} />
                   <EditorRefPlugin onEditor={setEditorInstance} />
                   <CodeBlockPlugin />
@@ -412,10 +395,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
 
           {/* Status bar */}
           <div className="mt-3 flex items-center justify-between px-1">
-            <span className="text-xs text-[#80868b] dark:text-[#5f6368]">
-              {wordCount} {wordCount === 1 ? 'word' : 'words'}
-              {readingTime && <> · {readingTime}</>}
-            </span>
+            <DocumentStats editor={editorInstance} />
             <span className="hidden sm:inline text-xs text-[#80868b] dark:text-[#5f6368]">
               Press <kbd className="editor-kbd">/</kbd> for commands
               &nbsp;·&nbsp;
