@@ -14,7 +14,6 @@
 
 ## Backlog
 - [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks); registration can still duplicate a legacy mixed-case address.
-- [ ] (enhancement) `pruneVersions` runs unguarded per record; concurrent calls could race (low risk).
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
 
 ## History
@@ -23,6 +22,7 @@
 - 2026-10-03 | bug | bug/require-auth-uploads | https://github.com/hawk-doc/hawkdoc/pull/30 | open, awaiting owner review (uploads require auth; test run of the schedule)
 - 2026-10-04 | enhancement | enhancement/rate-limit-auth | https://github.com/hawk-doc/hawkdoc/pull/31 | open, awaiting owner review (in-memory per-IP limiter on login/register; test run of the schedule)
 - 2026-10-05 | bug | bug/trust-proxy-rate-limit | https://github.com/hawk-doc/hawkdoc/pull/32 | open, awaiting owner review (TRUST_PROXY env; test run of the schedule)
+- 2026-10-07 | enhancement | enhancement/guard-prune-versions | https://github.com/hawk-doc/hawkdoc/pull/34 | open, awaiting owner review (advisory lock in pruneVersions; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -34,3 +34,4 @@
 - The "HawkDoc daily PR" schedule was created via CronCreate (id 454aa911, `30 3 * * *`, session-only, no email/push); owner should still set up the real routine in the UI.
 - CronCreate id bd9be73a (2026-10-04, `30 3 * * *`) again session-only; the owner must still create the real routine in the UI. Run `npm test --workspace=apps/api` separately: `--workspaces` output tails only the web results.
 - Root `npm run lint/typecheck` only cover web; run `npm run typecheck --workspace=apps/api` too (api has no lint script; lint-staged covers it on commit). CronCreate id 1ee59160 (2026-10-05) is again session-only.
+- 2026-10-07: CronCreate rejected `CRON_TZ=` again, so no schedule was created (it would be session-only anyway). A concurrency test for the prune race passed without the fix; the race is hard to reproduce in vitest.
