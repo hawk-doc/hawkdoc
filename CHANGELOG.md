@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /api/auth/login` and `/register` are rate limited per client IP (20 requests per 15 minutes each by default; `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_SEC`). Over the limit the API answers 429 with a `Retry-After` header. The counter is in memory, per API process
 
 ### Fixed
+- Recording several versions of one document at the same moment could trim the version history below its cap: each call counted the versions before taking its turn, so a late one deleted a version the limit did not require. Pruning now counts and trims under a per-document lock
 - Behind a reverse proxy every client shared the proxy's IP, so the login/register rate limiter counted them together and one busy address could lock everyone out. Set `TRUST_PROXY` to the number of proxies in front of the API (default `0`, unchanged) and the limiter keys on the real client IP
 
 ### Added

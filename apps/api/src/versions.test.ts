@@ -152,6 +152,28 @@ describe('document versions', () => {
     expect(textOf(newest!)).toBe(texts[texts.length - 1]!);
   });
 
+  it('holds the cap exactly when versions are recorded concurrently', async () => {
+    const user = await signUp();
+    const docId = await docFor(user, 'Racing');
+    const draft = new Draft();
+
+    for (let i = 1; i <= MAX_VERSIONS_PER_DOC; i++) {
+      draft.type(`e${i} `);
+      await recordVersion(docId, draft.state, { force: true });
+    }
+
+    const racers = 4;
+    await Promise.all(
+      Array.from({ length: racers }, (_, i) => {
+        const other = new Draft();
+        other.type(`racer${i} `);
+        return recordVersion(docId, other.state, { force: true });
+      }),
+    );
+
+    expect(await listVersions(docId)).toHaveLength(MAX_VERSIONS_PER_DOC);
+  });
+
   it('does not record a version for a document that no longer exists', async () => {
     const user = await signUp();
     const docId = await docFor(user, 'Gone');
