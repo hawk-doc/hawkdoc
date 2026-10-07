@@ -119,16 +119,22 @@ export async function recordVersion(
  * would rebuild a document that never existed.
  */
 async function pruneVersions(docId: string): Promise<void> {
-  const counted = await query<{ count: string }>(
-    'SELECT COUNT(*) AS count FROM document_versions WHERE document_id = $1',
-    [docId],
-  );
-  const excess = Number(counted.rows[0]?.count ?? 0) - MAX_VERSIONS_PER_DOC;
-  if (excess <= 0) return;
-
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Serialise prunes of one document, and count under the lock: two racing
+    // calls would otherwise both act on the same stale count, and the second
+    // would delete a version more than the limit requires.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [docId]);
+    const counted = await client.query<{ count: string }>(
+      'SELECT COUNT(*) AS count FROM document_versions WHERE document_id = $1',
+      [docId],
+    );
+    const excess = Number(counted.rows[0]?.count ?? 0) - MAX_VERSIONS_PER_DOC;
+    if (excess <= 0) {
+      await client.query('COMMIT');
+      return;
+    }
     const doomed = await client.query<{ id: string; update_data: Buffer }>(
       `SELECT id, update_data FROM document_versions
        WHERE document_id = $1 ORDER BY seq LIMIT $2`,
