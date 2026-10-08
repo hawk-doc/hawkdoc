@@ -13,7 +13,8 @@
 - CronCreate in a cloud session is session-only (dies with the session, 7-day expiry) and has no email/push or timezone options; the local tz is UTC (9:00 IST = `30 3 * * *`).
 
 ## Backlog
-- [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks); registration can still duplicate a legacy mixed-case address.
+- [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks). Caveat: auth.email.test.ts inserts legacy case-only duplicates directly, so the index would break those tests; needs a guarded DO block + test rework.
+- [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
 
 ## History
@@ -23,6 +24,7 @@
 - 2026-10-04 | enhancement | enhancement/rate-limit-auth | https://github.com/hawk-doc/hawkdoc/pull/31 | open, awaiting owner review (in-memory per-IP limiter on login/register; test run of the schedule)
 - 2026-10-05 | bug | bug/trust-proxy-rate-limit | https://github.com/hawk-doc/hawkdoc/pull/32 | open, awaiting owner review (TRUST_PROXY env; test run of the schedule)
 - 2026-10-07 | enhancement | enhancement/guard-prune-versions | https://github.com/hawk-doc/hawkdoc/pull/34 | open, awaiting owner review (advisory lock in pruneVersions; test run of the schedule)
+- 2026-10-08 | bug | bug/surface-image-upload-errors | https://github.com/hawk-doc/hawkdoc/pull/35 | open, awaiting owner review (upload errors shown in toolbar; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -35,3 +37,4 @@
 - CronCreate id bd9be73a (2026-10-04, `30 3 * * *`) again session-only; the owner must still create the real routine in the UI. Run `npm test --workspace=apps/api` separately: `--workspaces` output tails only the web results.
 - Root `npm run lint/typecheck` only cover web; run `npm run typecheck --workspace=apps/api` too (api has no lint script; lint-staged covers it on commit). CronCreate id 1ee59160 (2026-10-05) is again session-only.
 - 2026-10-07: CronCreate rejected `CRON_TZ=` again, so no schedule was created (it would be session-only anyway). A concurrency test for the prune race passed without the fix; the race is hard to reproduce in vitest.
+- 2026-10-08: CronCreate again rejected `CRON_TZ=`; created session-only id 5f155372 (`30 3 * * *`). Web-only change needs just `npm ci/lint/typecheck/test --workspace=apps/web/build` — no DB needed. API/web code is heavily hardened; silent `console.error` paths in web are a good bug source.
