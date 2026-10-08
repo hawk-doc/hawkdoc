@@ -338,6 +338,17 @@ export async function saveDocContent(docId: string, data: AutoSaveData): Promise
   localStorage.setItem(`${DOC_KEY_PREFIX}${docId}`, JSON.stringify(data));
 }
 
+/** The API answers `{ error }`; fall back to the status for anything else */
+function uploadErrorMessage(status: number, body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { error?: unknown };
+    if (typeof parsed.error === 'string' && parsed.error) return parsed.error;
+  } catch {
+    // not JSON (e.g. a proxy's error page)
+  }
+  return `Upload failed (${status})`;
+}
+
 export async function uploadImage(file: File, token: string | null): Promise<{ url: string }> {
   if (!token) throw new Error('Sign in to upload images');
   const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001';
@@ -350,7 +361,7 @@ export async function uploadImage(file: File, token: string | null): Promise<{ u
   });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Upload failed (${res.status}): ${body}`);
+    throw new Error(uploadErrorMessage(res.status, body));
   }
   return (await res.json()) as { url: string };
 }
