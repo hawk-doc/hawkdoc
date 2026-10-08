@@ -114,6 +114,7 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
   const [colorOpen, setColorOpen] = useState(false);
   const [highlightOpen, setHighlightOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const blockRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const fontFamilyRef = useRef<HTMLDivElement>(null);
@@ -321,6 +322,7 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
   const { token } = useAuth();
   const imageUploadMutation = useMutation({
     mutationFn: (file: File) => uploadImage(file, token),
+    onMutate: () => { setUploadError(null); },
     onSuccess: ({ url }, file) => {
       const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001';
       editor.update(() => {
@@ -329,6 +331,7 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
     },
     onError: (err) => {
       console.error('Image upload failed:', err);
+      setUploadError(err instanceof Error ? err.message : 'Image upload failed');
     },
   });
 
@@ -585,6 +588,23 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
             e.target.value = '';
           }}
         />
+
+        {uploadError && (
+          <span
+            role="alert"
+            className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 ml-1"
+          >
+            {uploadError}
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => { setUploadError(null); }}
+              className="px-1 rounded hover:bg-[#f1f3f4] dark:hover:bg-[#2d2f31]"
+            >
+              ×
+            </button>
+          </span>
+        )}
 
         {/* Focus mode */}
         <Btn title="Focus mode" onMouseDown={onToggleFocusMode}>
