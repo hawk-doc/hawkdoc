@@ -25,6 +25,7 @@
 - 2026-10-05 | bug | bug/trust-proxy-rate-limit | https://github.com/hawk-doc/hawkdoc/pull/32 | open, awaiting owner review (TRUST_PROXY env; test run of the schedule)
 - 2026-10-07 | enhancement | enhancement/guard-prune-versions | https://github.com/hawk-doc/hawkdoc/pull/34 | open, awaiting owner review (advisory lock in pruneVersions; test run of the schedule)
 - 2026-10-08 | bug | bug/surface-image-upload-errors | https://github.com/hawk-doc/hawkdoc/pull/35 | open, awaiting owner review (upload errors shown in toolbar; test run of the schedule)
+- 2026-10-09 | enhancement | enhancement/surface-export-errors | https://github.com/hawk-doc/hawkdoc/pull/36 | open, awaiting owner review (PDF/Word export errors shown in banner; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -38,3 +39,4 @@
 - Root `npm run lint/typecheck` only cover web; run `npm run typecheck --workspace=apps/api` too (api has no lint script; lint-staged covers it on commit). CronCreate id 1ee59160 (2026-10-05) is again session-only.
 - 2026-10-07: CronCreate rejected `CRON_TZ=` again, so no schedule was created (it would be session-only anyway). A concurrency test for the prune race passed without the fix; the race is hard to reproduce in vitest.
 - 2026-10-08: CronCreate again rejected `CRON_TZ=`; created session-only id 5f155372 (`30 3 * * *`). Web-only change needs just `npm ci/lint/typecheck/test --workspace=apps/web/build` — no DB needed. API/web code is heavily hardened; silent `console.error` paths in web are a good bug source.
+- 2026-10-09: Did not call CronCreate (session-only, no tz/name/notifications; see earlier lessons) — owner must create the real routine in the UI. Remaining silent console.error paths in web: useDocumentStore mutations, VersionHistoryPanel preview, copy-as-Markdown.
