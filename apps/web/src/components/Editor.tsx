@@ -170,7 +170,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
   const closeSlashMenu = useCallback(() => setSlashMenu(null), []);
   const [isExporting, setIsExporting] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [collabStatus, setCollabStatus] = useState<CollabStatus>('connecting');
@@ -193,11 +193,13 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
 
   const handleExportPDF = useCallback(async () => {
     if (!editorInstance || isExporting) return;
+    setActionError(null);
     setIsExporting(true);
     try {
       await exportPdf(editorInstance.getEditorState(), title);
     } catch (err) {
       console.error('PDF export failed:', err);
+      setActionError('Could not export the PDF file. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -205,11 +207,13 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
 
   const handleExportDOCX = useCallback(async () => {
     if (!editorInstance || isExporting) return;
+    setActionError(null);
     setIsExporting(true);
     try {
       await exportDocx(editorInstance.getEditorState(), title);
     } catch (err) {
       console.error('DOCX export failed:', err);
+      setActionError('Could not export the Word file. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -217,13 +221,13 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
 
   const handleImportDOCX = useCallback(async (file: File) => {
     if (!editorInstance || isExporting) return;
-    setImportError(null);
+    setActionError(null);
     setIsExporting(true);
     try {
       await importDocx(editorInstance, file);
     } catch (err) {
       // Import replaces the document, so a failure has to be visible
-      setImportError(err instanceof Error ? err.message : 'Could not import that document.');
+      setActionError(err instanceof Error ? err.message : 'Could not import that document.');
     } finally {
       setIsExporting(false);
     }
@@ -288,15 +292,15 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
         />
       )}
 
-      {importError && (
+      {actionError && (
         <div
           role="alert"
           className="flex items-center justify-between gap-3 px-4 py-2 text-[13px] bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-b border-red-200 dark:border-red-900"
         >
-          <span>{importError}</span>
+          <span>{actionError}</span>
           <button
             type="button"
-            onClick={() => setImportError(null)}
+            onClick={() => setActionError(null)}
             className="text-xs font-medium underline underline-offset-2 hover:opacity-80"
           >
             Dismiss
