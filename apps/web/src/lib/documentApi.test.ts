@@ -9,6 +9,7 @@ import {
   purgeDocument,
   emptyTrash,
   saveDocContent,
+  setStarred,
 } from './documentApi';
 import { DOCS_LIST_KEY, DOC_KEY_PREFIX, TRASH_LIST_KEY } from '../constants/autosave';
 
@@ -103,5 +104,63 @@ describe('offline document store', () => {
       (await fetchDocuments(OFFLINE)).docs.some((d) => d.id === doc.id);
     expect(stillSomewhere).toBe(true);
     expect(localStorage.getItem(TRASH_LIST_KEY)).toContain(doc.id);
+  });
+});
+
+describe('starring offline', () => {
+  it('narrows the list to starred documents and back', async () => {
+    const plain = await createDocument(OFFLINE);
+    await renameDocument(plain.id, 'Plain', OFFLINE);
+    const favourite = await createDocument(OFFLINE);
+    await renameDocument(favourite.id, 'Favourite', OFFLINE);
+
+    expect(await setStarred(favourite.id, true, OFFLINE)).toMatchObject({ starred: true });
+    expect(titles(await fetchDocuments(OFFLINE, { starred: true }))).toEqual(['Favourite']);
+    // The starred document is still in the full list
+    expect(titles(await fetchDocuments(OFFLINE))).toContain('Favourite');
+
+    await setStarred(favourite.id, false, OFFLINE);
+    expect(titles(await fetchDocuments(OFFLINE, { starred: true }))).toEqual([]);
+  });
+
+  it('leaves updatedAt alone, so starring does not reorder the list', async () => {
+    const first = await createDocument(OFFLINE);
+    await renameDocument(first.id, 'Older', OFFLINE);
+    const second = await createDocument(OFFLINE);
+    await renameDocument(second.id, 'Newer', OFFLINE);
+
+    const before = (await fetchDocuments(OFFLINE)).docs.find((d) => d.id === first.id)!.updatedAt;
+    await setStarred(first.id, true, OFFLINE);
+    const after = (await fetchDocuments(OFFLINE)).docs.find((d) => d.id === first.id)!;
+
+    expect(after.updatedAt).toBe(before);
+  });
+
+  it('searches within the starred documents', async () => {
+    for (const title of ['Budget notes', 'Budget plan', 'Holiday']) {
+      const doc = await createDocument(OFFLINE);
+      await renameDocument(doc.id, title, OFFLINE);
+      if (title.startsWith('Budget')) await setStarred(doc.id, true, OFFLINE);
+    }
+
+    const page = await fetchDocuments(OFFLINE, { starred: true, q: 'plan' });
+    expect(titles(page)).toEqual(['Budget plan']);
+    expect(page.total).toBe(1);
+  });
+
+  it('keeps the star through the trash and back', async () => {
+    const doc = await createDocument(OFFLINE);
+    await renameDocument(doc.id, 'Starred and trashed', OFFLINE);
+    await setStarred(doc.id, true, OFFLINE);
+
+    await removeDocument(doc.id, OFFLINE);
+    expect(titles(await fetchDocuments(OFFLINE, { starred: true }))).toEqual([]);
+
+    await restoreDocument(doc.id, OFFLINE);
+    expect(titles(await fetchDocuments(OFFLINE, { starred: true }))).toEqual(['Starred and trashed']);
+  });
+
+  it('refuses to star a document that isn\'t there', async () => {
+    await expect(setStarred('missing-id', true, OFFLINE)).rejects.toThrow(/not found/i);
   });
 });

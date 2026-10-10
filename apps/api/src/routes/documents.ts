@@ -418,7 +418,9 @@ documentsRouter.patch('/:id', async (req: Request, res) => {
     const { id } = DocIdSchema.parse(req.params);
     const body = UpdateDocSchema.parse(req.body);
 
-    const result = await query<{ id: string; title: string; starred: boolean }>(
+    const result = await query<{
+      id: string; title: string; starred: boolean; updated_at: string;
+    }>(
       // Starring is not an edit, so it leaves updated_at alone. Bumping it
       // would move the document to the top of a list ordered by last edited —
       // the reader starred it, they didn't change it.
@@ -427,7 +429,7 @@ documentsRouter.patch('/:id', async (req: Request, res) => {
            starred = COALESCE($2, starred),
            updated_at = CASE WHEN $1::text IS NULL THEN updated_at ELSE NOW() END
        WHERE id = $3 AND owner_id = $4 AND deleted_at IS NULL
-       RETURNING id, title, starred`,
+       RETURNING id, title, starred, updated_at`,
       [body.title ?? null, body.starred ?? null, id, userId],
     );
 
@@ -541,10 +543,13 @@ documentsRouter.post('/:id/restore', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
     const { id } = DocIdSchema.parse(req.params);
-    const result = await query<{ id: string; title: string; updated_at: string }>(
+    const result = await query<{
+      id: string; title: string; starred: boolean; updated_at: string;
+    }>(
+      // A restored document keeps whatever star it had when it was trashed
       `UPDATE documents SET deleted_at = NULL
        WHERE id = $1 AND owner_id = $2 AND deleted_at IS NOT NULL
-       RETURNING id, title, updated_at`,
+       RETURNING id, title, starred, updated_at`,
       [id, userId],
     );
 
