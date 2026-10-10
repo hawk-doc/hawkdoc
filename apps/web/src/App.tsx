@@ -15,6 +15,7 @@ function AppShell() {
 
   const {
     docs, activeId, create, rename, remove, activate, touch, duplicate,
+    starred, toggleStar, starredHasMore, loadMoreStarred, isLoadingMoreStarred,
     total, hasMore, loadMore, isLoadingMore, search, setSearch,
     trashed, trashOpen, setTrashOpen, restore, purge, emptyTrash,
     trashHasMore, loadMoreTrash, isLoadingMoreTrash,
@@ -109,6 +110,11 @@ function AppShell() {
           onPurge={purge}
           onEmptyTrash={emptyTrash}
           onDuplicate={duplicate}
+          starred={starred}
+          onToggleStar={toggleStar}
+          starredHasMore={starredHasMore}
+          onLoadMoreStarred={loadMoreStarred}
+          isLoadingMoreStarred={isLoadingMoreStarred}
           search={search}
           onSearchChange={setSearch}
           total={total}

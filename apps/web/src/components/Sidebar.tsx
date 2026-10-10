@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CopyPlus, FilePlus, FileText, Search, Trash2, Undo2, X } from 'lucide-react';
+import { CopyPlus, FilePlus, FileText, Search, Star, Trash2, Undo2, X } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -34,6 +34,12 @@ interface SidebarProps {
   onPurge: (id: string) => void;
   onEmptyTrash: () => void;
   onDuplicate: (id: string) => void;
+  /** Documents kept within reach, shown above the rest */
+  starred: DocMeta[];
+  onToggleStar: (id: string, starred: boolean) => void;
+  starredHasMore: boolean;
+  onLoadMoreStarred: () => void;
+  isLoadingMoreStarred: boolean;
   /** Search runs against the server, so the box is the store's, not ours */
   search: string;
   onSearchChange: (value: string) => void;
@@ -66,6 +72,7 @@ function LoadMore({ onClick, busy, label }: { onClick: () => void; busy: boolean
 
 export function Sidebar({
   docs, activeId, onActivate, onCreate, onRename, onDelete, onDuplicate,
+  starred, onToggleStar, starredHasMore, onLoadMoreStarred, isLoadingMoreStarred,
   trashed, trashOpen, onTrashOpenChange, onRestore, onPurge, onEmptyTrash,
   search, onSearchChange, total, hasMore, onLoadMore, isLoadingMore,
   trashHasMore, onLoadMoreTrash, isLoadingMoreTrash,
@@ -173,6 +180,19 @@ export function Sidebar({
           />
         ) : (
           <span className="flex-1 truncate">{name}</span>
+        )}
+
+        {!isEditing && (
+          <button
+            type="button"
+            title={doc.starred ? 'Remove star' : 'Star'}
+            aria-label={doc.starred ? `Remove star from ${name}` : `Star ${name}`}
+            aria-pressed={doc.starred === true}
+            onClick={(e) => { e.stopPropagation(); onToggleStar(doc.id, !doc.starred); }}
+            className={`sidebar-star-btn ${doc.starred ? 'starred' : ''}`}
+          >
+            <Star size={12} fill={doc.starred ? 'currentColor' : 'none'} />
+          </button>
         )}
 
         {!isEditing && (
@@ -359,6 +379,26 @@ export function Sidebar({
           </div>
         ) : (
           <>
+          {/* Starred, above the rest. Hidden while searching: the search
+              already runs over every document, starred ones included, and two
+              sets of results for one query reads as a bug. */}
+          {!isSearching && starred.length > 0 && (
+            <>
+              <p className="sidebar-group-heading">
+                <Star size={10} className="flex-shrink-0" />
+                Starred
+              </p>
+              {starred.map((doc) => documentRow(doc, 'starred'))}
+              {starredHasMore && (
+                <LoadMore
+                  onClick={onLoadMoreStarred}
+                  busy={isLoadingMoreStarred}
+                  label="Show more starred"
+                />
+              )}
+              <p className="sidebar-group-heading">All documents</p>
+            </>
+          )}
           {docs.map((doc) => documentRow(doc, 'all'))}
           {hasMore && (
             <LoadMore
