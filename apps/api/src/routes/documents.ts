@@ -41,17 +41,22 @@ const CreateDocSchema = z.object({
 const UpdateDocSchema = z
   .object({
     title: z.string().min(1).max(MAX_TITLE_LENGTH).optional(),
+    starred: z.boolean().optional(),
   })
   // An update that changes nothing must not bump updated_at and reorder the list
-  .refine((body) => body.title !== undefined, { message: 'Provide at least one field to update' });
+  .refine((body) => body.title !== undefined || body.starred !== undefined, {
+    message: 'Provide at least one field to update',
+  });
 
 /** How many documents a page holds when the caller doesn't say */
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 
-// ?trash=true lists the trash instead of the active documents
+// ?trash=true lists the trash instead of the active documents;
+// ?starred=true narrows the active documents to the starred ones
 const ListQuerySchema = z.object({
   trash: z.enum(['true', 'false']).optional(),
+  starred: z.enum(['true', 'false']).optional(),
   /** Title search; matched anywhere in the title, case-insensitively */
   q: z.string().trim().max(500).optional(),
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
@@ -124,6 +129,7 @@ async function ownsActiveDocument(docId: string, userId: string): Promise<boolea
 interface DocumentPageRow {
   id: string;
   title: string;
+  starred: boolean;
   updated_at: string;
   created_at: string;
   deleted_at: string | null;
@@ -134,7 +140,7 @@ interface DocumentPageRow {
 documentsRouter.get('/', async (req: Request, res) => {
   try {
     const { userId } = (req as AuthenticatedRequest).auth;
-    const { trash, q, limit, cursor } = ListQuerySchema.parse(req.query);
+    const { trash, starred, q, limit, cursor } = ListQuerySchema.parse(req.query);
     const trashed = trash === 'true';
     // The trash is ordered by when things were thrown away, not last edited
     const sortColumn = trashed ? 'deleted_at' : 'updated_at';
@@ -147,6 +153,10 @@ documentsRouter.get('/', async (req: Request, res) => {
       `deleted_at IS ${trashed ? 'NOT NULL' : 'NULL'}`,
       `($2::text IS NULL OR title ILIKE $2 ESCAPE '\\')`,
     ];
+    // Only the active list can be narrowed to starred documents: the trash is
+    // ordered by when things were thrown away, and a starred document in it is
+    // still in the trash.
+    if (starred === 'true' && !trashed) matching.push('starred');
     const filters = [...matching];
     const params: unknown[] = [userId, search];
 
@@ -170,7 +180,7 @@ documentsRouter.get('/', async (req: Request, res) => {
         // to the millisecond, and a page boundary inside a group of documents
         // saved in the same instant would then exclude the rest of that group —
         // paging would stop early and quietly lose them.
-        `SELECT id, title, updated_at, created_at, deleted_at,
+        `SELECT id, title, starred, updated_at, created_at, deleted_at,
                 to_char(${sortColumn} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
          FROM documents
          WHERE ${filters.join(' AND ')}
@@ -218,10 +228,11 @@ documentsRouter.get('/:id', async (req: Request, res) => {
     const result = await query<{
       id: string;
       title: string;
+      starred: boolean;
       yjs_state: Buffer | null;
       updated_at: string;
     }>(
-      `SELECT id, title, yjs_state, updated_at
+      `SELECT id, title, starred, yjs_state, updated_at
        FROM documents
        WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL`,
       [id, userId],
@@ -236,6 +247,7 @@ documentsRouter.get('/:id', async (req: Request, res) => {
     res.json({
       id: doc.id,
       title: doc.title,
+      starred: doc.starred,
       yjsState: doc.yjs_state ? doc.yjs_state.toString('base64') : null,
       updatedAt: doc.updated_at,
     });
@@ -314,10 +326,12 @@ documentsRouter.post('/', async (req: Request, res) => {
     const { userId } = (req as AuthenticatedRequest).auth;
     const body = CreateDocSchema.parse(req.body);
 
-    const result = await query<{ id: string; title: string; created_at: string }>(
+    const result = await query<{
+      id: string; title: string; starred: boolean; created_at: string;
+    }>(
       `INSERT INTO documents (title, owner_id)
        VALUES ($1, $2)
-       RETURNING id, title, created_at`,
+       RETURNING id, title, starred, created_at`,
       [body.title, userId],
     );
 
@@ -370,10 +384,14 @@ documentsRouter.post('/:id/duplicate', async (req: Request, res) => {
       console.error(`Failed to read buffered state for ${id}:`, err);
     }
 
-    const created = await query<{ id: string; title: string; created_at: string }>(
+    const created = await query<{
+      id: string; title: string; starred: boolean; created_at: string;
+    }>(
+      // The copy starts unstarred: a star marks what the reader is working on,
+      // and that is the original, not a copy of it.
       `INSERT INTO documents (owner_id, title, yjs_state)
        VALUES ($1, $2, $3)
-       RETURNING id, title, created_at`,
+       RETURNING id, title, starred, created_at`,
       [userId, copyTitle(original.title), state],
     );
 
@@ -400,12 +418,17 @@ documentsRouter.patch('/:id', async (req: Request, res) => {
     const { id } = DocIdSchema.parse(req.params);
     const body = UpdateDocSchema.parse(req.body);
 
-    const result = await query<{ id: string; title: string }>(
+    const result = await query<{ id: string; title: string; starred: boolean }>(
+      // Starring is not an edit, so it leaves updated_at alone. Bumping it
+      // would move the document to the top of a list ordered by last edited —
+      // the reader starred it, they didn't change it.
       `UPDATE documents
-       SET title = COALESCE($1, title), updated_at = NOW()
-       WHERE id = $2 AND owner_id = $3 AND deleted_at IS NULL
-       RETURNING id, title`,
-      [body.title, id, userId],
+       SET title = COALESCE($1, title),
+           starred = COALESCE($2, starred),
+           updated_at = CASE WHEN $1::text IS NULL THEN updated_at ELSE NOW() END
+       WHERE id = $3 AND owner_id = $4 AND deleted_at IS NULL
+       RETURNING id, title, starred`,
+      [body.title ?? null, body.starred ?? null, id, userId],
     );
 
     if (result.rows.length === 0) {

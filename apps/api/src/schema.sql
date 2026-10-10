@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS documents (
   owner_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title      TEXT NOT NULL DEFAULT 'Untitled',
   yjs_state  BYTEA,                        -- Yjs binary state (full snapshot)
+  starred    BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ                    -- set when trashed; NULL = active
@@ -25,6 +26,9 @@ CREATE TABLE IF NOT EXISTS documents (
 -- Existing installs predating the trash feature
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
+-- Existing installs predating starring
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS starred BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- Listing the sidebar (active documents) and the trash are both covered here.
 -- id is part of the key because the list is paginated on (updated_at, id):
 -- without it the tiebreak is unindexed and two documents saved in the same
@@ -32,6 +36,13 @@ ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 DROP INDEX IF EXISTS documents_owner_updated;
 CREATE INDEX IF NOT EXISTS documents_owner_updated_id
   ON documents (owner_id, deleted_at, updated_at DESC, id DESC);
+
+-- Starred documents are a small slice of the table, so a partial index covers
+-- them without carrying every unstarred row. The sort stays (updated_at, id) —
+-- starring filters the list, it does not reorder it.
+CREATE INDEX IF NOT EXISTS documents_owner_starred_updated_id
+  ON documents (owner_id, updated_at DESC, id DESC)
+  WHERE starred AND deleted_at IS NULL;
 
 -- The trash is paginated on (deleted_at, id) for the same reason
 CREATE INDEX IF NOT EXISTS documents_owner_deleted_id
