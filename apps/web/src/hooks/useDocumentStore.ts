@@ -13,6 +13,7 @@ import {
   duplicateDocument,
   renameDocument,
   removeDocument,
+  setStarred,
   restoreDocument,
   purgeDocument,
   emptyTrash,
@@ -58,6 +59,12 @@ const DOCUMENT_MUTATION_SCOPE = { id: 'document' };
 interface CacheSnapshot {
   docs: DocsCache;
   trash: DocsCache;
+  starred: DocsCache;
+}
+
+interface StarWrite {
+  id: string;
+  starred: boolean;
 }
 
 interface TitleWrite {
@@ -77,6 +84,10 @@ function docsKey(token: string | null, q: string) {
 
 function trashKey(token: string | null) {
   return ['documents', token ?? 'local', 'trash'] as const;
+}
+
+function starredKey(token: string | null) {
+  return ['documents', token ?? 'local', 'starred'] as const;
 }
 
 /**
@@ -122,6 +133,18 @@ export function useDocumentStore(token: string | null) {
   });
   const trashed = useMemo(() => flatten(trashQuery.data), [trashQuery.data]);
 
+  // Starred documents are their own list so the sidebar can show them above
+  // the rest. They stay in the main list too — starring marks a document, it
+  // doesn't move it out of where it lives.
+  const STARRED_KEY = useMemo(() => starredKey(token), [token]);
+  const starredQuery = useInfiniteQuery({
+    queryKey: STARRED_KEY,
+    queryFn: ({ pageParam }) => fetchDocuments(token, { starred: true, cursor: pageParam }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: DocumentPage) => last.nextCursor,
+  });
+  const starred = useMemo(() => flatten(starredQuery.data), [starredQuery.data]);
+
   const [activeId, setActiveId] = useState<string>(getStoredActiveId);
 
   // A document missing from the loaded pages isn't necessarily gone: it may be
@@ -150,6 +173,33 @@ export function useDocumentStore(token: string | null) {
     },
     [queryClient, DOCS_KEY],
   );
+
+  /**
+   * The flag is written into every cached list straight away, so the star
+   * fills the moment it is clicked. The starred list itself is refetched
+   * rather than spliced: it is ordered by last edited, and where a
+   * newly starred document belongs in that order is the server's to say.
+   */
+  const starMutation = useMutation({
+    mutationFn: ({ id, starred: next }: StarWrite) => setStarred(id, next, token),
+    scope: DOCUMENT_MUTATION_SCOPE,
+    onMutate: ({ id, starred: next }) => {
+      const previous = queryClient.getQueriesData<DocsCache>({ queryKey: docsListPrefix(token) });
+      for (const [key] of previous) {
+        queryClient.setQueryData<DocsCache>(key, (old) =>
+          mapDocs(old, (list) => list.map((d) => (d.id === id ? { ...d, starred: next } : d))),
+        );
+      }
+      return previous;
+    },
+    onError: (err, _vars, previous) => {
+      console.error('Failed to change the star on a document:', err);
+      for (const [key, cache] of previous ?? []) {
+        queryClient.setQueryData<DocsCache>(key, cache);
+      }
+    },
+    onSettled: () => { void queryClient.invalidateQueries({ queryKey: STARRED_KEY }); },
+  });
 
   const createMutation = useMutation({
     mutationFn: () => createDocument(token),
@@ -262,6 +312,12 @@ export function useDocumentStore(token: string | null) {
           prependDoc(old, { ...removed, deletedAt: Date.now() }),
         );
       }
+      // A document in the trash is out of reach, starred or not
+      if (removed?.starred) {
+        queryClient.setQueryData<DocsCache>(STARRED_KEY, (old) =>
+          mapDocs(old, (list) => list.filter((d) => d.id !== removedId)),
+        );
+      }
       if (next.length === 0) {
         // Offline mode always keeps one document around; signed in we let the
         // empty state show instead of creating a stray server-side document.
@@ -278,13 +334,15 @@ export function useDocumentStore(token: string | null) {
   const snapshot = useCallback((): CacheSnapshot => ({
     docs: queryClient.getQueryData<DocsCache>(DOCS_KEY),
     trash: queryClient.getQueryData<DocsCache>(TRASH_KEY),
-  }), [queryClient, DOCS_KEY, TRASH_KEY]);
+    starred: queryClient.getQueryData<DocsCache>(STARRED_KEY),
+  }), [queryClient, DOCS_KEY, TRASH_KEY, STARRED_KEY]);
 
   const rollback = useCallback((prev: CacheSnapshot | undefined) => {
     if (!prev) return;
     if (prev.docs) queryClient.setQueryData<DocsCache>(DOCS_KEY, prev.docs);
     if (prev.trash) queryClient.setQueryData<DocsCache>(TRASH_KEY, prev.trash);
-  }, [queryClient, DOCS_KEY, TRASH_KEY]);
+    if (prev.starred) queryClient.setQueryData<DocsCache>(STARRED_KEY, prev.starred);
+  }, [queryClient, DOCS_KEY, TRASH_KEY, STARRED_KEY]);
 
   const restoreMutation = useMutation({
     mutationFn: (id: string) => restoreDocument(id, token),
@@ -305,7 +363,11 @@ export function useDocumentStore(token: string | null) {
       return prev;
     },
     onError: (err, _id, prev) => { console.error('Failed to restore document:', err); rollback(prev); },
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: DOCS_KEY }); },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: DOCS_KEY });
+      // A restored document brings its star back with it
+      void queryClient.invalidateQueries({ queryKey: STARRED_KEY });
+    },
   });
 
   const purgeMutation = useMutation({
@@ -360,6 +422,15 @@ export function useDocumentStore(token: string | null) {
   const { mutate: emptyTheTrash } = emptyTrashMutation;
   const clearTrash = useCallback(() => { emptyTheTrash(); }, [emptyTheTrash]);
 
+  const { fetchNextPage: fetchMoreStarred } = starredQuery;
+  const loadMoreStarred = useCallback(() => { void fetchMoreStarred(); }, [fetchMoreStarred]);
+
+  const { mutate: writeStar } = starMutation;
+  const toggleStar = useCallback(
+    (id: string, next: boolean) => { writeStar({ id, starred: next }); },
+    [writeStar],
+  );
+
   return {
     docs,
     /** How many documents match in total, which can exceed the ones loaded */
@@ -392,5 +463,12 @@ export function useDocumentStore(token: string | null) {
     isLoadingMoreTrash: trashQuery.isFetchingNextPage,
     /** Copies a document and opens the copy */
     duplicate,
+    /** Documents kept within reach, newest edit first */
+    starred,
+    starredHasMore: starredQuery.hasNextPage,
+    loadMoreStarred,
+    isLoadingMoreStarred: starredQuery.isFetchingNextPage,
+    /** Star or unstar a document; starring does not count as editing it */
+    toggleStar,
   };
 }
