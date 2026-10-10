@@ -71,7 +71,7 @@ export function Sidebar({
   trashHasMore, onLoadMoreTrash, isLoadingMoreTrash,
   open, onClose,
 }: SidebarProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ row: string; id: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   // { id } confirms one document, 'all' confirms emptying the trash
   const [pendingPurge, setPendingPurge] = useState<DocMeta | 'all' | null>(null);
@@ -81,8 +81,8 @@ export function Sidebar({
   const isDrawer = !useMediaQuery(MD);
 
   useEffect(() => {
-    if (editingId) inputRef.current?.select();
-  }, [editingId]);
+    if (editing) inputRef.current?.select();
+  }, [editing]);
 
   useEffect(() => {
     if (!open) return;
@@ -127,16 +127,78 @@ export function Sidebar({
     }
   };
 
-  const startEdit = (doc: DocMeta, e: React.MouseEvent) => {
+  const startEdit = (doc: DocMeta, row: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setEditingId(doc.id);
+    setEditing({ row, id: doc.id });
     setEditValue(doc.title.trim() || 'Untitled');
   };
 
   const commitEdit = () => {
-    if (!editingId) return;
-    onRename(editingId, editValue.trim() || 'Untitled');
-    setEditingId(null);
+    if (!editing) return;
+    onRename(editing.id, editValue.trim() || 'Untitled');
+    setEditing(null);
+  };
+
+  /**
+   * One document in the list. A document can be listed under more than one
+   * group, so `group` separates the two copies — as React keys and as the
+   * thing being renamed.
+   */
+  const documentRow = (doc: DocMeta, group: 'starred' | 'all') => {
+    const row = `${group}-${doc.id}`;
+    const name = doc.title.trim() || 'Untitled';
+    const isEditing = editing?.row === row;
+
+    return (
+      <div
+        key={row}
+        className={`sidebar-item group ${doc.id === activeId ? 'active' : ''}`}
+        onClick={() => !isEditing && onActivate(doc.id)}
+        onDoubleClick={(e) => startEdit(doc, row, e)}
+      >
+        <FileText size={13} className="flex-shrink-0 opacity-50" />
+
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitEdit();
+              if (e.key === 'Escape') setEditing(null);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="sidebar-rename-input"
+          />
+        ) : (
+          <span className="flex-1 truncate">{name}</span>
+        )}
+
+        {!isEditing && (
+          <button
+            type="button"
+            title="Duplicate"
+            aria-label={`Duplicate ${name}`}
+            onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
+            className="sidebar-delete-btn"
+          >
+            <CopyPlus size={12} />
+          </button>
+        )}
+
+        {!isEditing && (
+          <button
+            type="button"
+            title="Delete"
+            onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
+            className="sidebar-delete-btn"
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
+      </div>
+    );
   };
 
   // The server returns them newest first and already matching the search
@@ -297,61 +359,7 @@ export function Sidebar({
           </div>
         ) : (
           <>
-          {docs.map((doc) => {
-            const isActive = doc.id === activeId;
-            const isEditing = doc.id === editingId;
-
-            return (
-              <div
-                key={doc.id}
-                className={`sidebar-item group ${isActive ? 'active' : ''}`}
-                onClick={() => !isEditing && onActivate(doc.id)}
-                onDoubleClick={(e) => startEdit(doc, e)}
-              >
-                <FileText size={13} className="flex-shrink-0 opacity-50" />
-
-                {isEditing ? (
-                  <input
-                    ref={inputRef}
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={commitEdit}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitEdit();
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="sidebar-rename-input"
-                  />
-                ) : (
-                  <span className="flex-1 truncate">{doc.title.trim() || 'Untitled'}</span>
-                )}
-
-                {!isEditing && (
-                  <button
-                    type="button"
-                    title="Duplicate"
-                    aria-label={`Duplicate ${doc.title.trim() || 'Untitled'}`}
-                    onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
-                    className="sidebar-delete-btn"
-                  >
-                    <CopyPlus size={12} />
-                  </button>
-                )}
-
-                {!isEditing && (
-                  <button
-                    type="button"
-                    title="Delete"
-                    onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
-                    className="sidebar-delete-btn"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {docs.map((doc) => documentRow(doc, 'all'))}
           {hasMore && (
             <LoadMore
               onClick={onLoadMore}
