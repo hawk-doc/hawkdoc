@@ -426,12 +426,22 @@ describe('starring', () => {
     errors.mockRestore();
   });
 
-  it('drops a trashed document out of the starred list', async () => {
+  it.each([true, false])('drops a trashed document out of the starred list when present in the main cache: %s', async (inMainCache) => {
     mockStarApi();
     const view = await render();
 
     await act(async () => { view.result.current.toggleStar('doc-1', true); });
     await waitFor(() => expect(view.result.current.starred).toHaveLength(1));
+
+    if (!inMainCache) {
+      act(() => {
+        view.client.setQueryData(['documents', TOKEN, 'list', ''], {
+          pages: [{ docs: [view.result.current.docs[1]], total: 2, nextCursor: null }],
+          pageParams: [null],
+        });
+      });
+      await waitFor(() => expect(view.result.current.docs.map((d) => d.id)).toEqual(['doc-2']));
+    }
 
     await act(async () => { view.result.current.remove('doc-1'); });
 

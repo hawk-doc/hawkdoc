@@ -313,11 +313,9 @@ export function useDocumentStore(token: string | null) {
         );
       }
       // A document in the trash is out of reach, starred or not
-      if (removed?.starred) {
-        queryClient.setQueryData<DocsCache>(STARRED_KEY, (old) =>
-          mapDocs(old, (list) => list.filter((d) => d.id !== removedId)),
-        );
-      }
+      queryClient.setQueryData<DocsCache>(STARRED_KEY, (old) =>
+        mapDocs(old, (list) => list.filter((d) => d.id !== removedId)),
+      );
       if (next.length === 0) {
         // Offline mode always keeps one document around; signed in we let the
         // empty state show instead of creating a stray server-side document.
