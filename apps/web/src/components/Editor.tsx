@@ -163,6 +163,12 @@ interface EditorProps {
   collabUser?: { id: string; name: string };
 }
 
+/**
+ * The Lexical document editor: toolbar, the document itself, and the
+ * export/import actions with their shared error banner. Also wires up the
+ * version history panel, and, when `collabToken` is given, live Yjs
+ * collaboration through Hocuspocus; otherwise the document is local-only.
+ */
 export function Editor({ docId, title, onTitleChange, collabToken, collabUser }: EditorProps) {
   const isCollab = !!(collabToken && collabUser);
 
