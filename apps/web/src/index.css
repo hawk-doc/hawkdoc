@@ -219,11 +219,30 @@
            border border-notion-accent dark:border-[#8ab4f8];
   }
 
+  /* Row actions appear on hover — and on focus, or a keyboard user would be
+     tabbing through controls they cannot see. */
   .sidebar-delete-btn {
-    @apply opacity-0 group-hover:opacity-100 flex-shrink-0
+    @apply opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex-shrink-0
            w-5 h-5 flex items-center justify-center rounded
            text-notion-muted hover:text-red-500 dark:hover:text-red-400
            transition-all;
+  }
+
+  .sidebar-star-btn {
+    @apply opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex-shrink-0
+           w-5 h-5 flex items-center justify-center rounded
+           text-notion-muted hover:text-amber-500 dark:hover:text-amber-400
+           transition-all;
+  }
+
+  /* A star has to stay visible, or the list wouldn't show what is starred */
+  .sidebar-star-btn.starred {
+    @apply opacity-100 text-amber-500 dark:text-amber-400;
+  }
+
+  .sidebar-group-heading {
+    @apply flex items-center gap-1.5 px-2 pb-1 pt-2 text-[10px] font-semibold
+           uppercase tracking-widest text-notion-muted dark:text-[#5f6368];
   }
 
   .sidebar-search-wrap {

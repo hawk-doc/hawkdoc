@@ -36,6 +36,8 @@ export interface DocMeta {
   id: string;
   title: string;
   updatedAt: number;
+  /** Kept within reach at the top of the sidebar */
+  starred?: boolean;
   /** When the document was moved to the trash; absent for active documents */
   deletedAt?: number;
 }

@@ -52,7 +52,8 @@ hawkdoc/
 - Editable document title
 - Code block with copy-to-clipboard (`CodeBlockPlugin.tsx`)
 - `InputDialog.tsx` — reusable modal for link and variable name input (replaces `window.prompt`)
-- Document list — paged (50 at a time, "Show more" at the end), searched on the server from the sidebar box, and documents can be duplicated from the row
+- Document list — paged (50 at a time, "Show more" at the end), searched on the server from the sidebar box, and documents can be duplicated or starred from the row
+- Starred documents — a group above the rest of the sidebar, kept across sessions and signed out
 - Image upload — toolbar button uploads to backend via multer, inserts as `ImageNode` (block-level DecoratorNode). Click to select, Backspace/Delete to remove. Persists after refresh. Included in PDF export.
 
 ### Backend (skeleton — not production ready)
@@ -250,6 +251,33 @@ and the cursor is the id the previous page ended on.
 `POST /api/documents/:id/duplicate` copies a document, preferring the Redis
 buffer over `yjs_state` because that is what the author last saw, and records
 the copy's first version from it.
+
+## Starred Documents
+
+`documents.starred` marks a document the reader wants within reach. The
+sidebar lists the starred ones above the rest, and they stay in the main list
+too — starring marks a document, it does not move it somewhere else.
+
+**Starring is not an edit.** `PATCH /api/documents/:id` leaves `updated_at`
+alone unless the title is part of the same update, because the list is ordered
+by last edited and bumping it would throw the document to the top the moment
+it was starred. The same promise holds offline, and the API returns
+`updated_at` so the client keeps the document's real position rather than
+guessing at `Date.now()`.
+
+`?starred=true` narrows the active list. It is a **WHERE clause, not a sort
+key**: the ordering stays `(updated_at, id)`, so the cursor keeps its shape
+and a starred page continues on the same Link header. A partial index covers
+the starred slice. Only the active list can be narrowed this way — a starred
+document in the trash is still in the trash, and it keeps its star for when it
+is restored. A duplicate starts unstarred: the star is on the original.
+
+The client writes the flag into every cached list as the click happens, so the
+star fills without a refetch, and rolls it back if the write fails. The
+starred list itself is refetched rather than spliced, because where a newly
+starred document belongs in `updated_at` order is the server's to say. The
+group is hidden while searching: the search already covers every document,
+starred included, and two sets of results for one query reads as a bug.
 
 ## Document Trash
 Deleting a document is a soft delete: `documents.deleted_at` is set, the row

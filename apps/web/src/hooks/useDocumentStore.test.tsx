@@ -303,10 +303,149 @@ describe('render stability', () => {
     const callbacks = [
       'loadMore', 'loadMoreTrash', 'create', 'remove', 'restore', 'purge',
       'duplicate', 'emptyTrash', 'activate', 'touch', 'rename',
-      'setSearch', 'setTrashOpen',
+      'setSearch', 'setTrashOpen', 'loadMoreStarred', 'toggleStar',
     ] as const;
     for (const name of callbacks) {
       expect(after[name], name).toBe(before[name]);
     }
+  });
+});
+
+describe('starring', () => {
+  /** Serves a two-document list, the starred slice, and records every PATCH */
+  function mockStarApi(options: { failPatch?: boolean } = {}) {
+    const starred = new Set<string>();
+    // A failing PATCH hangs until the test lets it answer, so the optimistic
+    // star can be seen on screen before the rollback takes it away again.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => { release = () => { resolve(); }; });
+    globalThis.fetch = vi.fn(async (url: string, init: RequestInit = {}) => {
+      const method = init.method ?? 'GET';
+      const fail = () =>
+        ({ ok: false, status: 500, headers: new Headers(), json: async () => ({}), text: async () => '' }) as Response;
+
+      if (method === 'PATCH') {
+        if (options.failPatch) {
+          await held;
+          return fail();
+        }
+        const id = /documents\/([^/?]+)/.exec(url)?.[1] ?? '';
+        const body = JSON.parse(String(init.body ?? '{}')) as { starred?: boolean };
+        if (body.starred) starred.add(id); else starred.delete(id);
+        return {
+          ok: true, status: 200, headers: new Headers(),
+          json: async () => ({ id, title: 'ok', starred: body.starred, updated_at: new Date(0).toISOString() }),
+          text: async () => '',
+        } as Response;
+      }
+      if (method === 'DELETE') {
+        return { ok: true, status: 204, headers: new Headers(), json: async () => ({}), text: async () => '' } as Response;
+      }
+
+      const all = [docRow('doc-1', 'First'), docRow('doc-2', 'Second')];
+      const body = url.includes('trash=true')
+        ? []
+        : url.includes('starred=true')
+          ? all.filter((doc) => starred.has(doc.id)).map((doc) => ({ ...doc, starred: true }))
+          : all.map((doc) => ({ ...doc, starred: starred.has(doc.id) }));
+      return {
+        ok: true, status: 200,
+        headers: new Headers({ 'X-Total-Count': String(body.length) }),
+        json: async () => body, text: async () => '',
+      } as Response;
+    }) as unknown as typeof fetch;
+
+    return { release: () => { release(); } };
+  }
+
+  const render = async () => {
+    const { client, wrapper } = harness();
+    const view = renderHook(() => useDocumentStore(TOKEN), { wrapper });
+    await waitFor(() => expect(view.result.current.docs).toHaveLength(2));
+    return { ...view, client };
+  };
+
+  /** GETs of the main list — the one that must not be refetched to show a star */
+  const listLoads = () =>
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .filter(([url, init]) => (init?.method ?? 'GET') === 'GET'
+        && String(url).includes('/api/documents')
+        && !String(url).includes('starred=true')
+        && !String(url).includes('trash=true'));
+
+  it('fills the star without refetching the list, and keeps the document in it', async () => {
+    mockStarApi();
+    const view = await render();
+    const loadsBefore = listLoads().length;
+
+    await act(async () => { view.result.current.toggleStar('doc-1', true); });
+
+    // The flag is written into the cached list, so the row's star fills
+    // without waiting for — or asking for — the list again
+    await waitFor(() =>
+      expect(view.result.current.docs.find((d) => d.id === 'doc-1')?.starred).toBe(true));
+    expect(listLoads()).toHaveLength(loadsBefore);
+    // Starring marks a document; it does not move it out of the main list
+    expect(view.result.current.docs).toHaveLength(2);
+    // The starred list itself comes from the server, which owns its order
+    await waitFor(() => expect(view.result.current.starred.map((d) => d.id)).toEqual(['doc-1']));
+  });
+
+  it('unstars again', async () => {
+    mockStarApi();
+    const view = await render();
+
+    await act(async () => { view.result.current.toggleStar('doc-2', true); });
+    await waitFor(() => expect(view.result.current.starred).toHaveLength(1));
+
+    await act(async () => { view.result.current.toggleStar('doc-2', false); });
+    await waitFor(() => expect(view.result.current.starred).toHaveLength(0));
+    expect(view.result.current.docs.find((d) => d.id === 'doc-2')?.starred).toBeFalsy();
+  });
+
+  it('puts the star back when the write fails', async () => {
+    const server = mockStarApi({ failPatch: true });
+    const view = await render();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const loadsBefore = listLoads().length;
+
+    const star = (): boolean | undefined =>
+      view.result.current.docs.find((d) => d.id === 'doc-1')?.starred;
+
+    act(() => { view.result.current.toggleStar('doc-1', true); });
+    // Filled first, while the write is still in flight
+    await waitFor(() => expect(star()).toBe(true));
+
+    await act(async () => { server.release(); });
+
+    await waitFor(() => expect(star()).toBeFalsy());
+    // It can only have come back off by being rolled back: nothing refetched
+    // the list to find out the write hadn't landed.
+    expect(listLoads()).toHaveLength(loadsBefore);
+    expect(errors).toHaveBeenCalled();
+    errors.mockRestore();
+  });
+
+  it.each([true, false])('drops a trashed document out of the starred list when present in the main cache: %s', async (inMainCache) => {
+    mockStarApi();
+    const view = await render();
+
+    await act(async () => { view.result.current.toggleStar('doc-1', true); });
+    await waitFor(() => expect(view.result.current.starred).toHaveLength(1));
+
+    if (!inMainCache) {
+      act(() => {
+        view.client.setQueryData(['documents', TOKEN, 'list', ''], {
+          pages: [{ docs: [view.result.current.docs[1]], total: 2, nextCursor: null }],
+          pageParams: [null],
+        });
+      });
+      await waitFor(() => expect(view.result.current.docs.map((d) => d.id)).toEqual(['doc-2']));
+    }
+
+    await act(async () => { view.result.current.remove('doc-1'); });
+
+    // A document in the trash is out of reach, starred or not
+    await waitFor(() => expect(view.result.current.starred).toHaveLength(0));
   });
 });

@@ -21,11 +21,14 @@ export interface PageOptions {
   /** Title search, matched anywhere, case-insensitively */
   q?: string;
   cursor?: string | null;
+  /** Narrow the page to starred documents */
+  starred?: boolean;
 }
 
 interface ApiDocRow {
   id: string;
   title: string;
+  starred?: boolean;
   updated_at?: string;
   deleted_at?: string | null;
 }
@@ -35,6 +38,7 @@ function toDocMeta(row: ApiDocRow): DocMeta {
     id: row.id,
     title: row.title,
     updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
+    ...(row.starred ? { starred: true } : {}),
     ...(row.deleted_at ? { deletedAt: new Date(row.deleted_at).getTime() } : {}),
   };
 }
@@ -83,6 +87,7 @@ function cursorFromLink(link: string | null): string | null {
 function pageUrl(path: string, options: PageOptions, extra?: Record<string, string>): string {
   const url = new URL(path, API_URL);
   if (options.q) url.searchParams.set('q', options.q);
+  if (options.starred) url.searchParams.set('starred', 'true');
   if (options.cursor) url.searchParams.set('cursor', options.cursor);
   for (const [key, value] of Object.entries(extra ?? {})) url.searchParams.set(key, value);
   return url.toString();
@@ -95,9 +100,10 @@ function pageUrl(path: string, options: PageOptions, extra?: Record<string, stri
  */
 function localPage(docs: DocMeta[], options: PageOptions, pageSize = LOCAL_PAGE_SIZE): DocumentPage {
   const q = options.q?.trim().toLowerCase();
+  const starredOnly = options.starred ? docs.filter((doc) => doc.starred) : docs;
   const matching = q
-    ? docs.filter((doc) => (doc.title.trim() || 'Untitled').toLowerCase().includes(q))
-    : docs;
+    ? starredOnly.filter((doc) => (doc.title.trim() || 'Untitled').toLowerCase().includes(q))
+    : starredOnly;
 
   const start = options.cursor
     ? matching.findIndex((doc) => doc.id === options.cursor) + 1
@@ -209,6 +215,37 @@ export async function renameDocument(
   return renamed;
 }
 
+/**
+ * Star or unstar a document.
+ *
+ * Starring is not an edit, so `updatedAt` is left as it was — the API makes
+ * the same promise, and the sidebar is ordered by last edited.
+ */
+export async function setStarred(
+  id: string,
+  starred: boolean,
+  token: string | null,
+): Promise<DocMeta> {
+  if (token) {
+    const res = await fetch(`${API_URL}/api/documents/${id}`, {
+      method: 'PATCH',
+      headers: authHeaders(token, true),
+      body: JSON.stringify({ starred }),
+    });
+    ensureOk(res, token, starred ? 'star document' : 'unstar document');
+    // The response carries the row's real updated_at, which starring left as
+    // it was — so the document keeps its place in the list.
+    return toDocMeta((await res.json()) as ApiDocRow);
+  }
+
+  const docs = loadLocalDocs();
+  const doc = docs.find((d) => d.id === id);
+  if (!doc) throw new Error(`Document not found: ${id}`);
+  const next: DocMeta = { ...doc, starred };
+  saveDocs(docs.map((d) => (d.id === id ? next : d)));
+  return next;
+}
+
 /** Copy a document, content and all. Offline the content key is copied too. */
 export async function duplicateDocument(id: string, token: string | null): Promise<DocMeta> {
   if (token) {
@@ -224,6 +261,7 @@ export async function duplicateDocument(id: string, token: string | null): Promi
   const source = docs.find((doc) => doc.id === id);
   if (!source) throw new Error(`Document not found: ${id}`);
 
+  // Unstarred, as the API leaves a copy: the star is on the original
   const copy: DocMeta = {
     id: genId(),
     title: `Copy of ${source.title}`.slice(0, MAX_TITLE_LENGTH),
@@ -289,7 +327,12 @@ export async function restoreDocument(id: string, token: string | null): Promise
 
   const doc = loadLocalTrash().find((d) => d.id === id);
   if (!doc) throw new Error(`Document not found in trash: ${id}`);
-  const restored: DocMeta = { id: doc.id, title: doc.title, updatedAt: doc.updatedAt };
+  const restored: DocMeta = {
+    id: doc.id,
+    title: doc.title,
+    updatedAt: doc.updatedAt,
+    ...(doc.starred ? { starred: true } : {}),
+  };
   // Destination first, as above — a document in both lists briefly is
   // recoverable, a document in neither is not.
   saveDocs([restored, ...loadLocalDocs().filter((d) => d.id !== id)]);
