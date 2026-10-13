@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, act } from '@testing-library/react';
+import { render, act, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Profiler, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -145,5 +145,27 @@ describe('EditorToolbar', () => {
     });
 
     expect(counter.commits).toBeGreaterThan(0);
+  });
+
+  describe('Copy as Markdown', () => {
+    function openAndCopy() {
+      mountToolbar(makeEditor());
+      fireEvent.click(screen.getByTitle('Export'));
+      fireEvent.click(screen.getByText('Copy as Markdown'));
+    }
+
+    it('shows an error when the clipboard write is rejected', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+      openAndCopy();
+      expect((await screen.findByRole('alert')).textContent).toContain('Could not copy Markdown');
+    });
+
+    it('shows an error when the clipboard API is unavailable', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      Object.assign(navigator, { clipboard: undefined });
+      openAndCopy();
+      await waitFor(() => { expect(screen.getByRole('alert')).toBeTruthy(); });
+    });
   });
 });
