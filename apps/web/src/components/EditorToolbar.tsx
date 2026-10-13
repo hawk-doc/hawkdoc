@@ -114,7 +114,7 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
   const [colorOpen, setColorOpen] = useState(false);
   const [highlightOpen, setHighlightOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const blockRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const fontFamilyRef = useRef<HTMLDivElement>(null);
@@ -313,16 +313,24 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
   }, [editor, title]);
 
   const copyMarkdown = useCallback(() => {
-    navigator.clipboard.writeText(getMarkdownString()).catch((err) => {
-      console.error('Copy as Markdown failed:', err);
-    });
+    setActionError(null);
     setExportOpen(false);
+    const fail = (err: unknown) => {
+      console.error('Copy as Markdown failed:', err);
+      setActionError('Could not copy Markdown to the clipboard');
+    };
+    // navigator.clipboard is undefined in insecure contexts, and writeText may reject.
+    if (!navigator.clipboard) {
+      fail(new Error('Clipboard API unavailable'));
+      return;
+    }
+    navigator.clipboard.writeText(getMarkdownString()).catch(fail);
   }, [getMarkdownString]);
 
   const { token } = useAuth();
   const imageUploadMutation = useMutation({
     mutationFn: (file: File) => uploadImage(file, token),
-    onMutate: () => { setUploadError(null); },
+    onMutate: () => { setActionError(null); },
     onSuccess: ({ url }, file) => {
       const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001';
       editor.update(() => {
@@ -331,7 +339,7 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
     },
     onError: (err) => {
       console.error('Image upload failed:', err);
-      setUploadError(err instanceof Error ? err.message : 'Image upload failed');
+      setActionError(err instanceof Error ? err.message : 'Image upload failed');
     },
   });
 
@@ -589,16 +597,16 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
           }}
         />
 
-        {uploadError && (
+        {actionError && (
           <span
             role="alert"
             className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 ml-1"
           >
-            {uploadError}
+            {actionError}
             <button
               type="button"
               aria-label="Dismiss"
-              onClick={() => { setUploadError(null); }}
+              onClick={() => { setActionError(null); }}
               className="px-1 rounded hover:bg-[#f1f3f4] dark:hover:bg-[#2d2f31]"
             >
               ×
