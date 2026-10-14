@@ -99,6 +99,13 @@ function getStoredActiveId(): string {
   return localStorage.getItem(ACTIVE_DOC_KEY) ?? '';
 }
 
+/**
+ * Manages paginated document lists, selection, and document mutations.
+ *
+ * @param token Authentication token, or null to use local document storage.
+ * @returns Document state and actions, including the latest action error and
+ * a callback to dismiss it.
+ */
 export function useDocumentStore(token: string | null) {
   const queryClient = useQueryClient();
 

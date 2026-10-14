@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { useDocumentStore } from './hooks/useDocumentStore';
 import { useTheme } from './hooks/useTheme';
 
+/** Renders the document workspace and a dismissible alert for failed document actions. */
 function AppShell() {
   const { theme, toggle } = useTheme();
   const { user, token, logout, sessionExpired, dismissSessionExpired } = useAuth();
