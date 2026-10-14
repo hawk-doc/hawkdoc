@@ -99,8 +99,24 @@ function getStoredActiveId(): string {
   return localStorage.getItem(ACTIVE_DOC_KEY) ?? '';
 }
 
+/**
+ * Manages paginated document lists, selection, and document mutations.
+ *
+ * @param token Authentication token, or null to use local document storage.
+ * @returns Document state and actions, including the latest action error and
+ * a callback to dismiss it.
+ */
 export function useDocumentStore(token: string | null) {
   const queryClient = useQueryClient();
+
+  // Mutations roll back or drop their change when the server refuses it, which
+  // on its own looks like the click did nothing. This says what didn't happen.
+  const [actionError, setActionError] = useState<string | null>(null);
+  const dismissActionError = useCallback(() => setActionError(null), []);
+  const reportFailure = useCallback((message: string, err: unknown) => {
+    console.error(message, err);
+    setActionError(message);
+  }, []);
 
   // Searching is a query, not a filter over what happens to be loaded, so it
   // waits for a pause in typing before it becomes one.
@@ -193,7 +209,7 @@ export function useDocumentStore(token: string | null) {
       return previous;
     },
     onError: (err, _vars, previous) => {
-      console.error('Failed to change the star on a document:', err);
+      reportFailure('Couldn’t change the star on that document.', err);
       for (const [key, cache] of previous ?? []) {
         queryClient.setQueryData<DocsCache>(key, cache);
       }
@@ -218,7 +234,7 @@ export function useDocumentStore(token: string | null) {
       void queryClient.invalidateQueries({ queryKey: docsListPrefix(token), refetchType: 'none' });
       switchTo(copy.id);
     },
-    onError: (err) => { console.error('Failed to duplicate document:', err); },
+    onError: (err) => { reportFailure('Couldn’t duplicate that document.', err); },
   });
 
   // Persists a title. The cache is updated optimistically by the callers, so
@@ -228,7 +244,7 @@ export function useDocumentStore(token: string | null) {
     mutationFn: ({ id, title, token: writeToken }: TitleWrite) =>
       renameDocument(id, title.trim() || 'Untitled', writeToken),
     scope: DOCUMENT_MUTATION_SCOPE,
-    onError: (err) => { console.error('Failed to save document title:', err); },
+    onError: (err) => { reportFailure('Couldn’t save the document title.', err); },
   });
   const { mutate: persistTitle } = titleMutation;
 
@@ -294,7 +310,7 @@ export function useDocumentStore(token: string | null) {
     mutationFn: (id: string) => removeDocument(id, token),
     scope: DOCUMENT_MUTATION_SCOPE,
     onError: (err, _id, context) => {
-      console.error('Failed to move document to the trash:', err);
+      reportFailure('Couldn’t move that document to the trash.', err);
       rollback(context as CacheSnapshot | undefined);
     },
     onMutate: (removedId) => {
@@ -360,7 +376,7 @@ export function useDocumentStore(token: string | null) {
       }
       return prev;
     },
-    onError: (err, _id, prev) => { console.error('Failed to restore document:', err); rollback(prev); },
+    onError: (err, _id, prev) => { reportFailure('Couldn’t restore that document.', err); rollback(prev); },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: DOCS_KEY });
       // A restored document brings its star back with it
@@ -378,7 +394,7 @@ export function useDocumentStore(token: string | null) {
       );
       return prev;
     },
-    onError: (err, _id, prev) => { console.error('Failed to delete document:', err); rollback(prev); },
+    onError: (err, _id, prev) => { reportFailure('Couldn’t delete that document.', err); rollback(prev); },
   });
 
   const emptyTrashMutation = useMutation({
@@ -389,7 +405,7 @@ export function useDocumentStore(token: string | null) {
       queryClient.setQueryData<DocsCache>(TRASH_KEY, (old) => mapDocs(old, () => []));
       return prev;
     },
-    onError: (err, _vars, prev) => { console.error('Failed to empty the trash:', err); rollback(prev); },
+    onError: (err, _vars, prev) => { reportFailure('Couldn’t empty the trash.', err); rollback(prev); },
   });
 
   // Everything handed out below keeps the same identity between renders.
@@ -468,5 +484,8 @@ export function useDocumentStore(token: string | null) {
     isLoadingMoreStarred: starredQuery.isFetchingNextPage,
     /** Star or unstar a document; starring does not count as editing it */
     toggleStar,
+    /** Why the last document action failed, until it is dismissed */
+    actionError,
+    dismissActionError,
   };
 }

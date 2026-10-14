@@ -134,6 +134,27 @@ describe('trash', () => {
     await waitFor(() => expect(result.current.trashed.map((d) => d.id)).toContain('doc-1'));
     await settled(view);
   });
+
+  it('says why when an action fails, until it is dismissed', async () => {
+    const view = await renderStore();
+    const { result } = view;
+    expect(result.current.actionError).toBeNull();
+
+    globalThis.fetch = vi.fn(async () => (
+      { ok: false, status: 500, json: async () => ({}), text: async () => '' } as Response
+    )) as unknown as typeof fetch;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    act(() => { result.current.remove('doc-1'); });
+
+    await waitFor(() => expect(result.current.actionError).toMatch(/trash/));
+    // the document is back where it was
+    await waitFor(() => expect(result.current.docs.map((d) => d.id)).toContain('doc-1'));
+    await settled(view);
+
+    act(() => { result.current.dismissActionError(); });
+    expect(result.current.actionError).toBeNull();
+  });
 });
 
 // ─── Paging, searching and duplicating ───────────────────────────────────────

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /api/auth/login` and `/register` are rate limited per client IP (20 requests per 15 minutes each by default; `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_SEC`). Over the limit the API answers 429 with a `Retry-After` header. The counter is in memory, per API process
 
 ### Fixed
+- A failed document action in the sidebar (star, duplicate, rename, move to trash, restore, delete forever, empty trash) rolled back or did nothing without saying so: the error only went to the console. The app now shows a dismissible error banner under the header
 - A failed "Copy as Markdown" (clipboard permission denied, or an insecure page with no clipboard API) did nothing visible: the error only went to the console. The toolbar now shows a dismissible error message
 - A failed PDF or Word export did nothing visible: the error only went to the console. The editor now shows the same dismissible error banner it uses for import failures
 - A failed image upload (signed out, too large, wrong type, server down) did nothing visible: the error only went to the console. The toolbar now shows the reason next to the upload button until it is dismissed or the next upload starts

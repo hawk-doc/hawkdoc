@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { useDocumentStore } from './hooks/useDocumentStore';
 import { useTheme } from './hooks/useTheme';
 
+/** Renders the document workspace and a dismissible alert for failed document actions. */
 function AppShell() {
   const { theme, toggle } = useTheme();
   const { user, token, logout, sessionExpired, dismissSessionExpired } = useAuth();
@@ -18,7 +19,7 @@ function AppShell() {
     starred, toggleStar, starredHasMore, loadMoreStarred, isLoadingMoreStarred,
     total, hasMore, loadMore, isLoadingMore, search, setSearch,
     trashed, trashOpen, setTrashOpen, restore, purge, emptyTrash,
-    trashHasMore, loadMoreTrash, isLoadingMoreTrash,
+    trashHasMore, loadMoreTrash, isLoadingMoreTrash, actionError, dismissActionError,
   } = useDocumentStore(token);
 
   const activeDoc = docs.find((d) => d.id === activeId);
@@ -91,6 +92,22 @@ function AppShell() {
           </a>
         </div>
       </header>
+
+      {actionError && (
+        <div
+          role="alert"
+          className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-red-200 bg-red-50 px-5 py-2 text-[13px] text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            onClick={dismissActionError}
+            className="font-medium underline underline-offset-2 hover:opacity-80"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* ── Body: sidebar + editor ── */}
       <div className="flex flex-1 overflow-hidden">
