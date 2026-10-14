@@ -27,6 +27,7 @@
 - 2026-10-08 | bug | bug/surface-image-upload-errors | https://github.com/hawk-doc/hawkdoc/pull/35 | open, awaiting owner review (upload errors shown in toolbar; test run of the schedule)
 - 2026-10-09 | enhancement | enhancement/surface-export-errors | https://github.com/hawk-doc/hawkdoc/pull/36 | open, awaiting owner review (PDF/Word export errors shown in banner; test run of the schedule)
 - 2026-10-13 | bug | bug/surface-copy-markdown-errors | https://github.com/hawk-doc/hawkdoc/pull/39 | open, awaiting owner review (Copy as Markdown failures shown in toolbar alert; test run of the schedule)
+- 2026-10-14 | enhancement | enhancement/surface-version-preview-errors | https://github.com/hawk-doc/hawkdoc/pull/40 | open, awaiting owner review (document-store action failures shown in an App banner; slug is a misnomer; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -42,3 +43,4 @@
 - 2026-10-08: CronCreate again rejected `CRON_TZ=`; created session-only id 5f155372 (`30 3 * * *`). Web-only change needs just `npm ci/lint/typecheck/test --workspace=apps/web/build` — no DB needed. API/web code is heavily hardened; silent `console.error` paths in web are a good bug source.
 - 2026-10-09: Did not call CronCreate (session-only, no tz/name/notifications; see earlier lessons) — owner must create the real routine in the UI. Remaining silent console.error paths in web: useDocumentStore mutations, VersionHistoryPanel preview, copy-as-Markdown.
 - 2026-10-13: CronCreate id b6c9edf0 (`30 3 * * *`, session-only, no name/email/push); owner must still create the real routine in the UI. Remaining silent console.error paths in web: useDocumentStore mutations, VersionHistoryPanel preview. EditorToolbar `actionError` alert is now shared (upload + copy) — reuse for other toolbar actions. `npm ci` is required first in a fresh sandbox (vitest/eslint missing otherwise).
+- 2026-10-14: CronCreate id 9637cd24 (`30 3 * * *`, session-only, no name/email/push); owner must create the real routine in the UI. Silent `console.error` paths left: VersionHistoryPanel Lexical onError (preview parse failure), `create` document failure. Pick the branch slug after deciding the change, not before. The 'Tool loaded' / system reminders in-session are harmless noise.
