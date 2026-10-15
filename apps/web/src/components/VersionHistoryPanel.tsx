@@ -33,9 +33,29 @@ interface VersionHistoryPanelProps {
 type CompareBase = 'previous' | 'current';
 type PaneView = 'document' | 'changes';
 
+/** Keeps a version the editor cannot render from taking the whole app down */
+class PreviewBoundary extends React.Component<
+  { versionId: string; onRenderError: (versionId: string) => void; children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() { return { failed: true }; }
+
+  componentDidCatch(error: Error) {
+    console.error('Version preview error:', error);
+    this.props.onRenderError(this.props.versionId);
+  }
+
+  render() { return this.state.failed ? null : this.props.children; }
+}
+
 /** The selected version, rendered by the editor itself so it looks exactly right */
-function VersionPreview({ state, versionId }: { state: SerializedEditorState; versionId: string }) {
+function VersionPreview({
+  state, versionId, onRenderError,
+}: { state: SerializedEditorState; versionId: string; onRenderError: (versionId: string) => void }) {
   return (
+    <PreviewBoundary versionId={versionId} onRenderError={onRenderError}>
     <LexicalComposer
       // A new composer per version: the preview is read-only, so there is
       // nothing to carry over from the one before it.
@@ -46,7 +66,9 @@ function VersionPreview({ state, versionId }: { state: SerializedEditorState; ve
         nodes: EDITOR_NODES,
         editable: false,
         editorState: JSON.stringify(state),
-        onError: (error: Error) => { console.error('Version preview error:', error); },
+        // Rethrown so PreviewBoundary catches it; swallowing it would show a
+        // version that failed to load as an empty one.
+        onError: (error: Error) => { throw error; },
       }}
     >
       <RichTextPlugin
@@ -62,6 +84,7 @@ function VersionPreview({ state, versionId }: { state: SerializedEditorState; ve
         ErrorBoundary={LexicalErrorBoundary}
       />
     </LexicalComposer>
+    </PreviewBoundary>
   );
 }
 
@@ -71,6 +94,8 @@ export function VersionHistoryPanel({
   const [confirming, setConfirming] = useState(false);
   const [view, setView] = useState<PaneView>('document');
   const [compareWith, setCompareWith] = useState<CompareBase>('previous');
+  // The version whose content the editor could not render, if any
+  const [unreadableId, setUnreadableId] = useState<string | null>(null);
 
   // The panel opens on Document while the comparison defaults to the previous
   // version. Only the Changes tab reads that version, so it decides both
@@ -135,7 +160,8 @@ export function VersionHistoryPanel({
   };
 
   const selected = versions.find((version) => version.id === selectedId);
-  const canRestore = preview !== null && !isPreviewLoading;
+  const previewUnreadable = selectedId !== null && unreadableId === selectedId;
+  const canRestore = preview !== null && !isPreviewLoading && !previewUnreadable;
 
   // Comparing with the previous version answers "what changed here"; comparing
   // with the document answers "what would restoring this undo".
@@ -329,8 +355,14 @@ export function VersionHistoryPanel({
             </p>
           )}
 
-          {view === 'document' && preview && selectedId && !isPreviewLoading && !previewError && (
-            <VersionPreview state={preview} versionId={selectedId} />
+          {view === 'document' && previewUnreadable && !comparingLoading && !comparingError && (
+            <p role="alert" className="text-[13px] text-red-600 dark:text-red-400">
+              This version could not be displayed, so it can't be restored.
+            </p>
+          )}
+
+          {view === 'document' && preview && selectedId && !isPreviewLoading && !previewError && !previewUnreadable && (
+            <VersionPreview state={preview} versionId={selectedId} onRenderError={setUnreadableId} />
           )}
 
           {view === 'changes' && !comparingLoading && !comparingError && (
