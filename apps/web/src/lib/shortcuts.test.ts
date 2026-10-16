@@ -18,6 +18,7 @@ function press(key: string, modifiers: Partial<KeyboardEvent> = {}): KeyboardEve
     metaKey: false,
     ctrlKey: false,
     shiftKey: false,
+    altKey: false,
     ...modifiers,
   } as KeyboardEvent;
 }
@@ -63,6 +64,25 @@ describe('matching a key event', () => {
 
   it('needs the modifier', () => {
     expect(matches(press('b'), SHORTCUTS.bold, APPLE)).toBe(false);
+  });
+
+  it.each([APPLE, OTHER])('rejects unrequested Alt with apple=%s', (apple) => {
+    const modifiers = apple ? { metaKey: true } : { ctrlKey: true };
+    for (const shortcut of Object.values(SHORTCUTS)) {
+      expect(matches(press(shortcut.key, {
+        ...modifiers,
+        shiftKey: 'shift' in shortcut && shortcut.shift,
+        altKey: true,
+      }), shortcut, apple)).toBe(false);
+    }
+  });
+
+  it.each([APPLE, OTHER])('requires Alt when explicitly requested with apple=%s', (apple) => {
+    const shortcut: Shortcut = { key: 'b', mod: true, alt: true, label: 'Alt shortcut' };
+    const modifiers = apple ? { metaKey: true } : { ctrlKey: true };
+    expect(matches(press('b', { ...modifiers, altKey: true }), shortcut, apple)).toBe(true);
+    expect(matches(press('b', modifiers), shortcut, apple)).toBe(false);
+    expect(matches(press('b', { metaKey: true, ctrlKey: true, altKey: true }), shortcut, apple)).toBe(false);
   });
 
   it('tells undo and redo apart by shift', () => {

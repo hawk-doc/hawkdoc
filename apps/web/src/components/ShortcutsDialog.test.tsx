@@ -85,4 +85,49 @@ describe('ShortcutsDialog', () => {
     expect(document.activeElement).toBe(opener);
     opener.remove();
   });
+
+  it('keeps Escape from reaching document listeners until it is unmounted', () => {
+    const onClose = vi.fn();
+    const earlyCapture = vi.fn();
+    const earlyBubble = vi.fn();
+    const lateCapture = vi.fn();
+    const lateBubble = vi.fn();
+    document.addEventListener('keydown', earlyCapture, true);
+    document.addEventListener('keydown', earlyBubble);
+    const { unmount } = render(<ShortcutsDialog onClose={onClose} />);
+    document.addEventListener('keydown', lateCapture, true);
+    document.addEventListener('keydown', lateBubble);
+
+    try {
+      fireEvent.keyDown(screen.getByLabelText('Close keyboard shortcuts'), { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledTimes(1);
+      for (const listener of [earlyCapture, earlyBubble, lateCapture, lateBubble]) {
+        expect(listener).not.toHaveBeenCalled();
+      }
+
+      unmount();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledTimes(1);
+      for (const listener of [earlyCapture, earlyBubble, lateCapture, lateBubble]) {
+        expect(listener).toHaveBeenCalledTimes(1);
+      }
+    } finally {
+      unmount();
+      document.removeEventListener('keydown', earlyCapture, true);
+      document.removeEventListener('keydown', earlyBubble);
+      document.removeEventListener('keydown', lateCapture, true);
+      document.removeEventListener('keydown', lateBubble);
+    }
+  });
+
+  it.each([false, true])('traps Tab with shiftKey=%s', (shiftKey) => {
+    render(<ShortcutsDialog onClose={vi.fn()} />);
+    const close = screen.getByLabelText('Close keyboard shortcuts');
+    const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true });
+
+    fireEvent(close, event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(close);
+  });
 });

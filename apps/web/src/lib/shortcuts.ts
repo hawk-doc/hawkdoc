@@ -22,6 +22,7 @@ export interface Shortcut {
   /** Needs the command key on Apple platforms, control elsewhere */
   mod?: boolean;
   shift?: boolean;
+  alt?: boolean;
   /** What the shortcut does, for the reference */
   label: string;
 }
@@ -54,6 +55,7 @@ export function matches(event: KeyboardEvent, shortcut: Shortcut, apple = isAppl
   const mod = apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
   if (!!shortcut.mod !== mod) return false;
   if (!!shortcut.shift !== event.shiftKey) return false;
+  if (!!shortcut.alt !== event.altKey) return false;
   return event.key.toLowerCase() === shortcut.key.toLowerCase();
 }
 
