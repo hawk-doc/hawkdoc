@@ -45,7 +45,7 @@ describe('shortcut labels', () => {
 
   it('upper-cases a single letter but not punctuation', () => {
     expect(keysOf(SHORTCUTS.reference, APPLE)).toEqual(['⌘', '/']);
-    expect(keysOf(SHORTCUTS.sidebar, APPLE)).toEqual(['⌘', '\\']);
+    expect(keysOf(SHORTCUTS.focusMode, APPLE)).toEqual(['⌘', '.']);
   });
 });
 
@@ -80,7 +80,6 @@ describe('matching a key event', () => {
 
   it('matches the punctuation shortcuts', () => {
     expect(matches(press('/', { metaKey: true }), SHORTCUTS.reference, APPLE)).toBe(true);
-    expect(matches(press('\\', { metaKey: true }), SHORTCUTS.sidebar, APPLE)).toBe(true);
     expect(matches(press('.', { metaKey: true }), SHORTCUTS.focusMode, APPLE)).toBe(true);
   });
 });

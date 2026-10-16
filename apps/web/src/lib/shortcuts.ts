@@ -65,7 +65,6 @@ export const SHORTCUTS = {
   redo: { key: 'z', mod: true, shift: true, label: 'Redo' },
   find: { key: 'f', mod: true, label: 'Find and replace' },
   exportPdf: { key: 'p', mod: true, label: 'Export as PDF' },
-  sidebar: { key: '\\', mod: true, label: 'Show or hide the document list' },
   focusMode: { key: '.', mod: true, label: 'Focus mode' },
   reference: { key: '/', mod: true, label: 'Keyboard shortcuts' },
 } as const satisfies Record<string, Shortcut>;
@@ -82,7 +81,7 @@ export const SHORTCUT_GROUPS: { heading: string; shortcuts: Shortcut[] }[] = [
   },
   {
     heading: 'Getting around',
-    shortcuts: [SHORTCUTS.sidebar, SHORTCUTS.focusMode, SHORTCUTS.reference],
+    shortcuts: [SHORTCUTS.focusMode, SHORTCUTS.reference],
   },
   {
     heading: 'Exporting',
