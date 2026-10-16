@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Profiler, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -167,5 +167,30 @@ describe('EditorToolbar', () => {
       openAndCopy();
       await waitFor(() => { expect(screen.getByRole('alert')).toBeTruthy(); });
     });
+  });
+});
+
+describe('EditorToolbar shortcut hints', () => {
+  const realPlatform = navigator.platform;
+  const setPlatform = (platform: string) => {
+    Object.defineProperty(navigator, 'platform', { value: platform, configurable: true });
+  };
+  afterEach(() => { setPlatform(realPlatform); });
+
+  it('promises the command key on a Mac', () => {
+    setPlatform('MacIntel');
+    mountToolbar(makeEditor());
+    expect(screen.getByTitle('Bold (⌘B)')).toBeTruthy();
+    expect(screen.getByTitle('Redo (⌘⇧Z)')).toBeTruthy();
+  });
+
+  it('promises control everywhere else', () => {
+    setPlatform('Win32');
+    mountToolbar(makeEditor());
+    // The toolbar used to say ⌘B to every user, which was a key most of them
+    // do not have
+    expect(screen.getByTitle('Bold (Ctrl+B)')).toBeTruthy();
+    expect(screen.getByTitle('Redo (Ctrl+Shift+Z)')).toBeTruthy();
+    expect(screen.queryByTitle('Bold (⌘B)')).toBeNull();
   });
 });

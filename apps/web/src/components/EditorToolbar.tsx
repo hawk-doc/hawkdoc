@@ -30,6 +30,7 @@ import { $createImageNode } from '../nodes/ImageNode';
 import { uploadImage } from '../lib/documentApi';
 import { useAuth } from '../context/AuthContext';
 import { BLOCK_TYPES, FONT_FAMILIES, FONT_SIZES } from '../constants/editor';
+import { SHORTCUTS, hintFor } from '../lib/shortcuts';
 import { $readSelectionFormat, sameFormat, EMPTY_FORMAT } from '../lib/selectionFormat';
 import type { BlockType, EditorToolbarProps } from '../interfaces';
 import {
@@ -369,10 +370,10 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
       <div className="flex items-center gap-0.5 px-2 py-1 flex-wrap">
         <div className={`${moreOpen ? 'flex w-full flex-wrap items-center gap-0.5' : 'hidden'} lg:contents`}>
         {/* Undo / Redo */}
-        <Btn title="Undo (⌘Z)" disabled={!canUndo} onMouseDown={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
+        <Btn title={hintFor(SHORTCUTS.undo)} disabled={!canUndo} onMouseDown={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
           <Undo2 size={16} />
         </Btn>
-        <Btn title="Redo (⌘⇧Z)" disabled={!canRedo} onMouseDown={() => editor.dispatchCommand(REDO_COMMAND, undefined)}>
+        <Btn title={hintFor(SHORTCUTS.redo)} disabled={!canRedo} onMouseDown={() => editor.dispatchCommand(REDO_COMMAND, undefined)}>
           <Redo2 size={16} />
         </Btn>
 
@@ -497,13 +498,13 @@ export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX,
         <Sep />
 
         {/* Text format */}
-        <Btn title="Bold (⌘B)" active={format.bold} onMouseDown={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold')}>
+        <Btn title={hintFor(SHORTCUTS.bold)} active={format.bold} onMouseDown={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold')}>
           <Bold size={16} />
         </Btn>
-        <Btn title="Italic (⌘I)" active={format.italic} onMouseDown={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic')}>
+        <Btn title={hintFor(SHORTCUTS.italic)} active={format.italic} onMouseDown={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic')}>
           <Italic size={16} />
         </Btn>
-        <Btn title="Underline (⌘U)" active={format.underline} onMouseDown={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline')}>
+        <Btn title={hintFor(SHORTCUTS.underline)} active={format.underline} onMouseDown={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline')}>
           <Underline size={16} />
         </Btn>
         <Btn title="Strikethrough" active={format.strikethrough} onMouseDown={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'strikethrough')}>
