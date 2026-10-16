@@ -106,6 +106,7 @@ function replaceAll(
   });
 }
 
+/** Provides the Lexical find-and-replace panel, opened by the find shortcut and closed with Escape. */
 export function FindReplacePlugin(): null | React.ReactElement {
   const [editor] = useLexicalComposerContext();
   const [isOpen, setIsOpen] = useState(false);

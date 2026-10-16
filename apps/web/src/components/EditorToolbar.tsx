@@ -95,6 +95,7 @@ const HIGHLIGHT_COLORS = [
 ];
 
 
+/** Renders editor formatting controls, document actions, and platform-specific shortcut hints. */
 export function EditorToolbar({ editor, onExportPDF, onExportDOCX, onImportDOCX, onOpenHistory, isSaving, title, onToggleFocusMode, collabStatus }: EditorToolbarProps) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);

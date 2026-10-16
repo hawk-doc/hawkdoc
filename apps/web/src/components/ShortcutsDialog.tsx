@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { SHORTCUT_GROUPS, TYPED_HINTS, keysOf, isAppleOs } from '../lib/shortcuts';
 
+/** Renders shortcut key labels as individual keyboard key badges. */
 function Keys({ keys }: { keys: string[] }) {
   return (
     <span className="flex flex-shrink-0 items-center gap-1">
@@ -13,6 +14,7 @@ function Keys({ keys }: { keys: string[] }) {
   );
 }
 
+/** Renders a shortcut description and its key badges as a reference list item. */
 function Row({ label, keys }: { label: string; keys: string[] }) {
   return (
     <li className="flex items-center justify-between gap-4 py-1">
