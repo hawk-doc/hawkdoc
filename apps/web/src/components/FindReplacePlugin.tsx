@@ -12,6 +12,8 @@ import {
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { $dfs } from '@lexical/utils';
 import { Search, X, ChevronUp, ChevronDown, CaseSensitive } from 'lucide-react';
+// aliased: this file's own `matches` is the list of search hits
+import { SHORTCUTS, matches as isShortcut } from '../lib/shortcuts';
 
 interface Match {
   nodeKey: string;
@@ -104,6 +106,7 @@ function replaceAll(
   });
 }
 
+/** Provides the Lexical find-and-replace panel, opened by the find shortcut and closed with Escape. */
 export function FindReplacePlugin(): null | React.ReactElement {
   const [editor] = useLexicalComposerContext();
   const [isOpen, setIsOpen] = useState(false);
@@ -121,10 +124,10 @@ export function FindReplacePlugin(): null | React.ReactElement {
     editor.focus();
   }, [editor]);
 
-  // ⌘F / Ctrl+F — open panel; Escape — close panel
+  // The find shortcut opens the panel; Escape closes it
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      if (isShortcut(e, SHORTCUTS.find)) {
         e.preventDefault();
         setIsOpen(true);
         setTimeout(() => searchInputRef.current?.select(), 0);

@@ -52,6 +52,7 @@ hawkdoc/
 - Editable document title
 - Code block with copy-to-clipboard (`CodeBlockPlugin.tsx`)
 - `InputDialog.tsx` — reusable modal for link and variable name input (replaces `window.prompt`)
+- Keyboard shortcuts — a reference dialog on the shortcut for it or from the header's keyboard button (`ShortcutsDialog.tsx`), with the modifier resolved per platform
 - Document list — paged (50 at a time, "Show more" at the end), searched on the server from the sidebar box, and documents can be duplicated or starred from the row
 - Starred documents — a group above the rest of the sidebar, kept across sessions and signed out
 - Image upload — toolbar button uploads to backend via multer, inserts as `ImageNode` (block-level DecoratorNode). Click to select, Backspace/Delete to remove. Persists after refresh. Included in PDF export.
@@ -106,6 +107,9 @@ each was worked out against the shipped code, not guessed at.
 - **Pending content is lost if the tab closes within the autosave debounce.**
   The store already flushes titles on `pagehide` with `keepalive`; content
   could do the same.
+- **The sidebar can't be collapsed on desktop**, only below `md` where it is a
+  drawer. Collapsing it would give the document the full width, and it is what
+  a `mod`+`\` shortcut needs before it is worth adding.
 - **The initial bundle is 572kB.** `react-pdf` is already split out; the next
   candidates are the Lexical node set and the docx renderer.
 
@@ -144,6 +148,29 @@ to 1ms. In a 3,600-word document the per-keystroke script cost went from
 Still outstanding: the title is a prop, so typing in it re-renders the
 toolbar. Fixing that means moving who owns the title, since the sidebar shows
 it as you type.
+
+## Keyboard Shortcuts
+
+`lib/shortcuts.ts` holds every shortcut the app answers to, and both the
+tooltips and the reference dialog read from it — a shortcut and its label
+cannot drift apart, and a test fails if a shortcut exists that the reference
+never lists.
+
+**The modifier is resolved, never written into the label.** The toolbar used
+to say "Bold (⌘B)" to everyone, naming a key most keyboards don't have;
+`keysOf` and `hintFor` give ⌘ on Apple platforms and Ctrl elsewhere.
+`matches` is the other half of that: `metaKey` on Apple platforms and
+`ctrlKey` elsewhere, never either-or, so Ctrl+F on a Mac stays with the OS
+instead of being taken for find.
+
+Two shortcuts are deliberately absent, and both should stay that way:
+
+- **New document.** The browser reserves that chord and won't release it to
+  `preventDefault`, so it would fail silently on some platforms.
+- **Show or hide the document list.** The sidebar can only be hidden below
+  `md`, where it is a drawer and there is no keyboard to press a chord with.
+  Give the sidebar a collapsed state on desktop first, and then `mod`+`\` is
+  the shortcut to add (Notion's).
 
 ## Word (.docx) Import and Export
 

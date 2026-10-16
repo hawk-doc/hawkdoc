@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { Github, Sun, Moon, LogIn, LogOut, User, PanelLeft } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Github, Sun, Moon, LogIn, LogOut, User, PanelLeft, Keyboard } from 'lucide-react';
 import { Editor } from './components/Editor';
 import { Sidebar } from './components/Sidebar';
 import { AuthModal } from './components/AuthModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useDocumentStore } from './hooks/useDocumentStore';
 import { useTheme } from './hooks/useTheme';
+import { ShortcutsDialog } from './components/ShortcutsDialog';
+import { SHORTCUTS, hintFor, matches } from './lib/shortcuts';
 
 /** Renders the document workspace and a dismissible alert for failed document actions. */
 function AppShell() {
@@ -13,6 +15,19 @@ function AppShell() {
   const { user, token, logout, sessionExpired, dismissSessionExpired } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  // The reference is also the one shortcut that has to work from anywhere,
+  // including from inside the editor.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!matches(e, SHORTCUTS.reference)) return;
+      e.preventDefault();
+      setShortcutsOpen((open) => !open);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   const {
     docs, activeId, create, rename, remove, activate, touch, duplicate,
@@ -52,6 +67,16 @@ function AppShell() {
               <span className="truncate max-w-[120px]">{user.name}</span>
             </span>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShortcutsOpen(true)}
+            title={hintFor(SHORTCUTS.reference)}
+            aria-label="Keyboard shortcuts"
+            className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg text-notion-muted dark:text-[#9aa0a6] hover:text-notion-text dark:hover:text-[#e8eaed] hover:bg-notion-hover dark:hover:bg-[#2d2f31] transition-colors"
+          >
+            <Keyboard size={17} />
+          </button>
 
           <button
             onClick={toggle}
@@ -167,6 +192,8 @@ function AppShell() {
           )}
         </main>
       </div>
+
+      {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
 
       {/* Auth modal */}
       {(authOpen || sessionExpired) && (

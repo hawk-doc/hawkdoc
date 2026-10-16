@@ -36,6 +36,7 @@ import { VersionHistoryPanel } from './VersionHistoryPanel';
 import { restoreEditorState } from '../lib/versions/restore';
 import { preloadVersionHistory } from '../lib/versionApi';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES, MAX_TITLE_LENGTH } from '../constants/editor';
+import { SHORTCUTS, matches } from '../lib/shortcuts';
 import type { SlashMenuState } from '../interfaces';
 import type { SerializedEditorState } from 'lexical';
 
@@ -259,9 +260,14 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+      if (matches(e, SHORTCUTS.exportPdf)) {
         e.preventDefault();
         void handleExportPDF();
+        return;
+      }
+      if (matches(e, SHORTCUTS.focusMode)) {
+        e.preventDefault();
+        setFocusMode((on) => !on);
       }
     };
     document.addEventListener('keydown', handler);
