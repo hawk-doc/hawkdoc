@@ -40,13 +40,16 @@ class PreviewBoundary extends React.Component<
 > {
   state = { failed: false };
 
+  /** Flags the boundary as failed so render() stops showing the broken preview */
   static getDerivedStateFromError() { return { failed: true }; }
 
+  /** Logs the render error and tells the panel this version can't be restored */
   componentDidCatch(error: Error) {
     console.error('Version preview error:', error);
     this.props.onRenderError(this.props.versionId);
   }
 
+  /** Nothing once failed, otherwise the preview it wraps */
   render() { return this.state.failed ? null : this.props.children; }
 }
 
