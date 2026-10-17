@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { History, RotateCcw, X } from 'lucide-react';
+import { Bookmark, BookmarkPlus, History, RotateCcw, X } from 'lucide-react';
 import type { SerializedEditorState } from 'lexical';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
@@ -11,6 +11,7 @@ import { diffEditorStates } from '../lib/versions/diff';
 import { useDocumentVersions } from '../hooks/useDocumentVersions';
 import { EDITOR_NODES, EDITOR_THEME } from '../constants/editor';
 import { groupVersionsByDay, versionAge, versionTime } from '../lib/versions/format';
+import { InputDialog } from './InputDialog';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -110,7 +111,22 @@ export function VersionHistoryPanel({
     selectedId, select,
     preview, isPreviewLoading, previewError,
     previousId, previous, isPreviousLoading, previousError,
-  } = useDocumentVersions(docId, token, { open, comparing: usesPrevious });
+    save, rename, isWriting, writeError, dismissWriteError,
+  } = useDocumentVersions(docId, token, {
+    open,
+    comparing: usesPrevious,
+    // Signed out there is no server copy to version, so the document has to
+    // come from the editor
+    readContent: getCurrentState
+      ? () => {
+        const state = getCurrentState();
+        return state ? JSON.stringify(state) : null;
+      }
+      : undefined,
+  });
+
+  /** Which naming dialog is open: a new version, or one already in the list */
+  const [naming, setNaming] = useState<{ versionId: string | null; current: string } | null>(null);
   const [currentState, setCurrentState] = useState<SerializedEditorState | null>(null);
   const panelRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -192,6 +208,28 @@ export function VersionHistoryPanel({
         />
       )}
 
+      {naming && (
+        <InputDialog
+          title={naming.versionId === null ? 'Save a version' : 'Name this version'}
+          message={
+            naming.versionId === null
+              ? 'Saves the document as it is now. A named version is kept even once the history fills up.'
+              : 'A named version is kept even once the history fills up. Clear the name to let it go again.'
+          }
+          placeholder="Before the rewrite"
+          defaultValue={naming.current}
+          confirmLabel={naming.versionId === null ? 'Save' : 'Save name'}
+          allowEmpty
+          onConfirm={(value) => {
+            const label = value.trim().length > 0 ? value.trim() : null;
+            if (naming.versionId === null) save(label);
+            else rename(naming.versionId, label);
+            setNaming(null);
+          }}
+          onCancel={() => setNaming(null)}
+        />
+      )}
+
       {confirming && selected && preview && (
         <ConfirmDialog
           title="Restore this version?"
@@ -220,6 +258,17 @@ export function VersionHistoryPanel({
             <History size={16} />
             Version history
           </h2>
+          <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setNaming({ versionId: null, current: '' })}
+            disabled={isWriting}
+            title="Save a version of the document as it is now"
+            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium text-notion-muted transition-colors hover:bg-notion-hover hover:text-notion-text disabled:opacity-60 dark:text-[#9aa0a6] dark:hover:bg-[#2d2f31] dark:hover:text-[#e8eaed]"
+          >
+            <BookmarkPlus size={14} />
+            Save a version
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -228,7 +277,24 @@ export function VersionHistoryPanel({
           >
             <X size={16} />
           </button>
+          </div>
         </header>
+
+        {writeError && (
+          <div
+            role="alert"
+            className="flex flex-shrink-0 items-start justify-between gap-3 border-b border-red-200 bg-red-50 px-4 py-2 text-[12px] text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-300"
+          >
+            <span>{writeError.message}</span>
+            <button
+              type="button"
+              onClick={dismissWriteError}
+              className="flex-shrink-0 text-[11px] font-medium underline underline-offset-2 hover:opacity-80"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Version list */}
         <div className="max-h-[40%] flex-shrink-0 overflow-y-auto border-b border-notion-border px-2 py-2 dark:border-[#3c4043]">
@@ -262,30 +328,63 @@ export function VersionHistoryPanel({
                 const age = versionAge(version.createdAt);
                 const meta = isNewest ? ['latest', age].filter(Boolean).join(' · ') : age;
                 return (
-                  <button
+                  <div
                     key={version.id}
-                    type="button"
-                    aria-current={isSelected}
-                    onClick={() => select(version.id)}
-                    className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors ${
+                    className={`group flex items-center gap-1 rounded-lg pr-1 transition-colors ${
                       isSelected
                         ? 'bg-notion-text text-white dark:bg-[#e8eaed] dark:text-[#202020]'
                         : 'text-notion-text hover:bg-notion-hover dark:text-[#e8eaed] dark:hover:bg-[#2d2f31]'
                     }`}
                   >
-                    <span>{versionTime(version.createdAt)}</span>
-                    {meta && (
-                      <span
-                        className={
-                          isSelected
-                            ? 'text-[11px] opacity-70'
-                            : 'text-[11px] text-notion-muted dark:text-[#5f6368]'
-                        }
-                      >
-                        {meta}
+                    <button
+                      type="button"
+                      aria-current={isSelected}
+                      onClick={() => select(version.id)}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-2 px-2 py-1.5 text-left text-[13px]"
+                    >
+                      <span className="flex min-w-0 flex-col">
+                        <span>{versionTime(version.createdAt)}</span>
+                        {version.label && (
+                          <span
+                            className={`truncate text-[11px] font-medium ${
+                              isSelected ? 'opacity-80' : 'text-notion-accent dark:text-[#8ab4f8]'
+                            }`}
+                          >
+                            {version.label}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </button>
+                      {meta && (
+                        <span
+                          className={
+                            isSelected
+                              ? 'flex-shrink-0 text-[11px] opacity-70'
+                              : 'flex-shrink-0 text-[11px] text-notion-muted dark:text-[#5f6368]'
+                          }
+                        >
+                          {meta}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isWriting}
+                      onClick={() => setNaming({ versionId: version.id, current: version.label ?? '' })}
+                      title={version.label ? 'Rename this version' : 'Name this version, to keep it'}
+                      aria-label={
+                        version.label
+                          ? `Rename the version named ${version.label}`
+                          : `Name the version from ${versionTime(version.createdAt)}`
+                      }
+                      className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded transition-all disabled:opacity-60 ${
+                        version.label
+                          ? 'opacity-100'
+                          : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100'
+                      }`}
+                    >
+                      <Bookmark size={12} fill={version.label ? 'currentColor' : 'none'} />
+                    </button>
+                  </div>
                 );
               })}
             </div>
