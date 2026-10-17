@@ -92,6 +92,7 @@ function VersionPreview({
   );
 }
 
+/** Browse, compare, name, save, and restore versions of a document. */
 export function VersionHistoryPanel({
   docId, token, open, onClose, onRestore, getCurrentState,
 }: VersionHistoryPanelProps) {

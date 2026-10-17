@@ -19,6 +19,7 @@ interface InputDialogProps {
   onCancel: () => void;
 }
 
+/** Prompt for a trimmed text value, allowing blank input when requested. */
 export function InputDialog({
   title,
   message,
@@ -36,6 +37,7 @@ export function InputDialog({
     if (defaultValue) inputRef.current?.select();
   }, [defaultValue]);
 
+  /** Confirm the trimmed input when it satisfies the empty-value policy. */
   const submit = () => {
     const val = inputRef.current?.value.trim() ?? '';
     if (val || allowEmpty) onConfirm(val);

@@ -52,6 +52,7 @@ interface ApiVersionRow {
   label?: string | null;
 }
 
+/** Convert API metadata to a timestamp in milliseconds and a nullable label. */
 function toDocVersion(row: ApiVersionRow): DocVersion {
   return {
     id: row.id,

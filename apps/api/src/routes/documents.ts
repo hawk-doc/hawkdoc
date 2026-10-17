@@ -269,6 +269,7 @@ documentsRouter.get('/:id', async (req: Request, res) => {
   }
 });
 
+/** Serialize version metadata for API responses, including its ISO timestamp. */
 function asVersionResponse(version: VersionSummary) {
   return {
     id: version.id,

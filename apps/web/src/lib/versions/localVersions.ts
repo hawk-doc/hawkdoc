@@ -38,6 +38,7 @@ function key(docId: string): string {
   return `${VERSIONS_KEY_PREFIX}${docId}`;
 }
 
+/** Validate a stored snapshot, including older entries without a label. */
 function isLocalVersion(value: unknown): value is LocalVersion {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
@@ -67,6 +68,7 @@ function trimmed(versions: LocalVersion[]): LocalVersion[] {
   return versions.filter((version) => !doomed.has(version.id));
 }
 
+/** Trim and cap a snapshot name, returning undefined when it is blank. */
 function cleanLabel(label: string | null | undefined): string | undefined {
   const trimmedLabel = label?.trim() ?? '';
   return trimmedLabel.length > 0 ? trimmedLabel.slice(0, MAX_LOCAL_LABEL_LENGTH) : undefined;
@@ -169,6 +171,7 @@ export function recordLocalVersion(docId: string, content: string, now = Date.no
   return persist(docId, trimmed([newVersion(content, now), ...versions]));
 }
 
+/** Create snapshot metadata with a generated id and an optional name. */
 function newVersion(content: string, now: number, label?: string): LocalVersion {
   return {
     id: `${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
