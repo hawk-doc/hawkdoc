@@ -63,6 +63,9 @@ export function InputDialog({
         <input
           ref={inputRef}
           type="text"
+          // The dialog's title is the only name this field has; without it the
+          // input is announced as just "edit text"
+          aria-label={title}
           defaultValue={defaultValue}
           placeholder={placeholder}
           className="w-full px-3 py-2 text-sm border border-notion-border rounded-lg outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 mb-3"
