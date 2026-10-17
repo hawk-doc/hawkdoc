@@ -4,18 +4,28 @@ import { X } from 'lucide-react';
 
 interface InputDialogProps {
   title: string;
+  /** A line under the title, where the input needs explaining */
+  message?: string;
   placeholder: string;
   defaultValue?: string;
   confirmLabel?: string;
+  /**
+   * Accept an empty value. Off by default — most callers are asking for
+   * something — but a dialog that edits an existing value needs it, or there
+   * is no way to clear that value.
+   */
+  allowEmpty?: boolean;
   onConfirm: (value: string) => void;
   onCancel: () => void;
 }
 
 export function InputDialog({
   title,
+  message,
   placeholder,
   defaultValue = '',
   confirmLabel = 'Confirm',
+  allowEmpty = false,
   onConfirm,
   onCancel,
 }: InputDialogProps) {
@@ -28,7 +38,7 @@ export function InputDialog({
 
   const submit = () => {
     const val = inputRef.current?.value.trim() ?? '';
-    if (val) onConfirm(val);
+    if (val || allowEmpty) onConfirm(val);
   };
 
   return createPortal(
@@ -45,6 +55,11 @@ export function InputDialog({
             <X size={14} />
           </button>
         </div>
+        {message && (
+          <p className="mb-3 -mt-1 text-[12px] leading-snug text-notion-muted dark:text-[#9aa0a6]">
+            {message}
+          </p>
+        )}
         <input
           ref={inputRef}
           type="text"
