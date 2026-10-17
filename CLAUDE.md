@@ -47,7 +47,7 @@ hawkdoc/
 - PDF export with watermark via Export menu in toolbar (`DocumentPDF.tsx`)
 - Markdown and HTML export (in toolbar Export dropdown)
 - Word export and import — `Export as Word (.docx)` and `Import Word (.docx)` in the Export menu
-- Version history — the toolbar's History button opens a panel listing past versions, previews one, shows what changed in it, and restores it (`VersionHistoryPanel.tsx`)
+- Version history — the toolbar's History button opens a panel listing past versions, previews one, shows what changed in it, and restores it (`VersionHistoryPanel.tsx`). "Save a version" keeps the document as it stands, under a name; a named version is never trimmed
 - Auto-save with 800ms debounce to localStorage (`useAutoSave.ts`)
 - Editable document title
 - Code block with copy-to-clipboard (`CodeBlockPlugin.tsx`)
@@ -72,14 +72,12 @@ hawkdoc/
 Highest value first. The constraint on each line is the part worth keeping —
 each was worked out against the shipped code, not guessed at.
 
-- **Named versions.** "Save a version now" with a label, plus a `pinned` column
-  so a named version outlives the cap. `pruneVersions` merges rather than
-  drops, so pinned rows only need excluding from the candidates.
 - **A guaranteed recovery point before destructive actions.**
-  `POST /api/documents/:id/versions` to force one, called before a Word import
-  and before a restore — both replace the whole document. It also covers a tab
-  that dies without closing its socket, where the final state otherwise waits
-  out the five-minute throttle.
+  The endpoint exists now — `POST /api/documents/:id/versions` forces one — so
+  this is about calling it before a Word import and before a restore, which
+  both replace the whole document. It also covers a tab that dies without
+  closing its socket, where the final state otherwise waits out the
+  five-minute throttle.
 - **Export a version without restoring it.** The preview already holds the
   decoded state; wire it to `lib/docxExport.ts` and `lib/pdfExport.ts`.
 - **Copy one block out of a version** instead of replacing the document.
@@ -224,6 +222,38 @@ one rebuild rather than two. It is not fewer requests overall — a reader who
 opens the Changes tab pays the same total, just later — and the old eager
 fetch did double as a prefetch of the next version down the list, which is now
 gone. Deliberate prefetching would be a separate decision.
+
+### Named versions
+A version can carry a `label`, and **a named version is never pruned** — that
+is what naming one is for. One column holds it rather than a label plus a
+separate `pinned` flag, so a name and being kept cannot disagree.
+
+Allowing that changed how pruning works. It used to merge every dropped delta
+into the oldest survivor, which is only sound while the dropped rows are a
+contiguous prefix. With a named version mid-chain, that carries later edits
+backwards past it and the named version then rebuilds a document that never
+existed. **Each dropped delta merges into the first version that survives
+after it.** A test seeds a history past the cap in one go so a single prune
+drops several non-adjacent versions — building it through `recordVersion`
+cannot catch this, because pruning runs after every insert and so only ever
+drops one at a time.
+
+Names are capped per document (`MAX_NAMED_VERSIONS`). Without a cap, naming
+every version would make `MAX_VERSIONS_PER_DOC` meaningless. Keeping the cap
+**below** the version limit also guarantees a prune can always reach the
+limit, since unnamed versions are then always available to drop.
+
+`POST /api/documents/:id/versions` saves one now, under an optional name,
+ignoring the five-minute throttle — the reader asked for this one. If the
+document hasn't changed since the newest version, the name goes on **that**
+version rather than writing an identical one. `PATCH` on a version sets or
+clears the name; a blank name clears it, so there is no second verb for that.
+
+Offline the same shape runs on localStorage (`saveLocalVersion`,
+`nameLocalVersion`), with its own lower cap because that quota is shared with
+the documents themselves. `saveLocalVersion` is separate from
+`recordLocalVersion` rather than a flag on it: one is the automatic throttled
+snapshot, the other is the reader asking, and they agree on almost nothing.
 
 ### Comparing versions
 `lib/versions/diff.ts` compares two decoded states and `VersionDiff.tsx`
