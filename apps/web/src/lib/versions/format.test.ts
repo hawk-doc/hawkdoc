@@ -55,10 +55,10 @@ describe('versionAge', () => {
 describe('groupVersionsByDay', () => {
   it('groups consecutive versions under one heading, newest first', () => {
     const versions = [
-      { id: 'd', createdAt: at(1 * HOUR) },
-      { id: 'c', createdAt: at(3 * HOUR) },
-      { id: 'b', createdAt: at(DAY) },
-      { id: 'a', createdAt: at(4 * DAY) },
+      { id: 'd', createdAt: at(1 * HOUR), label: null },
+      { id: 'c', createdAt: at(3 * HOUR), label: null },
+      { id: 'b', createdAt: at(DAY), label: null },
+      { id: 'a', createdAt: at(4 * DAY), label: null },
     ];
 
     const groups = groupVersionsByDay(versions, NOW);

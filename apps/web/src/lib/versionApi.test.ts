@@ -37,6 +37,18 @@ function firstParagraphText(state: { root: unknown }): string[] {
 beforeEach(() => { localStorage.clear(); });
 
 describe('version history over the API', () => {
+  it('carries a version\'s name through', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse([
+        { id: 'v2', createdAt: '2026-09-27T10:30:00.000Z', sizeBytes: 40, label: 'Before the cut' },
+        { id: 'v1', createdAt: '2026-09-27T10:00:00.000Z', sizeBytes: 900, label: null },
+      ]),
+    );
+
+    expect((await fetchVersions(DOC, TOKEN)).map((v) => v.label))
+      .toEqual(['Before the cut', null]);
+  });
+
   it('lists versions with their timestamps', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse([
@@ -49,8 +61,8 @@ describe('version history over the API', () => {
 
     expect(fetchMock.mock.calls[0]![0]).toBe(`http://api.test/api/documents/${DOC}/versions`);
     expect(versions).toEqual([
-      { id: 'v2', createdAt: Date.parse('2026-09-27T10:30:00.000Z') },
-      { id: 'v1', createdAt: Date.parse('2026-09-27T10:00:00.000Z') },
+      { id: 'v2', createdAt: Date.parse('2026-09-27T10:30:00.000Z'), label: null },
+      { id: 'v1', createdAt: Date.parse('2026-09-27T10:00:00.000Z'), label: null },
     ]);
   });
 

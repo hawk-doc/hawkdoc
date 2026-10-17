@@ -1,6 +1,11 @@
 import type { SerializedEditorState } from 'lexical';
 import { authHeaders, ensureOk } from './documentApi';
-import { listLocalVersions, readLocalVersion } from './versions/localVersions';
+import {
+  listLocalVersions,
+  readLocalVersion,
+  saveLocalVersion,
+  nameLocalVersion,
+} from './versions/localVersions';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -8,7 +13,20 @@ export interface DocVersion {
   id: string;
   /** When the version was recorded, as a timestamp */
   createdAt: number;
+  /** The name the reader gave it. A named version is never trimmed. */
+  label: string | null;
 }
+
+/** Why a version couldn't be named, in words the panel can show */
+export class VersionNameError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'VersionNameError';
+  }
+}
+
+const TOO_MANY_NAMES = 'This document already holds as many named versions as it can.';
+const NO_ROOM = 'There is no room left in this browser to keep another version.';
 
 // Reading a version needs Yjs and the Lexical binding, which the editor only
 // loads for signed-in documents. Keep it out of the initial bundle, like the
@@ -31,6 +49,15 @@ export function preloadVersionHistory(): void {
 interface ApiVersionRow {
   id: string;
   createdAt: string;
+  label?: string | null;
+}
+
+function toDocVersion(row: ApiVersionRow): DocVersion {
+  return {
+    id: row.id,
+    createdAt: new Date(row.createdAt).getTime(),
+    label: row.label ?? null,
+  };
 }
 
 /** A document's versions, newest first */
@@ -39,6 +66,7 @@ export async function fetchVersions(docId: string, token: string | null): Promis
     return listLocalVersions(docId).map((version) => ({
       id: version.id,
       createdAt: version.createdAt,
+      label: version.label ?? null,
     }));
   }
 
@@ -47,7 +75,81 @@ export async function fetchVersions(docId: string, token: string | null): Promis
   });
   ensureOk(res, token, 'load version history');
   const rows = (await res.json()) as ApiVersionRow[];
-  return rows.map((row) => ({ id: row.id, createdAt: new Date(row.createdAt).getTime() }));
+  return rows.map(toDocVersion);
+}
+
+/**
+ * Reads the error the API sent, so a refusal the reader can act on — the cap
+ * on names — doesn't surface as a bare status code.
+ */
+async function nameFailure(res: Response, fallback: string): Promise<never> {
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => ({}))) as { error?: unknown };
+    throw new VersionNameError(
+      typeof body.error === 'string' ? body.error : TOO_MANY_NAMES,
+    );
+  }
+  throw new Error(`${fallback} (${res.status})`);
+}
+
+/**
+ * Save a version of the document as it stands, under an optional name.
+ *
+ * Signed in the server reads the document itself, so it needs no content;
+ * offline the caller passes the editor state, because there is nowhere else
+ * for it to come from.
+ */
+export async function saveVersion(
+  docId: string,
+  label: string | null,
+  token: string | null,
+  localContent?: string,
+): Promise<void> {
+  if (!token) {
+    if (localContent === undefined) throw new Error('Nothing to save yet.');
+    const outcome = saveLocalVersion(docId, localContent, label);
+    if (outcome === 'too-many-names') throw new VersionNameError(TOO_MANY_NAMES);
+    if (outcome === 'no-room') throw new VersionNameError(NO_ROOM);
+    return;
+  }
+
+  const res = await fetch(`${API_URL}/api/documents/${docId}/versions`, {
+    method: 'POST',
+    headers: authHeaders(token, true),
+    body: JSON.stringify({ label }),
+  });
+  if (res.status === 401 || res.ok) {
+    ensureOk(res, token, 'save a version');
+    return;
+  }
+  await nameFailure(res, 'Failed to save a version');
+}
+
+/** Name a version, or clear its name by passing null */
+export async function nameVersion(
+  docId: string,
+  versionId: string,
+  label: string | null,
+  token: string | null,
+): Promise<void> {
+  if (!token) {
+    const outcome = nameLocalVersion(docId, versionId, label);
+    if (outcome === 'too-many-names') throw new VersionNameError(TOO_MANY_NAMES);
+    if (outcome === 'no-room') throw new VersionNameError(NO_ROOM);
+    if (outcome === 'not-found') throw new Error('That version is no longer available.');
+    return;
+  }
+
+  const res = await fetch(`${API_URL}/api/documents/${docId}/versions/${versionId}`, {
+    method: 'PATCH',
+    headers: authHeaders(token, true),
+    body: JSON.stringify({ label }),
+  });
+  if (res.status === 401 || res.ok) {
+    ensureOk(res, token, 'name this version');
+    return;
+  }
+  await nameFailure(res, 'Failed to name this version');
 }
 
 function base64ToBytes(base64: string): Uint8Array {

@@ -1,7 +1,13 @@
 import { useCallback, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { SerializedEditorState } from 'lexical';
-import { fetchVersions, fetchVersionContent, type DocVersion } from '../lib/versionApi';
+import {
+  fetchVersions,
+  fetchVersionContent,
+  saveVersion,
+  nameVersion,
+  type DocVersion,
+} from '../lib/versionApi';
 
 export const VERSIONS_QUERY_KEY = 'document-versions';
 export const VERSION_CONTENT_QUERY_KEY = 'document-version';
@@ -21,6 +27,14 @@ export interface DocumentVersionsState {
   previous: SerializedEditorState | null;
   isPreviousLoading: boolean;
   previousError: Error | null;
+  /** Save a version of the document as it stands, under an optional name */
+  save: (label: string | null) => void;
+  /** Name a version already in the list, or clear its name with null */
+  rename: (versionId: string, label: string | null) => void;
+  isWriting: boolean;
+  /** Why the last save or rename was refused, for the reader to see */
+  writeError: Error | null;
+  dismissWriteError: () => void;
 }
 
 export interface DocumentVersionsOptions {
@@ -32,6 +46,11 @@ export interface DocumentVersionsOptions {
    * one is only fetched once something is going to show it.
    */
   comparing: boolean;
+  /**
+   * The document as it stands, serialised. Only needed signed out, where
+   * saving a version has no server copy to read from.
+   */
+  readContent?: () => string | null;
 }
 
 /**
@@ -43,9 +62,10 @@ export interface DocumentVersionsOptions {
 export function useDocumentVersions(
   docId: string,
   token: string | null,
-  { open, comparing }: DocumentVersionsOptions,
+  { open, comparing, readContent }: DocumentVersionsOptions,
 ): DocumentVersionsState {
   const [picked, setPicked] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const list = useQuery({
     queryKey: [VERSIONS_QUERY_KEY, docId, token],
@@ -86,6 +106,39 @@ export function useDocumentVersions(
 
   const select = useCallback((versionId: string) => { setPicked(versionId); }, []);
 
+  // Saving or naming changes the list, and nothing else can tell us how: a new
+  // version's place and a rename both come from the server.
+  const refreshList = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: [VERSIONS_QUERY_KEY, docId, token] });
+  }, [queryClient, docId, token]);
+
+  const saveMutation = useMutation({
+    mutationFn: (label: string | null) =>
+      saveVersion(docId, label, token, readContent?.() ?? undefined),
+    onSuccess: refreshList,
+    onError: (err) => { console.error('Failed to save a version:', err); },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ versionId, label }: { versionId: string; label: string | null }) =>
+      nameVersion(docId, versionId, label, token),
+    onSuccess: refreshList,
+    onError: (err) => { console.error('Failed to name a version:', err); },
+  });
+
+  const { mutate: writeVersion, reset: resetSave } = saveMutation;
+  const { mutate: writeName, reset: resetRename } = renameMutation;
+
+  const save = useCallback((label: string | null) => { writeVersion(label); }, [writeVersion]);
+  const rename = useCallback(
+    (versionId: string, label: string | null) => { writeName({ versionId, label }); },
+    [writeName],
+  );
+  const dismissWriteError = useCallback(() => {
+    resetSave();
+    resetRename();
+  }, [resetSave, resetRename]);
+
   return {
     versions,
     isLoading: list.isPending && open,
@@ -101,5 +154,10 @@ export function useDocumentVersions(
     // pending forever, and that isn't something to show a spinner for.
     isPreviousLoading: previous.isLoading,
     previousError: previous.error,
+    save,
+    rename,
+    isWriting: saveMutation.isPending || renameMutation.isPending,
+    writeError: saveMutation.error ?? renameMutation.error,
+    dismissWriteError,
   };
 }
