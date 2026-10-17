@@ -4,7 +4,15 @@ import query from '../db.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { hocuspocusServer } from '../hocuspocus.js';
 import { redis, docBufferKey } from '../redis.js';
-import { listVersions, reconstructVersion, tryRecordVersion } from '../versions.js';
+import {
+  listVersions,
+  reconstructVersion,
+  tryRecordVersion,
+  recordVersion,
+  nameVersion,
+  MAX_LABEL_LENGTH,
+  type VersionSummary,
+} from '../versions.js';
 import type { Request } from 'express';
 
 /**
@@ -261,6 +269,41 @@ documentsRouter.get('/:id', async (req: Request, res) => {
   }
 });
 
+/** Serialize version metadata for API responses, including its ISO timestamp. */
+function asVersionResponse(version: VersionSummary) {
+  return {
+    id: version.id,
+    createdAt: version.createdAt.toISOString(),
+    sizeBytes: version.sizeBytes,
+    label: version.label,
+  };
+}
+
+/** A name for a version. Blank clears it, so the client needs no second verb. */
+const VersionLabelSchema = z.object({
+  label: z.string().max(MAX_LABEL_LENGTH).nullish(),
+});
+
+/**
+ * The document's current state, preferring the Redis buffer over the column:
+ * that is what the author last saw, and PostgreSQL can be up to a flush
+ * interval behind it.
+ */
+async function currentState(docId: string): Promise<Buffer | null> {
+  try {
+    const buffered = await redis.getBuffer(docBufferKey(docId));
+    if (buffered) return buffered;
+  } catch (err) {
+    // The saved state is still worth versioning if Redis is unreachable
+    console.error(`Failed to read buffered state for ${docId}:`, err);
+  }
+  const saved = await query<{ yjs_state: Buffer | null }>(
+    'SELECT yjs_state FROM documents WHERE id = $1',
+    [docId],
+  );
+  return saved.rows[0]?.yjs_state ?? null;
+}
+
 // A document's version history, newest first. Only metadata — each version's
 // content is a separate request, since rebuilding one is not free.
 documentsRouter.get('/:id/versions', async (req: Request, res) => {
@@ -274,13 +317,115 @@ documentsRouter.get('/:id/versions', async (req: Request, res) => {
     }
 
     const versions = await listVersions(id);
-    res.json(
-      versions.map((version) => ({
-        id: version.id,
-        createdAt: version.createdAt.toISOString(),
-        sizeBytes: version.sizeBytes,
-      })),
-    );
+    res.json(versions.map(asVersionResponse));
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+/**
+ * Save a version of the document now, optionally under a name.
+ *
+ * The throttle that keeps automatic versions sparse doesn't apply: the reader
+ * asked for this one. If the document hasn't changed since the newest version,
+ * the name goes on that version rather than writing an identical one — what
+ * the reader wants is a named point they can come back to, and it already
+ * exists.
+ */
+documentsRouter.post('/:id/versions', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const { id } = DocIdSchema.parse(req.params);
+    const { label } = VersionLabelSchema.parse(req.body ?? {});
+    const name = label?.trim() ?? '';
+
+    if (!(await ownsActiveDocument(id, userId))) {
+      res.status(404).json({ error: 'Document not found' });
+      return;
+    }
+
+    const state = await currentState(id);
+    if (!state) {
+      res.status(409).json({ error: 'There is nothing to save yet' });
+      return;
+    }
+
+    const outcome = await recordVersion(id, state, { force: true, label: name });
+
+    if (outcome === 'too-many-names') {
+      res.status(409).json({ error: 'This document has as many named versions as it can hold' });
+      return;
+    }
+    if (outcome === 'no-document') {
+      res.status(404).json({ error: 'Document not found' });
+      return;
+    }
+
+    const newest = (await listVersions(id))[0];
+    if (!newest) {
+      res.status(409).json({ error: 'There is nothing to save yet' });
+      return;
+    }
+
+    if (outcome === 'unchanged') {
+      // Nothing new to record, so name what is already there
+      if (name.length === 0) {
+        res.json(asVersionResponse(newest));
+        return;
+      }
+      const named = await nameVersion(id, newest.id, name);
+      if (named === 'too-many-names') {
+        res.status(409).json({ error: 'This document has as many named versions as it can hold' });
+        return;
+      }
+      if (named === 'not-found') {
+        res.status(404).json({ error: 'Version not found' });
+        return;
+      }
+      res.json(asVersionResponse(named));
+      return;
+    }
+
+    res.status(201).json(asVersionResponse(newest));
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.flatten() });
+    } else {
+      console.error(err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+// Name a version, or clear its name with a blank one. Naming it keeps it out
+// of the pruning, so this is also how a version is held on to.
+documentsRouter.patch('/:id/versions/:versionId', async (req: Request, res) => {
+  try {
+    const { userId } = (req as AuthenticatedRequest).auth;
+    const { id, versionId } = VersionParamsSchema.parse(req.params);
+    const { label } = VersionLabelSchema.parse(req.body ?? {});
+
+    if (!(await ownsActiveDocument(id, userId))) {
+      res.status(404).json({ error: 'Document not found' });
+      return;
+    }
+
+    const named = await nameVersion(id, versionId, label ?? null);
+    if (named === 'not-found') {
+      res.status(404).json({ error: 'Version not found' });
+      return;
+    }
+    if (named === 'too-many-names') {
+      res.status(409).json({ error: 'This document has as many named versions as it can hold' });
+      return;
+    }
+
+    res.json(asVersionResponse(named));
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.flatten() });

@@ -43,15 +43,41 @@ const DAY_HEADING = new Date(at(10)).toLocaleDateString(undefined, {
 const FAILS = '__fails__';
 
 interface ServerHistory {
-  versions: { id: string; createdAt: string; sizeBytes: number }[];
+  versions: { id: string; createdAt: string; sizeBytes: number; label?: string | null }[];
   content: Record<string, string>;
+  /** Answers every save and rename with the cap refusal */
+  refuseNames?: boolean;
 }
 
 function mockApi(history: ServerHistory | { error: number }) {
-  globalThis.fetch = vi.fn(async (url: string) => {
+  globalThis.fetch = vi.fn(async (url: string, init: RequestInit = {}) => {
     if ('error' in history) {
       return { ok: false, status: history.error, json: async () => ({}), text: async () => '' } as Response;
     }
+    const method = init.method ?? 'GET';
+
+    // Saving a version, and naming one already in the list
+    if (method === 'POST' || method === 'PATCH') {
+      if (history.refuseNames) {
+        return {
+          ok: false, status: 409,
+          json: async () => ({ error: 'This document has as many named versions as it can hold' }),
+          text: async () => '',
+        } as Response;
+      }
+      const { label } = JSON.parse(String(init.body ?? '{}')) as { label: string | null };
+      if (method === 'PATCH') {
+        const id = /\/versions\/([^/?]+)$/.exec(url)?.[1] ?? '';
+        const target = history.versions.find((version) => version.id === id);
+        if (target) target.label = label;
+      } else {
+        const saved = { id: `v${history.versions.length + 1}`, createdAt: AT_11, sizeBytes: 10, label };
+        history.versions.unshift(saved);
+        history.content[saved.id] = versionState('saved by hand');
+      }
+      return { ok: true, status: 200, json: async () => ({}), text: async () => '' } as Response;
+    }
+
     const match = /\/versions\/(.+)$/.exec(url);
     if (match && history.content[match[1]!] === FAILS) {
       return { ok: false, status: 500, json: async () => ({}), text: async () => '' } as Response;
@@ -371,5 +397,95 @@ describe('version history panel, loading the comparison', () => {
     // On the Changes tab the same failure is exactly what the reader needs
     fireEvent.click(changesTab());
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+  });
+});
+
+describe('naming versions', () => {
+  const saveButton = () => screen.getByRole('button', { name: /Save a version/ });
+  const nameAction = (name: string | RegExp) => screen.getByRole('button', { name });
+  const dialogInput = () => screen.getByRole('textbox');
+  const confirm = (label: string | RegExp) => screen.getByRole('button', { name: label });
+
+  it('saves a version under a name the reader types', async () => {
+    const history = { ...TWO_VERSIONS, versions: [...TWO_VERSIONS.versions] };
+    mockApi(history);
+    renderPanel(TOKEN);
+    await waitFor(() => expect(versionButtons()).toHaveLength(2));
+
+    fireEvent.click(saveButton());
+    fireEvent.change(dialogInput(), { target: { value: 'Before the rewrite' } });
+    fireEvent.click(confirm('Save'));
+
+    await waitFor(() => expect(screen.getByText('Before the rewrite')).toBeTruthy());
+    const posted = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .find(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
+    expect(JSON.parse(String((posted![1] as RequestInit).body))).toEqual({ label: 'Before the rewrite' });
+  });
+
+  it('saves one without a name when the field is left empty', async () => {
+    const history = { ...TWO_VERSIONS, versions: [...TWO_VERSIONS.versions] };
+    mockApi(history);
+    renderPanel(TOKEN);
+    await waitFor(() => expect(versionButtons()).toHaveLength(2));
+
+    fireEvent.click(saveButton());
+    fireEvent.click(confirm('Save'));
+
+    await waitFor(() => expect(versionButtons()).toHaveLength(3));
+    const posted = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .find(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
+    expect(JSON.parse(String((posted![1] as RequestInit).body))).toEqual({ label: null });
+  });
+
+  it('shows a name on the version that carries it', async () => {
+    mockApi({
+      versions: [
+        { id: 'v2', createdAt: AT_11, sizeBytes: 30, label: 'Before the cut' },
+        { id: 'v1', createdAt: AT_10, sizeBytes: 800, label: null },
+      ],
+      content: { v1: versionState('older'), v2: versionState('newest') },
+    });
+    renderPanel(TOKEN);
+
+    await waitFor(() => expect(screen.getByText('Before the cut')).toBeTruthy());
+    // The named one offers a rename; the unnamed one offers a name
+    expect(nameAction(/Rename the version named Before the cut/)).toBeTruthy();
+    expect(nameAction(/^Name the version from/)).toBeTruthy();
+  });
+
+  it('clears a name when the field is emptied', async () => {
+    const history = {
+      versions: [{ id: 'v2', createdAt: AT_11, sizeBytes: 30, label: 'Temporary' }],
+      content: { v2: versionState('newest') },
+    };
+    mockApi(history);
+    renderPanel(TOKEN);
+    await waitFor(() => expect(screen.getByText('Temporary')).toBeTruthy());
+
+    fireEvent.click(nameAction(/Rename the version named Temporary/));
+    fireEvent.change(dialogInput(), { target: { value: '' } });
+    fireEvent.click(confirm('Save name'));
+
+    // A blank name clears it, which is the only way to let a version go again
+    await waitFor(() => expect(screen.queryByText('Temporary')).toBeNull());
+    const patched = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      .find(([, init]) => (init as RequestInit | undefined)?.method === 'PATCH');
+    expect(JSON.parse(String((patched![1] as RequestInit).body))).toEqual({ label: null });
+  });
+
+  it('shows why a name was refused, and lets it be dismissed', async () => {
+    mockApi({ ...TWO_VERSIONS, versions: [...TWO_VERSIONS.versions], refuseNames: true });
+    renderPanel(TOKEN);
+    await waitFor(() => expect(versionButtons()).toHaveLength(2));
+
+    fireEvent.click(saveButton());
+    fireEvent.change(dialogInput(), { target: { value: 'One too many' } });
+    fireEvent.click(confirm('Save'));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('as many named versions as it can hold');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
   });
 });

@@ -6,6 +6,11 @@ import {
   clearLocalVersions,
   LOCAL_VERSION_INTERVAL_MS,
   MAX_LOCAL_VERSIONS,
+  MAX_NAMED_LOCAL_VERSIONS,
+  MAX_LOCAL_LABEL_LENGTH,
+  saveLocalVersion,
+  nameLocalVersion,
+  countNamedLocalVersions,
 } from './localVersions';
 import { VERSIONS_KEY_PREFIX } from '../../constants/autosave';
 
@@ -134,5 +139,85 @@ describe('local version snapshots', () => {
 
     localStorage.setItem(`${VERSIONS_KEY_PREFIX}${DOC}`, JSON.stringify([{ nope: true }, null]));
     expect(listLocalVersions(DOC)).toEqual([]);
+  });
+});
+
+describe('named snapshots offline', () => {
+  const DOC = 'doc-named';
+  const state = (text: string) => JSON.stringify({
+    root: { type: 'root', children: [{ type: 'paragraph', children: [{ type: 'text', text }] }] },
+  });
+
+  it('saves a snapshot under a name, ignoring the throttle', () => {
+    expect(saveLocalVersion(DOC, state('first'), 'First draft')).toBe('created');
+    // The throttle would block this one; an explicit save must not wait
+    expect(saveLocalVersion(DOC, state('second'), 'Second draft')).toBe('created');
+
+    expect(listLocalVersions(DOC).map((v) => v.label)).toEqual(['Second draft', 'First draft']);
+  });
+
+  it('names the newest snapshot instead of writing an identical one', () => {
+    const content = state('unchanged');
+    expect(saveLocalVersion(DOC, content)).toBe('created');
+    expect(saveLocalVersion(DOC, content, 'Worth keeping')).toBe('named-existing');
+
+    const versions = listLocalVersions(DOC);
+    expect(versions).toHaveLength(1);
+    expect(versions[0]!.label).toBe('Worth keeping');
+  });
+
+  it('trims the oldest unnamed snapshot and keeps the named one', () => {
+    expect(saveLocalVersion(DOC, state('keep me'), 'Keep me')).toBe('created');
+    const first = listLocalVersions(DOC)[0]!.id;
+
+    for (let i = 0; i < MAX_LOCAL_VERSIONS; i++) {
+      expect(saveLocalVersion(DOC, state(`edit ${i}`))).toBe('created');
+    }
+
+    const versions = listLocalVersions(DOC);
+    expect(versions).toHaveLength(MAX_LOCAL_VERSIONS);
+    // The named one survived, though it was the oldest
+    expect(versions.map((v) => v.id)).toContain(first);
+    expect(versions.filter((v) => v.label)).toHaveLength(1);
+  });
+
+  it('names, renames and clears the name on an existing snapshot', () => {
+    saveLocalVersion(DOC, state('text'));
+    const id = listLocalVersions(DOC)[0]!.id;
+
+    expect(nameLocalVersion(DOC, id, 'Keep')).toMatchObject({ label: 'Keep' });
+    expect(nameLocalVersion(DOC, id, 'Keep, actually')).toMatchObject({ label: 'Keep, actually' });
+    expect(nameLocalVersion(DOC, id, '  ')).not.toHaveProperty('label');
+    expect(listLocalVersions(DOC)[0]!.label).toBeUndefined();
+  });
+
+  it('trims and caps a name', () => {
+    saveLocalVersion(DOC, state('text'));
+    const id = listLocalVersions(DOC)[0]!.id;
+
+    expect(nameLocalVersion(DOC, id, '  padded  ')).toMatchObject({ label: 'padded' });
+    expect(nameLocalVersion(DOC, id, 'x'.repeat(MAX_LOCAL_LABEL_LENGTH + 20)))
+      .toMatchObject({ label: 'x'.repeat(MAX_LOCAL_LABEL_LENGTH) });
+  });
+
+  it('refuses a snapshot that is not there', () => {
+    expect(nameLocalVersion(DOC, 'missing', 'nope')).toBe('not-found');
+  });
+
+  it('holds names to a cap', () => {
+    for (let i = 0; i < MAX_NAMED_LOCAL_VERSIONS; i++) {
+      expect(saveLocalVersion(DOC, state(`edit ${i}`), `name ${i}`)).toBe('created');
+    }
+    expect(countNamedLocalVersions(DOC)).toBe(MAX_NAMED_LOCAL_VERSIONS);
+
+    expect(saveLocalVersion(DOC, state('one more'), 'too many')).toBe('too-many-names');
+    const unnamed = listLocalVersions(DOC)[0]!.id;
+    expect(nameLocalVersion(DOC, unnamed, 'renamed')).toMatchObject({ label: 'renamed' });
+  });
+
+  it('reads a named snapshot back like any other', () => {
+    saveLocalVersion(DOC, state('named content'), 'Named');
+    const id = listLocalVersions(DOC)[0]!.id;
+    expect(readLocalVersion(DOC, id)).toBe(state('named content'));
   });
 });

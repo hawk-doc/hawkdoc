@@ -4,18 +4,29 @@ import { X } from 'lucide-react';
 
 interface InputDialogProps {
   title: string;
+  /** A line under the title, where the input needs explaining */
+  message?: string;
   placeholder: string;
   defaultValue?: string;
   confirmLabel?: string;
+  /**
+   * Accept an empty value. Off by default — most callers are asking for
+   * something — but a dialog that edits an existing value needs it, or there
+   * is no way to clear that value.
+   */
+  allowEmpty?: boolean;
   onConfirm: (value: string) => void;
   onCancel: () => void;
 }
 
+/** Prompt for a trimmed text value, allowing blank input when requested. */
 export function InputDialog({
   title,
+  message,
   placeholder,
   defaultValue = '',
   confirmLabel = 'Confirm',
+  allowEmpty = false,
   onConfirm,
   onCancel,
 }: InputDialogProps) {
@@ -26,9 +37,10 @@ export function InputDialog({
     if (defaultValue) inputRef.current?.select();
   }, [defaultValue]);
 
+  /** Confirm the trimmed input when it satisfies the empty-value policy. */
   const submit = () => {
     const val = inputRef.current?.value.trim() ?? '';
-    if (val) onConfirm(val);
+    if (val || allowEmpty) onConfirm(val);
   };
 
   return createPortal(
@@ -45,9 +57,17 @@ export function InputDialog({
             <X size={14} />
           </button>
         </div>
+        {message && (
+          <p className="mb-3 -mt-1 text-[12px] leading-snug text-notion-muted dark:text-[#9aa0a6]">
+            {message}
+          </p>
+        )}
         <input
           ref={inputRef}
           type="text"
+          // The dialog's title is the only name this field has; without it the
+          // input is announced as just "edit text"
+          aria-label={title}
           defaultValue={defaultValue}
           placeholder={placeholder}
           className="w-full px-3 py-2 text-sm border border-notion-border rounded-lg outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 mb-3"

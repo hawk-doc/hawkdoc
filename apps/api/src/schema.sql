@@ -60,12 +60,24 @@ CREATE TABLE IF NOT EXISTS document_versions (
   update_data  BYTEA NOT NULL,
   state_vector BYTEA,
   seq          BIGSERIAL,
+  -- A name the reader gave this version. Naming one keeps it: pruning only
+  -- ever drops unnamed versions. NULL means unnamed, so a name and being
+  -- kept cannot disagree.
+  label        TEXT,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Existing installs predating version history
 ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS state_vector BYTEA;
 ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS seq BIGSERIAL;
+
+-- Existing installs predating named versions
+ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS label TEXT;
+
+-- Counting a document's named versions, to hold them under the cap
+CREATE INDEX IF NOT EXISTS document_versions_document_named
+  ON document_versions (document_id)
+  WHERE label IS NOT NULL;
 
 -- Walking one document's chain, oldest first, and finding its newest version
 CREATE INDEX IF NOT EXISTS document_versions_document_seq
