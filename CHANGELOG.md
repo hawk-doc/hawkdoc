@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - `POST /api/auth/login` and `/register` are rate limited per client IP (20 requests per 15 minutes each by default; `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_SEC`). Over the limit the API answers 429 with a `Retry-After` header. The counter is in memory, per API process
 
+### Changed
+- Creating a document that fails (for example the server is down) now shows "Couldn’t create a new document." in the existing action-error banner instead of failing silently, and no longer leaves an unhandled promise rejection
+
 ### Fixed
 - A saved version whose content the editor cannot render (for example an empty document state) crashed the version history preview with an uncaught error. The panel now shows "This version could not be displayed" and disables Restore for it, and the rest of the app keeps working
 - A failed document action in the sidebar (star, duplicate, rename, move to trash, restore, delete forever, empty trash) rolled back or did nothing without saying so: the error only went to the console. The app now shows a dismissible error banner under the header
