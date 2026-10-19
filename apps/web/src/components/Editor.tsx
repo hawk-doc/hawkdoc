@@ -34,7 +34,7 @@ import { exportDocx } from '../lib/docxExport';
 import { importDocx } from '../lib/docxImport';
 import { VersionHistoryPanel } from './VersionHistoryPanel';
 import { restoreEditorState } from '../lib/versions/restore';
-import { preloadVersionHistory } from '../lib/versionApi';
+import { preloadVersionHistory, saveRecoveryPoint } from '../lib/versionApi';
 import { TEMPLATE_VAR_REGEX, EDITOR_THEME, EDITOR_NODES, MAX_TITLE_LENGTH } from '../constants/editor';
 import { SHORTCUTS, matches } from '../lib/shortcuts';
 import type { SlashMenuState } from '../interfaces';
@@ -198,6 +198,32 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
   // Disable local autosave in collab mode — Hocuspocus handles server-side persistence
   const isSaving = useAutoSave(isCollab ? null : editorInstance, title, docId);
 
+  /**
+   * Keeps the document as it stands before something replaces all of it.
+   *
+   * Returns whether the caller may go ahead: without a recovery point the
+   * action isn't undoable, which is the thing this exists to prevent. The
+   * reason is shown rather than swallowed, so the reader can try again.
+   */
+  const keepRecoveryPoint = useCallback(async (action: string): Promise<boolean> => {
+    const current = editorInstance?.getEditorState().toJSON();
+    try {
+      await saveRecoveryPoint(
+        docId,
+        collabToken ?? null,
+        current ? JSON.stringify(current) : undefined,
+      );
+      return true;
+    } catch (err) {
+      const why = err instanceof Error ? err.message : 'the version could not be saved';
+      setActionError(
+        `${action} was stopped: a recovery point could not be saved first (${why}). ` +
+        'Nothing has changed — try again.',
+      );
+      return false;
+    }
+  }, [editorInstance, docId, collabToken]);
+
   const handleExportPDF = useCallback(async () => {
     if (!editorInstance || isExporting) return;
     setActionError(null);
@@ -231,6 +257,8 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     setActionError(null);
     setIsExporting(true);
     try {
+      // Import replaces the whole document, so keep what is there first
+      if (!(await keepRecoveryPoint('The import'))) return;
       await importDocx(editorInstance, file);
     } catch (err) {
       // Import replaces the document, so a failure has to be visible
@@ -238,7 +266,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     } finally {
       setIsExporting(false);
     }
-  }, [editorInstance, isExporting]);
+  }, [editorInstance, isExporting, keepRecoveryPoint]);
 
   const handleOpenHistory = useCallback(() => {
     // Reading a version needs the Yjs binding; fetch it while the list loads
@@ -253,10 +281,14 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     editorInstance ? editorInstance.getEditorState().toJSON() : null
   ), [editorInstance]);
 
-  const handleRestoreVersion = useCallback((state: SerializedEditorState) => {
+  const handleRestoreVersion = useCallback(async (state: SerializedEditorState) => {
     if (!editorInstance) return;
+    setActionError(null);
+    // Restoring replaces the whole document, and what it replaces may be
+    // newer than the newest version — the automatic ones are throttled.
+    if (!(await keepRecoveryPoint('The restore'))) return;
     restoreEditorState(editorInstance, state);
-  }, [editorInstance]);
+  }, [editorInstance, keepRecoveryPoint]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -433,7 +465,7 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
       token={collabToken ?? null}
       open={historyOpen}
       onClose={() => setHistoryOpen(false)}
-      onRestore={handleRestoreVersion}
+      onRestore={(state) => { void handleRestoreVersion(state); }}
       getCurrentState={getCurrentState}
     />
 

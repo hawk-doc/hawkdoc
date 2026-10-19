@@ -6,9 +6,20 @@ import {
   type SerializedElementNode,
   type SerializedTextNode,
 } from 'lexical';
-import { fetchVersions, fetchVersionContent } from './versionApi';
+import {
+  fetchVersions,
+  fetchVersionContent,
+  saveRecoveryPoint,
+  VersionWriteError,
+} from './versionApi';
 import { UnauthorizedError } from './documentApi';
-import { recordLocalVersion, LOCAL_VERSION_INTERVAL_MS } from './versions/localVersions';
+import {
+  recordLocalVersion,
+  listLocalVersions,
+  saveLocalVersion,
+  LOCAL_VERSION_INTERVAL_MS,
+  MAX_NAMED_LOCAL_VERSIONS,
+} from './versions/localVersions';
 import { yjsUpdateFor } from '../test/collab';
 
 const TOKEN = 'signed-in-token';
@@ -136,5 +147,91 @@ describe('version history offline', () => {
     await expect(fetchVersionContent(DOC, 'missing', OFFLINE)).rejects.toThrow(
       /no longer available/,
     );
+  });
+});
+
+describe('keeping a recovery point', () => {
+  const editorState = (text: string) => JSON.stringify({
+    root: { type: 'root', children: [{ type: 'paragraph', children: [{ type: 'text', text }] }] },
+  });
+
+  it('saves an unnamed version signed in', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({}, 201));
+
+    await saveRecoveryPoint(DOC, TOKEN, editorState('about to be replaced'));
+
+    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(url).toBe(`http://api.test/api/documents/${DOC}/versions`);
+    expect(init.method).toBe('POST');
+    // Unnamed on purpose: a name would be unprunable and would spend the
+    // reader's cap on a name they never chose
+    expect(JSON.parse(String(init.body))).toEqual({ label: null });
+  });
+
+  it('treats an empty document as nothing to protect', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ error: 'There is nothing to save yet', code: 'nothing-to-save' }, 409),
+    );
+
+    // Resolving is what lets the action it precedes go ahead
+    await expect(saveRecoveryPoint(DOC, TOKEN, editorState(''))).resolves.toBeUndefined();
+  });
+
+  it('refuses when the version could not be written', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ error: 'boom' }, 500));
+
+    await expect(saveRecoveryPoint(DOC, TOKEN, editorState('precious'))).rejects.toThrow();
+  });
+
+  it('passes a session failure through, so a stale tab signs out', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({}, 401));
+
+    await expect(saveRecoveryPoint(DOC, TOKEN, editorState('precious')))
+      .rejects.toBeInstanceOf(UnauthorizedError);
+  });
+
+  it('snapshots to localStorage when signed out', async () => {
+    await saveRecoveryPoint(DOC, OFFLINE, editorState('about to be replaced'));
+
+    expect(listLocalVersions(DOC).map((v) => v.content)).toEqual([
+      editorState('about to be replaced'),
+    ]);
+    expect(listLocalVersions(DOC)[0]!.label).toBeUndefined();
+  });
+
+  it('is satisfied offline when a snapshot already holds this state', async () => {
+    const content = editorState('unchanged');
+    saveLocalVersion(DOC, content);
+
+    await expect(saveRecoveryPoint(DOC, OFFLINE, content)).resolves.toBeUndefined();
+    // No duplicate: the state is already recoverable
+    expect(listLocalVersions(DOC)).toHaveLength(1);
+  });
+
+  it('has nothing to protect offline when there is no document to read', async () => {
+    // Unreachable in the editor, which checks it has one before either action
+    await expect(saveRecoveryPoint(DOC, OFFLINE)).resolves.toBeUndefined();
+    expect(listLocalVersions(DOC)).toEqual([]);
+  });
+
+  it('is not stopped by a full set of names offline', async () => {
+    for (let i = 0; i < MAX_NAMED_LOCAL_VERSIONS; i++) {
+      saveLocalVersion(DOC, editorState(`named ${i}`), `name ${i}`);
+    }
+
+    // The cap is on names, and a recovery point doesn't take one
+    await expect(saveRecoveryPoint(DOC, OFFLINE, editorState('new content')))
+      .resolves.toBeUndefined();
+    expect(listLocalVersions(DOC)[0]!.content).toBe(editorState('new content'));
+  });
+
+  it('reports the refusal code on a write error', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({ error: 'too many', code: 'too-many-names' }, 409),
+    );
+
+    await expect(saveRecoveryPoint(DOC, TOKEN, editorState('x')))
+      .rejects.toMatchObject({ code: 'too-many-names' });
+    expect(new VersionWriteError('x', 'no-room').code).toBe('no-room');
   });
 });

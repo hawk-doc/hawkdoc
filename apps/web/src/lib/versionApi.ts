@@ -119,7 +119,9 @@ export async function saveVersion(
   localContent?: string,
 ): Promise<void> {
   if (!token) {
-    if (localContent === undefined) throw new Error('Nothing to save yet.');
+    if (localContent === undefined) {
+      throw new VersionWriteError('There is nothing to save yet.', 'nothing-to-save');
+    }
     const outcome = saveLocalVersion(docId, localContent, label);
     if (outcome === 'too-many-names') throw new VersionWriteError(TOO_MANY_NAMES, 'too-many-names');
     if (outcome === 'no-room') throw new VersionWriteError(NO_ROOM, 'no-room');
@@ -136,6 +138,34 @@ export async function saveVersion(
     return;
   }
   await writeFailure(res, 'Failed to save a version');
+}
+
+/**
+ * Keeps the document as it stands, so an action that replaces it wholesale can
+ * be undone.
+ *
+ * Deliberately unnamed. A name would make the version unprunable *and* spend
+ * the reader's cap on names they never chose — after a few imports they could
+ * not name their own versions any more. They can name it afterwards if they
+ * want to keep it.
+ *
+ * Resolves when the document is recoverable and throws when it isn't, so the
+ * caller can refuse to go ahead. A document with nothing in it has nothing to
+ * recover, which counts as recoverable.
+ */
+export async function saveRecoveryPoint(
+  docId: string,
+  token: string | null,
+  localContent?: string,
+): Promise<void> {
+  try {
+    await saveVersion(docId, null, token, localContent);
+  } catch (err) {
+    // 'nothing-to-save' is the empty document: nothing to protect, so the
+    // action it precedes is free to go ahead. Every other refusal stands.
+    if (err instanceof VersionWriteError && err.code === 'nothing-to-save') return;
+    throw err;
+  }
 }
 
 /** Name a version, or clear its name by passing null */
