@@ -155,6 +155,21 @@ describe('trash', () => {
     act(() => { result.current.dismissActionError(); });
     expect(result.current.actionError).toBeNull();
   });
+
+  it('says so when a new document cannot be created, without rejecting', async () => {
+    const view = await renderStore();
+    const { result } = view;
+
+    globalThis.fetch = vi.fn(async () => (
+      { ok: false, status: 500, json: async () => ({}), text: async () => '' } as Response
+    )) as unknown as typeof fetch;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await act(async () => { await expect(result.current.create()).resolves.toBeUndefined(); });
+
+    await waitFor(() => expect(result.current.actionError).toMatch(/create/));
+    expect(result.current.docs).toHaveLength(2);
+  });
 });
 
 // ─── Paging, searching and duplicating ───────────────────────────────────────

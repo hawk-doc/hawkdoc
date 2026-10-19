@@ -223,6 +223,7 @@ export function useDocumentStore(token: string | null) {
       queryClient.setQueryData<DocsCache>(DOCS_KEY, (old) => prependDoc(old, newDoc));
       switchTo(newDoc.id);
     },
+    onError: (err) => { reportFailure('Couldn’t create a new document.', err); },
   });
 
   const duplicateMutation = useMutation({
@@ -419,7 +420,12 @@ export function useDocumentStore(token: string | null) {
   const loadMoreTrash = useCallback(() => { void fetchMoreTrash(); }, [fetchMoreTrash]);
 
   const { mutateAsync: createDoc } = createMutation;
-  const create = useCallback(async (): Promise<void> => { await createDoc(); }, [createDoc]);
+  // The failure is already reported through actionError; swallowing it here
+  // keeps callers that fire-and-forget (`void create()`) from leaking an
+  // unhandled rejection.
+  const create = useCallback(async (): Promise<void> => {
+    try { await createDoc(); } catch { /* reported by onError */ }
+  }, [createDoc]);
 
   const { mutate: removeDoc } = removeMutation;
   const remove = useCallback((id: string) => { removeDoc(id); }, [removeDoc]);
