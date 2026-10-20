@@ -282,7 +282,10 @@ export function Editor({ docId, title, onTitleChange, collabToken, collabUser }:
     // creates its own starting paragraph that Yjs never learns about, and
     // everything typed into it is silently dropped instead of synced.
     editorState: isCollab ? null : undefined,
-    onError: (error: Error) => { console.error('Lexical error:', error); },
+    onError: (error: Error) => {
+      console.error('Lexical error:', error);
+      setActionError('Something went wrong in the editor. Your last change may not have been applied.');
+    },
   };
 
   return (
