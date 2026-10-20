@@ -115,10 +115,13 @@ describe('POST /api/documents/:id/versions', () => {
     await redis.del(docBufferKey(docId));
   });
 
-  it('refuses when there is nothing to save yet', async () => {
+  it('refuses when there is nothing to save yet, and says which refusal it is', async () => {
     const user = await signUp();
     const { id } = await createDoc(user, 'Never edited');
-    await save(user, id, { label: 'empty' }).expect(409);
+    const res = await save(user, id, { label: 'empty' }).expect(409);
+    // A caller saving a recovery point has to tell this apart from the cap:
+    // an empty document has nothing to recover, a full one does
+    expect(res.body).toMatchObject({ code: 'nothing-to-save' });
   });
 
   it('refuses once the document holds all the names it can', async () => {
@@ -141,7 +144,8 @@ describe('POST /api/documents/:id/versions', () => {
       Buffer.from(Y.encodeStateAsUpdate(doc)),
       docId,
     ]);
-    await save(user, docId, { label: 'too many' }).expect(409);
+    const res = await save(user, docId, { label: 'too many' }).expect(409);
+    expect(res.body).toMatchObject({ code: 'too-many-names' });
   });
 
   it('rejects a name that is too long, and a label of the wrong type', async () => {

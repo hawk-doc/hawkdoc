@@ -17,11 +17,20 @@ export interface DocVersion {
   label: string | null;
 }
 
-/** Why a version couldn't be named, in words the panel can show */
-export class VersionNameError extends Error {
-  constructor(message: string) {
+/** The reasons the API gives for refusing to write a version */
+export type VersionRefusal = 'nothing-to-save' | 'too-many-names' | 'no-room';
+
+/**
+ * Why a version couldn't be written, in words the panel can show. `code`
+ * is for callers that have to act on the reason rather than report it.
+ */
+export class VersionWriteError extends Error {
+  readonly code: VersionRefusal | null;
+
+  constructor(message: string, code: VersionRefusal | null = null) {
     super(message);
-    this.name = 'VersionNameError';
+    this.name = 'VersionWriteError';
+    this.code = code;
   }
 }
 
@@ -83,11 +92,14 @@ export async function fetchVersions(docId: string, token: string | null): Promis
  * Reads the error the API sent, so a refusal the reader can act on — the cap
  * on names — doesn't surface as a bare status code.
  */
-async function nameFailure(res: Response, fallback: string): Promise<never> {
+async function writeFailure(res: Response, fallback: string): Promise<never> {
   if (res.status === 409) {
-    const body = (await res.json().catch(() => ({}))) as { error?: unknown };
-    throw new VersionNameError(
+    const body = (await res.json().catch(() => ({}))) as { error?: unknown; code?: unknown };
+    const code =
+      body.code === 'nothing-to-save' || body.code === 'too-many-names' ? body.code : null;
+    throw new VersionWriteError(
       typeof body.error === 'string' ? body.error : TOO_MANY_NAMES,
+      code,
     );
   }
   throw new Error(`${fallback} (${res.status})`);
@@ -107,10 +119,12 @@ export async function saveVersion(
   localContent?: string,
 ): Promise<void> {
   if (!token) {
-    if (localContent === undefined) throw new Error('Nothing to save yet.');
+    if (localContent === undefined) {
+      throw new VersionWriteError('There is nothing to save yet.', 'nothing-to-save');
+    }
     const outcome = saveLocalVersion(docId, localContent, label);
-    if (outcome === 'too-many-names') throw new VersionNameError(TOO_MANY_NAMES);
-    if (outcome === 'no-room') throw new VersionNameError(NO_ROOM);
+    if (outcome === 'too-many-names') throw new VersionWriteError(TOO_MANY_NAMES, 'too-many-names');
+    if (outcome === 'no-room') throw new VersionWriteError(NO_ROOM, 'no-room');
     return;
   }
 
@@ -123,7 +137,35 @@ export async function saveVersion(
     ensureOk(res, token, 'save a version');
     return;
   }
-  await nameFailure(res, 'Failed to save a version');
+  await writeFailure(res, 'Failed to save a version');
+}
+
+/**
+ * Keeps the document as it stands, so an action that replaces it wholesale can
+ * be undone.
+ *
+ * Deliberately unnamed. A name would make the version unprunable *and* spend
+ * the reader's cap on names they never chose — after a few imports they could
+ * not name their own versions any more. They can name it afterwards if they
+ * want to keep it.
+ *
+ * Resolves when the document is recoverable and throws when it isn't, so the
+ * caller can refuse to go ahead. A document with nothing in it has nothing to
+ * recover, which counts as recoverable.
+ */
+export async function saveRecoveryPoint(
+  docId: string,
+  token: string | null,
+  localContent?: string,
+): Promise<void> {
+  try {
+    await saveVersion(docId, null, token, localContent);
+  } catch (err) {
+    // 'nothing-to-save' is the empty document: nothing to protect, so the
+    // action it precedes is free to go ahead. Every other refusal stands.
+    if (err instanceof VersionWriteError && err.code === 'nothing-to-save') return;
+    throw err;
+  }
 }
 
 /** Name a version, or clear its name by passing null */
@@ -135,8 +177,8 @@ export async function nameVersion(
 ): Promise<void> {
   if (!token) {
     const outcome = nameLocalVersion(docId, versionId, label);
-    if (outcome === 'too-many-names') throw new VersionNameError(TOO_MANY_NAMES);
-    if (outcome === 'no-room') throw new VersionNameError(NO_ROOM);
+    if (outcome === 'too-many-names') throw new VersionWriteError(TOO_MANY_NAMES, 'too-many-names');
+    if (outcome === 'no-room') throw new VersionWriteError(NO_ROOM, 'no-room');
     if (outcome === 'not-found') throw new Error('That version is no longer available.');
     return;
   }
@@ -150,7 +192,7 @@ export async function nameVersion(
     ensureOk(res, token, 'name this version');
     return;
   }
-  await nameFailure(res, 'Failed to name this version');
+  await writeFailure(res, 'Failed to name this version');
 }
 
 function base64ToBytes(base64: string): Uint8Array {

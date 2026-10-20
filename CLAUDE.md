@@ -72,12 +72,12 @@ hawkdoc/
 Highest value first. The constraint on each line is the part worth keeping —
 each was worked out against the shipped code, not guessed at.
 
-- **A guaranteed recovery point before destructive actions.**
-  The endpoint exists now — `POST /api/documents/:id/versions` forces one — so
-  this is about calling it before a Word import and before a restore, which
-  both replace the whole document. It also covers a tab that dies without
-  closing its socket, where the final state otherwise waits out the
-  five-minute throttle.
+- **A version for a tab that dies without closing its socket**, where the
+  final state otherwise waits out the five-minute throttle. Not simply a
+  forced version on `pagehide`: that would add one per tab close, and
+  Hocuspocus already records on a clean disconnect while Redis holds the state
+  either way. The gap is narrow — the content survives, only the version
+  waits — so it needs a trigger that fires on an *unclean* close only.
 - **Export a version without restoring it.** The preview already holds the
   decoded state; wire it to `lib/docxExport.ts` and `lib/pdfExport.ts`.
 - **Copy one block out of a version** instead of replacing the document.
@@ -254,6 +254,24 @@ Offline the same shape runs on localStorage (`saveLocalVersion`,
 the documents themselves. `saveLocalVersion` is separate from
 `recordLocalVersion` rather than a flag on it: one is the automatic throttled
 snapshot, the other is the reader asking, and they agree on almost nothing.
+
+### Recovery points
+A Word import and a restore both replace the whole document, and what they
+replace can be newer than the newest version — the automatic ones are
+throttled, so the last few minutes of work has nowhere to go back to.
+`saveRecoveryPoint` keeps a version first, and **neither action goes ahead if
+that fails**: a destructive action without a recovery point is the thing this
+prevents, so the reason is shown and nothing is touched. `Editor`'s
+`keepRecoveryPoint` returns whether the caller may proceed.
+
+The recovery point is **unnamed on purpose**. A name would make it unprunable
+*and* spend the reader's cap on names they never chose — after a few imports
+they could not name their own versions. They can name it afterwards.
+
+A document with nothing in it has nothing to recover, so that case proceeds.
+Telling it apart matters, and both refusals are a 409, so the API carries a
+`code` (`nothing-to-save` or `too-many-names`) next to the message:
+`VersionWriteError.code` is what the client branches on, never the prose.
 
 ### Comparing versions
 `lib/versions/diff.ts` compares two decoded states and `VersionDiff.tsx`

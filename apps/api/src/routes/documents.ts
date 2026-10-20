@@ -13,7 +13,7 @@ import {
   MAX_LABEL_LENGTH,
   type VersionSummary,
 } from '../versions.js';
-import type { Request } from 'express';
+import type { Request, Response as ExpressResponse } from 'express';
 
 /**
  * Disconnect anyone still editing a document whose state just changed.
@@ -279,6 +279,23 @@ function asVersionResponse(version: VersionSummary) {
   };
 }
 
+/**
+ * Why a version couldn't be saved. Both refusals are a 409, and a caller that
+ * has to tell them apart — saving a recovery point before a destructive
+ * action, where an empty document is fine and a full one is not — should not
+ * have to read the prose to do it.
+ */
+type RefusalCode = 'nothing-to-save' | 'too-many-names';
+
+const REFUSALS: Record<RefusalCode, string> = {
+  'nothing-to-save': 'There is nothing to save yet',
+  'too-many-names': 'This document has as many named versions as it can hold',
+};
+
+function refuseVersion(res: ExpressResponse, code: RefusalCode): void {
+  res.status(409).json({ error: REFUSALS[code], code });
+}
+
 /** A name for a version. Blank clears it, so the client needs no second verb. */
 const VersionLabelSchema = z.object({
   label: z.string().max(MAX_LABEL_LENGTH).nullish(),
@@ -351,14 +368,14 @@ documentsRouter.post('/:id/versions', async (req: Request, res) => {
 
     const state = await currentState(id);
     if (!state) {
-      res.status(409).json({ error: 'There is nothing to save yet' });
+      refuseVersion(res, 'nothing-to-save');
       return;
     }
 
     const outcome = await recordVersion(id, state, { force: true, label: name });
 
     if (outcome === 'too-many-names') {
-      res.status(409).json({ error: 'This document has as many named versions as it can hold' });
+      refuseVersion(res, 'too-many-names');
       return;
     }
     if (outcome === 'no-document') {
@@ -368,7 +385,7 @@ documentsRouter.post('/:id/versions', async (req: Request, res) => {
 
     const newest = (await listVersions(id))[0];
     if (!newest) {
-      res.status(409).json({ error: 'There is nothing to save yet' });
+      refuseVersion(res, 'nothing-to-save');
       return;
     }
 
@@ -380,7 +397,7 @@ documentsRouter.post('/:id/versions', async (req: Request, res) => {
       }
       const named = await nameVersion(id, newest.id, name);
       if (named === 'too-many-names') {
-        res.status(409).json({ error: 'This document has as many named versions as it can hold' });
+        refuseVersion(res, 'too-many-names');
         return;
       }
       if (named === 'not-found') {
@@ -421,7 +438,7 @@ documentsRouter.patch('/:id/versions/:versionId', async (req: Request, res) => {
       return;
     }
     if (named === 'too-many-names') {
-      res.status(409).json({ error: 'This document has as many named versions as it can hold' });
+      refuseVersion(res, 'too-many-names');
       return;
     }
 
