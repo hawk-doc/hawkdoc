@@ -27,6 +27,19 @@ describe('createRateLimiter', () => {
     expect(res.body.error).toMatch(/too many/i);
   });
 
+  it('reports the limit, what is left and the reset time on every response', async () => {
+    const app = appWith(2, () => 0);
+    const first = await request(app).post('/x').expect(204);
+    expect(first.headers['ratelimit-limit']).toBe('2');
+    expect(first.headers['ratelimit-remaining']).toBe('1');
+    expect(first.headers['ratelimit-reset']).toBe('60');
+    const second = await request(app).post('/x').expect(204);
+    expect(second.headers['ratelimit-remaining']).toBe('0');
+    const blocked = await request(app).post('/x').expect(429);
+    expect(blocked.headers['ratelimit-remaining']).toBe('0');
+    expect(blocked.headers['ratelimit-reset']).toBe(blocked.headers['retry-after']);
+  });
+
   it('starts a fresh window once the old one has expired', async () => {
     let time = 0;
     const app = appWith(1, () => time);
