@@ -1,0 +1,54 @@
+# HawkDoc — Claude daily-PR notes
+
+## Codebase map
+- Stack: npm workspaces monorepo. `apps/web` React18+TS+Tailwind+Lexical+Vite (vitest); `apps/api` Node20+Express+Hocuspocus+Yjs, PostgreSQL (`pg`), Redis, JWT, Zod, vitest+supertest; `packages/shared`.
+- API entry: `apps/api/src/index.ts`, app in `app.ts`, routes in `routes/{auth,documents,uploads}.ts`, `versions.ts` (Yjs delta history), `hocuspocus.ts`, `redis.ts`, schema `schema.sql`.
+- Web: `apps/web/src` (components, hooks, lib/{docx,versions}, context/AuthContext).
+- Branches: PR to `dev`, never `main`. Prefixes `enhancement/`, `bug/`, `feature/`. PR template at `.github/PULL_REQUEST_TEMPLATE.md`; update `CHANGELOG.md` [Unreleased] (### Fixed / ### Added).
+- Commands (repo root): `npm ci` | `npm run lint` | `npm run typecheck` | `npm run build` | `npm test --workspaces --if-present` (pipe to `tail`; web = 127 tests, api = 35).
+- API tests are integration tests and need PostgreSQL + Redis. In the cloud sandbox (root, no docker) this works:
+  `service postgresql start; su postgres -c "psql -c \"CREATE USER hawkdoc PASSWORD 'password' SUPERUSER\" -c 'CREATE DATABASE hawkdoc OWNER hawkdoc'"; PGPASSWORD=password psql -h 127.0.0.1 -U hawkdoc hawkdoc -f apps/api/src/schema.sql; redis-server --daemonize yes`
+- Commit hook (husky + lint-staged) runs typecheck + eslint; commits are slow-ish but fine.
+- `gh` CLI is unavailable; use the GitHub MCP tools (`mcp__github__*`, load via ToolSearch). Local `origin` only has main + the session branch until you `git fetch origin dev`.
+- CronCreate in a cloud session is session-only (dies with the session, 7-day expiry) and has no email/push or timezone options; the local tz is UTC (9:00 IST = `30 3 * * *`).
+
+## Backlog
+- [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks). Caveat: auth.email.test.ts inserts legacy case-only duplicates directly, so the index would break those tests; needs a guarded DO block + test rework.
+- [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
+- [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
+
+## History
+- 2026-09-30 | bug | bug/case-insensitive-email | https://github.com/hawk-doc/hawkdoc/pull/27 | open, awaiting owner review (first run with memory; recent history: #23 enhancement/tests, #24-26 features)
+- 2026-10-01 | enhancement | enhancement/reject-empty-document-update | https://github.com/hawk-doc/hawkdoc/pull/28 | open, awaiting owner review (empty PATCH now 400)
+- 2026-10-03 | bug | bug/require-auth-uploads | https://github.com/hawk-doc/hawkdoc/pull/30 | open, awaiting owner review (uploads require auth; test run of the schedule)
+- 2026-10-04 | enhancement | enhancement/rate-limit-auth | https://github.com/hawk-doc/hawkdoc/pull/31 | open, awaiting owner review (in-memory per-IP limiter on login/register; test run of the schedule)
+- 2026-10-05 | bug | bug/trust-proxy-rate-limit | https://github.com/hawk-doc/hawkdoc/pull/32 | open, awaiting owner review (TRUST_PROXY env; test run of the schedule)
+- 2026-10-07 | enhancement | enhancement/guard-prune-versions | https://github.com/hawk-doc/hawkdoc/pull/34 | open, awaiting owner review (advisory lock in pruneVersions; test run of the schedule)
+- 2026-10-08 | bug | bug/surface-image-upload-errors | https://github.com/hawk-doc/hawkdoc/pull/35 | open, awaiting owner review (upload errors shown in toolbar; test run of the schedule)
+- 2026-10-09 | enhancement | enhancement/surface-export-errors | https://github.com/hawk-doc/hawkdoc/pull/36 | open, awaiting owner review (PDF/Word export errors shown in banner; test run of the schedule)
+- 2026-10-13 | bug | bug/surface-copy-markdown-errors | https://github.com/hawk-doc/hawkdoc/pull/39 | open, awaiting owner review (Copy as Markdown failures shown in toolbar alert; test run of the schedule)
+- 2026-10-14 | enhancement | enhancement/surface-version-preview-errors | https://github.com/hawk-doc/hawkdoc/pull/40 | open, awaiting owner review (document-store action failures shown in an App banner; slug is a misnomer; test run of the schedule)
+- 2026-10-15 | bug | bug/surface-version-preview-parse-errors | https://github.com/hawk-doc/hawkdoc/pull/41 | open, awaiting owner review (PreviewBoundary around version preview; unrenderable version shows alert + Restore disabled; user asked why no PR, so run manually; slug is a misnomer)
+- 2026-10-18 | enhancement | enhancement/surface-create-document-error | https://github.com/hawk-doc/hawkdoc/pull/45 | open, awaiting owner review (create-document failure shown in actionError banner; create() no longer rejects; test run of the schedule)
+- 2026-10-20 | bug | bug/editor-lexical-onerror | https://github.com/hawk-doc/hawkdoc/pull/47 | open, awaiting owner review (Lexical onError now shows the actionError banner; test run of the schedule)
+- 2026-10-21 | enhancement | enhancement/rate-limit-headers | https://github.com/hawk-doc/hawkdoc/pull/48 | open, awaiting owner review (RateLimit-* headers on auth limiter; test run of the schedule)
+
+## Lessons
+- `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
+- Don't read the huge `list_pull_requests` output directly; it is persisted to a file — parse with python for number/head/title.
+- After `cd` into subdirs the working directory persists; use absolute paths / `cd /home/user/hawkdoc`.
+- Code on `dev` is already well hardened (zod everywhere, ownership checks); bugs are subtle — read `routes/auth.ts`, uploads, and web upload/auth code rather than running checks (all green at start).
+- Scheduled-run sessions: CronCreate rejects `CRON_TZ=` prefixes (5 fields only); can't be named or given notifications, so the "HawkDoc daily PR" schedule must be set up by the owner in the routines UI.
+- `listDocs` test helper returns titles only; use `GET /api/documents/:id` (`updatedAt`) for timestamps.
+- The "HawkDoc daily PR" schedule was created via CronCreate (id 454aa911, `30 3 * * *`, session-only, no email/push); owner should still set up the real routine in the UI.
+- CronCreate id bd9be73a (2026-10-04, `30 3 * * *`) again session-only; the owner must still create the real routine in the UI. Run `npm test --workspace=apps/api` separately: `--workspaces` output tails only the web results.
+- Root `npm run lint/typecheck` only cover web; run `npm run typecheck --workspace=apps/api` too (api has no lint script; lint-staged covers it on commit). CronCreate id 1ee59160 (2026-10-05) is again session-only.
+- 2026-10-07: CronCreate rejected `CRON_TZ=` again, so no schedule was created (it would be session-only anyway). A concurrency test for the prune race passed without the fix; the race is hard to reproduce in vitest.
+- 2026-10-08: CronCreate again rejected `CRON_TZ=`; created session-only id 5f155372 (`30 3 * * *`). Web-only change needs just `npm ci/lint/typecheck/test --workspace=apps/web/build` — no DB needed. API/web code is heavily hardened; silent `console.error` paths in web are a good bug source.
+- 2026-10-09: Did not call CronCreate (session-only, no tz/name/notifications; see earlier lessons) — owner must create the real routine in the UI. Remaining silent console.error paths in web: useDocumentStore mutations, VersionHistoryPanel preview, copy-as-Markdown.
+- 2026-10-13: CronCreate id b6c9edf0 (`30 3 * * *`, session-only, no name/email/push); owner must still create the real routine in the UI. Remaining silent console.error paths in web: useDocumentStore mutations, VersionHistoryPanel preview. EditorToolbar `actionError` alert is now shared (upload + copy) — reuse for other toolbar actions. `npm ci` is required first in a fresh sandbox (vitest/eslint missing otherwise).
+- 2026-10-14: CronCreate id 9637cd24 (`30 3 * * *`, session-only, no name/email/push); owner must create the real routine in the UI. Silent `console.error` paths left: VersionHistoryPanel Lexical onError (preview parse failure), `create` document failure. Pick the branch slug after deciding the change, not before. The 'Tool loaded' / system reminders in-session are harmless noise.
+- 2026-10-15: CronCreate not called (session-only, no tz/name/notifications); owner must create the real routine in the UI. If the schedule step is blocked, still do the PR run: the owner expects a daily PR regardless. Lexical `LexicalComposer` rethrows (e.g. empty root) from render with no onError call; wrap in an error boundary. Silent `console.error` paths left: `create` document failure, Editor.tsx Lexical onError (line ~279).
+- 2026-10-18: CronCreate id 5045f0ac (`30 3 * * *`, session-only, no name/email/push); owner must create the real routine in the UI. Silent `console.error` path left: Editor.tsx Lexical onError (line ~279). useDocumentStore already has `reportFailure`/`actionError` — reuse it.
+- 2026-10-20: CronCreate id f10fb4aa (`0 9 * * *`, session-only, no name/email/push, runs in local UTC so not 9:00 IST); owner must create the real routine in the UI. Silent `console.error` paths in Editor.tsx are now all surfaced; next bug source: backlog unique email index or other areas (api routes).
+- 2026-10-21: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` (no name/email/push); owner must create the real routine in the UI. VersionHistory save/rename errors are already surfaced via `writeError` (don't re-do). Setting up pg/redis + full api tests takes ~1 min.
