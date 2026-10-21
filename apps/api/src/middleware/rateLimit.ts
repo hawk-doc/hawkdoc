@@ -46,8 +46,15 @@ export function createRateLimiter({ max, windowMs, now = Date.now }: RateLimitOp
     }
     bucket.count += 1;
 
+    // Tell well-behaved clients where they stand, on every response, so they can
+    // back off before they hit the wall (IETF draft RateLimit header fields)
+    const secondsLeft = Math.max(1, Math.ceil((bucket.resetAt - time) / 1000));
+    res.setHeader('RateLimit-Limit', String(max));
+    res.setHeader('RateLimit-Remaining', String(Math.max(0, max - bucket.count)));
+    res.setHeader('RateLimit-Reset', String(secondsLeft));
+
     if (bucket.count > max) {
-      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((bucket.resetAt - time) / 1000))));
+      res.setHeader('Retry-After', String(secondsLeft));
       res.status(429).json({ error: 'Too many attempts, try again later' });
       return;
     }
