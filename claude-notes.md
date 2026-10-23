@@ -32,6 +32,7 @@
 - 2026-10-18 | enhancement | enhancement/surface-create-document-error | https://github.com/hawk-doc/hawkdoc/pull/45 | open, awaiting owner review (create-document failure shown in actionError banner; create() no longer rejects; test run of the schedule)
 - 2026-10-20 | bug | bug/editor-lexical-onerror | https://github.com/hawk-doc/hawkdoc/pull/47 | open, awaiting owner review (Lexical onError now shows the actionError banner; test run of the schedule)
 - 2026-10-21 | enhancement | enhancement/rate-limit-headers | https://github.com/hawk-doc/hawkdoc/pull/48 | open, awaiting owner review (RateLimit-* headers on auth limiter; test run of the schedule)
+- 2026-10-23 | bug | bug/limit-password-length | https://github.com/hawk-doc/hawkdoc/pull/49 | open, awaiting owner review (register rejects passwords >72 bytes; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -52,3 +53,4 @@
 - 2026-10-18: CronCreate id 5045f0ac (`30 3 * * *`, session-only, no name/email/push); owner must create the real routine in the UI. Silent `console.error` path left: Editor.tsx Lexical onError (line ~279). useDocumentStore already has `reportFailure`/`actionError` — reuse it.
 - 2026-10-20: CronCreate id f10fb4aa (`0 9 * * *`, session-only, no name/email/push, runs in local UTC so not 9:00 IST); owner must create the real routine in the UI. Silent `console.error` paths in Editor.tsx are now all surfaced; next bug source: backlog unique email index or other areas (api routes).
 - 2026-10-21: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` (no name/email/push); owner must create the real routine in the UI. VersionHistory save/rename errors are already surfaced via `writeError` (don't re-do). Setting up pg/redis + full api tests takes ~1 min.
+- 2026-10-23: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id 359cc509 (no name/email/push); owner must create the real routine in the UI. Backlog idea: web AuthModal could show a hint for the 72-byte password limit.
