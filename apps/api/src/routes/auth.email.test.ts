@@ -84,3 +84,25 @@ describe('email handling', () => {
     expect(response.body).toEqual({ error: 'Invalid credentials' });
   });
 });
+
+describe('password length', () => {
+  it('rejects a password longer than bcrypt can use (72 bytes)', async () => {
+    const email = freshEmail();
+    await request(app)
+      .post('/api/auth/register')
+      .send({ email, password: 'a'.repeat(73), name: 'Long' })
+      .expect(400);
+    // multi-byte characters count by bytes: 37 x 2 bytes = 74
+    await request(app)
+      .post('/api/auth/register')
+      .send({ email, password: 'é'.repeat(37), name: 'Long' })
+      .expect(400);
+  });
+
+  it('accepts a password of exactly 72 bytes', async () => {
+    await request(app)
+      .post('/api/auth/register')
+      .send({ email: freshEmail(), password: 'a'.repeat(72), name: 'Edge' })
+      .expect(201);
+  });
+});

@@ -25,9 +25,18 @@ function isUniqueViolation(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === UNIQUE_VIOLATION;
 }
 
+// bcrypt only uses the first 72 bytes of a password and ignores the rest, so a
+// longer one would be accepted but not actually checked past that point.
+const BCRYPT_MAX_PASSWORD_BYTES = 72;
+
 const RegisterSchema = z.object({
   email: EmailSchema,
-  password: z.string().min(8),
+  password: z
+    .string()
+    .min(8)
+    .refine((value) => Buffer.byteLength(value, 'utf8') <= BCRYPT_MAX_PASSWORD_BYTES, {
+      message: `Password must be at most ${BCRYPT_MAX_PASSWORD_BYTES} bytes`,
+    }),
   name: z.string().min(1).max(100),
 });
 
