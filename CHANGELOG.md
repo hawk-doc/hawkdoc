@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Creating a document that fails (for example the server is down) now shows "Couldn’t create a new document." in the existing action-error banner instead of failing silently, and no longer leaves an unhandled promise rejection
 
 ### Fixed
+- `POST /api/auth/register` accepted passwords longer than 72 bytes, which bcrypt silently truncates, so characters past that point were never checked at sign-in. It now answers 400 for them
 - An internal editor (Lexical) error, for example in a node transform or update listener, only went to the console, so the last edit could silently fail to apply. It now also shows a dismissible error banner under the toolbar
 - A saved version whose content the editor cannot render (for example an empty document state) crashed the version history preview with an uncaught error. The panel now shows "This version could not be displayed" and disables Restore for it, and the rest of the app keeps working
 - A failed document action in the sidebar (star, duplicate, rename, move to trash, restore, delete forever, empty trash) rolled back or did nothing without saying so: the error only went to the console. The app now shows a dismissible error banner under the header
