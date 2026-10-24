@@ -10,6 +10,9 @@ interface AuthModalProps {
 
 type Tab = 'login' | 'register';
 
+// Mirrors the API limit: bcrypt ignores everything past 72 bytes.
+const MAX_PASSWORD_BYTES = 72;
+
 export function AuthModal({ onClose, notice }: AuthModalProps) {
   const { login, register } = useAuth();
   const [tab, setTab] = useState<Tab>('login');
@@ -38,6 +41,9 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
     setName('');
   };
 
+  const passwordTooLong =
+    tab === 'register' && new TextEncoder().encode(password).length > MAX_PASSWORD_BYTES;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -47,6 +53,7 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
         await login(email, password);
       } else {
         if (!name.trim()) { setError('Name is required'); setLoading(false); return; }
+        if (passwordTooLong) { setError(`Password must be at most ${MAX_PASSWORD_BYTES} bytes`); setLoading(false); return; }
         await register(email, password, name.trim());
       }
       onClose();
@@ -148,6 +155,12 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
               className="w-full px-3 py-2 text-sm rounded-lg border border-notion-border dark:border-[#3c4043] bg-white dark:bg-[#202020] text-notion-text dark:text-[#e8eaed] placeholder-notion-muted dark:placeholder-[#5f6368] outline-none focus:border-notion-text dark:focus:border-[#9aa0a6] transition-colors"
             />
           </label>
+
+          {passwordTooLong && (
+            <p role="alert" className="-mt-2 text-[11px] text-red-500 dark:text-red-400">
+              Too long: passwords are limited to {MAX_PASSWORD_BYTES} bytes (non-Latin characters count as more than one).
+            </p>
+          )}
 
           {error && (
             <p className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
