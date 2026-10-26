@@ -34,6 +34,7 @@
 - 2026-10-21 | enhancement | enhancement/rate-limit-headers | https://github.com/hawk-doc/hawkdoc/pull/48 | open, awaiting owner review (RateLimit-* headers on auth limiter; test run of the schedule)
 - 2026-10-23 | bug | bug/limit-password-length | https://github.com/hawk-doc/hawkdoc/pull/49 | open, awaiting owner review (register rejects passwords >72 bytes; test run of the schedule)
 - 2026-10-24 | enhancement | enhancement/auth-password-length-hint | https://github.com/hawk-doc/hawkdoc/pull/50 | open, awaiting owner review (sign-up form warns/blocks passwords >72 bytes; test run of the schedule)
+- 2026-10-26 | bug | bug/login-timing-unknown-email | https://github.com/hawk-doc/hawkdoc/pull/51 | open, awaiting owner review (dummy bcrypt compare for unknown email; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -56,3 +57,4 @@
 - 2026-10-21: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` (no name/email/push); owner must create the real routine in the UI. VersionHistory save/rename errors are already surfaced via `writeError` (don't re-do). Setting up pg/redis + full api tests takes ~1 min.
 - 2026-10-23: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id 359cc509 (no name/email/push); owner must create the real routine in the UI. Backlog idea: web AuthModal could show a hint for the 72-byte password limit.
 - 2026-10-24: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id edb86f34 (no name/email/push); owner must create the real routine in the UI. AuthModal now has tests (mock useAuth). Web-only run took ~5 min with `npm ci`.
+- 2026-10-26: CronCreate not called (session-only, no CRON_TZ/name/notifications); owner must create the real routine in the UI. Backlog idea: register still 409s on existing emails (enumeration); hocuspocus keeps flushing for trashed docs. Api run (pg+redis, 104 tests) took ~2 min.
