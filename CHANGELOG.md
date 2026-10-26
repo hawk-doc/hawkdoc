@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - `POST /api/auth/login` and `/register` are rate limited per client IP (20 requests per 15 minutes each by default; `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_SEC`). Over the limit the API answers 429 with a `Retry-After` header. The counter is in memory, per API process
 
+### Fixed
+- `POST /api/auth/login` takes as long to reject an unknown email as a wrong password, so response time no longer reveals which addresses have accounts
+
 ### Changed
 - The sign-up form warns as you type when a password exceeds the API's 72-byte limit (multi-byte characters count extra) and blocks submitting it, instead of failing after the request
 - The login/register rate limiter now sends `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds) on every response, not only `Retry-After` on a 429, so clients can back off before they are blocked
