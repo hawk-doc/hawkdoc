@@ -29,6 +29,12 @@ function isUniqueViolation(err: unknown): boolean {
 // longer one would be accepted but not actually checked past that point.
 const BCRYPT_MAX_PASSWORD_BYTES = 72;
 
+const BCRYPT_COST = 12;
+
+// Hash of a throwaway password, compared against when no account matches the
+// email so an unknown address takes as long to reject as a wrong password.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('hawkdoc-unknown-account', BCRYPT_COST);
+
 const RegisterSchema = z.object({
   email: EmailSchema,
   password: z
@@ -48,7 +54,7 @@ const LoginSchema = z.object({
 authRouter.post('/register', registerLimiter, async (req, res) => {
   try {
     const body = RegisterSchema.parse(req.body);
-    const hash = await bcrypt.hash(body.password, 12);
+    const hash = await bcrypt.hash(body.password, BCRYPT_COST);
 
     const result = await query<{ id: string; email: string; name: string }>(
       `INSERT INTO users (email, password_hash, name)
@@ -87,6 +93,10 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
       'SELECT id, email, name, password_hash FROM users WHERE LOWER(email) = $1',
       [body.email],
     );
+
+    if (result.rows.length === 0) {
+      await bcrypt.compare(body.password, DUMMY_PASSWORD_HASH);
+    }
 
     const matches: typeof result.rows = [];
     for (const user of result.rows) {
