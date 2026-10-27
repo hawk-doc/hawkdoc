@@ -13,6 +13,7 @@
 - CronCreate in a cloud session is session-only (dies with the session, 7-day expiry) and has no email/push or timezone options; the local tz is UTC (9:00 IST = `30 3 * * *`).
 
 ## Backlog
+- [ ] (enhancement) Warn at startup when ALLOWED_ORIGINS parses to an empty list (CORS silently blocks everything).
 - [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks). Caveat: auth.email.test.ts inserts legacy case-only duplicates directly, so the index would break those tests; needs a guarded DO block + test rework.
 - [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
@@ -35,6 +36,7 @@
 - 2026-10-23 | bug | bug/limit-password-length | https://github.com/hawk-doc/hawkdoc/pull/49 | open, awaiting owner review (register rejects passwords >72 bytes; test run of the schedule)
 - 2026-10-24 | enhancement | enhancement/auth-password-length-hint | https://github.com/hawk-doc/hawkdoc/pull/50 | open, awaiting owner review (sign-up form warns/blocks passwords >72 bytes; test run of the schedule)
 - 2026-10-26 | bug | bug/login-timing-unknown-email | https://github.com/hawk-doc/hawkdoc/pull/51 | open, awaiting owner review (dummy bcrypt compare for unknown email; test run of the schedule)
+- 2026-10-27 | enhancement | enhancement/document-allowed-origins | https://github.com/hawk-doc/hawkdoc/pull/52 | open, awaiting owner review (ALLOWED_ORIGINS added to api .env.example + CHANGELOG; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -58,3 +60,4 @@
 - 2026-10-23: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id 359cc509 (no name/email/push); owner must create the real routine in the UI. Backlog idea: web AuthModal could show a hint for the 72-byte password limit.
 - 2026-10-24: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id edb86f34 (no name/email/push); owner must create the real routine in the UI. AuthModal now has tests (mock useAuth). Web-only run took ~5 min with `npm ci`.
 - 2026-10-26: CronCreate not called (session-only, no CRON_TZ/name/notifications); owner must create the real routine in the UI. Backlog idea: register still 409s on existing emails (enumeration); hocuspocus keeps flushing for trashed docs. Api run (pg+redis, 104 tests) took ~2 min.
+- 2026-10-27: CronCreate not called (session-only, no CRON_TZ/name/notifications); owner must create the real routine in the UI. dev is very hardened: recordVersion already handles deleted docs, permanent delete clears the Redis buffer; env/.env.example drift is now fixed. Ideas left: empty ALLOWED_ORIGINS silently blocks all CORS (warn at startup); hocuspocus onChange re-encodes full state per change.
