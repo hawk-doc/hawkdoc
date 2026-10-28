@@ -23,7 +23,7 @@ export async function waitForDisconnectWrites(): Promise<void> {
   await Promise.allSettled([...pendingDisconnectWrites]);
 }
 
-async function persistOnDisconnect(docId: string, document: Y.Doc): Promise<void> {
+export async function persistOnDisconnect(docId: string, document: Y.Doc): Promise<void> {
   let state: Uint8Array | null = null;
   try {
     // Read the buffer before encoding: everything in it is included in the
@@ -31,8 +31,11 @@ async function persistOnDisconnect(docId: string, document: Y.Doc): Promise<void
     // the document meanwhile, in which case the newer buffer is kept.
     const buffered = await redis.getBuffer(docBufferKey(docId));
     state = Y.encodeStateAsUpdate(document);
+    // Merely opening a document must not bump updated_at and reorder the list,
+    // so a state identical to the stored one is left alone.
     await query(
-      `UPDATE documents SET yjs_state = $1, updated_at = NOW() WHERE id = $2`,
+      `UPDATE documents SET yjs_state = $1, updated_at = NOW()
+       WHERE id = $2 AND yjs_state IS DISTINCT FROM $1`,
       [Buffer.from(state), docId],
     );
     if (buffered) await deleteBufferIfUnchanged(docId, buffered);
