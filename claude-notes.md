@@ -37,6 +37,7 @@
 - 2026-10-24 | enhancement | enhancement/auth-password-length-hint | https://github.com/hawk-doc/hawkdoc/pull/50 | open, awaiting owner review (sign-up form warns/blocks passwords >72 bytes; test run of the schedule)
 - 2026-10-26 | bug | bug/login-timing-unknown-email | https://github.com/hawk-doc/hawkdoc/pull/51 | open, awaiting owner review (dummy bcrypt compare for unknown email; test run of the schedule)
 - 2026-10-27 | enhancement | enhancement/document-allowed-origins | https://github.com/hawk-doc/hawkdoc/pull/52 | open, awaiting owner review (ALLOWED_ORIGINS added to api .env.example + CHANGELOG; test run of the schedule)
+- 2026-10-28 | bug | bug/disconnect-keeps-updated-at | https://github.com/hawk-doc/hawkdoc/pull/53 | open, awaiting owner review (persistOnDisconnect no longer bumps updated_at for unchanged state; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -61,3 +62,4 @@
 - 2026-10-24: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id edb86f34 (no name/email/push); owner must create the real routine in the UI. AuthModal now has tests (mock useAuth). Web-only run took ~5 min with `npm ci`.
 - 2026-10-26: CronCreate not called (session-only, no CRON_TZ/name/notifications); owner must create the real routine in the UI. Backlog idea: register still 409s on existing emails (enumeration); hocuspocus keeps flushing for trashed docs. Api run (pg+redis, 104 tests) took ~2 min.
 - 2026-10-27: CronCreate not called (session-only, no CRON_TZ/name/notifications); owner must create the real routine in the UI. dev is very hardened: recordVersion already handles deleted docs, permanent delete clears the Redis buffer; env/.env.example drift is now fixed. Ideas left: empty ALLOWED_ORIGINS silently blocks all CORS (warn at startup); hocuspocus onChange re-encodes full state per change.
+- 2026-10-28: CronCreate id c50a927d (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. hocuspocus.ts had no tests before; `persistOnDisconnect` is now exported + tested (hocuspocus.persist.test.ts). `createDoc` helper returns `{id,title}`. Idea left: onChange re-encodes full state per change; flush of trashed docs still bumps updated_at.
