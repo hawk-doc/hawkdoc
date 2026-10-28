@@ -1,0 +1,57 @@
+import { describe, it, expect, afterAll } from 'vitest';
+import * as Y from 'yjs';
+import query from './db.js';
+import { persistOnDisconnect } from './hocuspocus.js';
+import { signUp, createDoc, closeConnections } from './test/helpers.js';
+
+afterAll(closeConnections);
+
+async function readDoc(id: string): Promise<{ yjs_state: Buffer | null; updated_at: Date }> {
+  const { rows } = await query<{ yjs_state: Buffer | null; updated_at: Date }>(
+    'SELECT yjs_state, updated_at FROM documents WHERE id = $1',
+    [id],
+  );
+  return rows[0]!;
+}
+
+describe('persistOnDisconnect', () => {
+  it('keeps updated_at when the session changed nothing', async () => {
+    const user = await signUp();
+    const { id } = await createDoc(user, 'Untouched');
+
+    const doc = new Y.Doc();
+    doc.getText('t').insert(0, 'hello');
+    await persistOnDisconnect(id, doc);
+    const saved = await readDoc(id);
+
+    // Backdate so a bump is detectable, then reconnect with the stored state
+    await query(`UPDATE documents SET updated_at = NOW() - INTERVAL '1 day' WHERE id = $1`, [id]);
+    const before = await readDoc(id);
+    const reopened = new Y.Doc();
+    Y.applyUpdate(reopened, saved.yjs_state!);
+    await persistOnDisconnect(id, reopened);
+
+    const after = await readDoc(id);
+    expect(after.updated_at.getTime()).toBe(before.updated_at.getTime());
+  });
+
+  it('bumps updated_at when the session edited the document', async () => {
+    const user = await signUp();
+    const { id } = await createDoc(user, 'Edited');
+
+    const doc = new Y.Doc();
+    doc.getText('t').insert(0, 'hello');
+    await persistOnDisconnect(id, doc);
+    await query(`UPDATE documents SET updated_at = NOW() - INTERVAL '1 day' WHERE id = $1`, [id]);
+    const before = await readDoc(id);
+
+    doc.getText('t').insert(5, ' world');
+    await persistOnDisconnect(id, doc);
+
+    const after = await readDoc(id);
+    expect(after.updated_at.getTime()).toBeGreaterThan(before.updated_at.getTime());
+    const stored = new Y.Doc();
+    Y.applyUpdate(stored, after.yjs_state!);
+    expect(stored.getText('t').toString()).toBe('hello world');
+  });
+});
