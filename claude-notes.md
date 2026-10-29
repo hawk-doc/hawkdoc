@@ -13,7 +13,6 @@
 - CronCreate in a cloud session is session-only (dies with the session, 7-day expiry) and has no email/push or timezone options; the local tz is UTC (9:00 IST = `30 3 * * *`).
 
 ## Backlog
-- [ ] (enhancement) Warn at startup when ALLOWED_ORIGINS parses to an empty list (CORS silently blocks everything).
 - [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks). Caveat: auth.email.test.ts inserts legacy case-only duplicates directly, so the index would break those tests; needs a guarded DO block + test rework.
 - [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
@@ -38,6 +37,7 @@
 - 2026-10-26 | bug | bug/login-timing-unknown-email | https://github.com/hawk-doc/hawkdoc/pull/51 | open, awaiting owner review (dummy bcrypt compare for unknown email; test run of the schedule)
 - 2026-10-27 | enhancement | enhancement/document-allowed-origins | https://github.com/hawk-doc/hawkdoc/pull/52 | open, awaiting owner review (ALLOWED_ORIGINS added to api .env.example + CHANGELOG; test run of the schedule)
 - 2026-10-28 | bug | bug/disconnect-keeps-updated-at | https://github.com/hawk-doc/hawkdoc/pull/53 | open, awaiting owner review (persistOnDisconnect no longer bumps updated_at for unchanged state; test run of the schedule)
+- 2026-10-29 | enhancement | enhancement/warn-empty-allowed-origins | https://github.com/hawk-doc/hawkdoc/pull/54 | open, awaiting owner review (createApp warns when ALLOWED_ORIGINS is empty; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -63,3 +63,4 @@
 - 2026-10-26: CronCreate not called (session-only, no CRON_TZ/name/notifications); owner must create the real routine in the UI. Backlog idea: register still 409s on existing emails (enumeration); hocuspocus keeps flushing for trashed docs. Api run (pg+redis, 104 tests) took ~2 min.
 - 2026-10-27: CronCreate not called (session-only, no CRON_TZ/name/notifications); owner must create the real routine in the UI. dev is very hardened: recordVersion already handles deleted docs, permanent delete clears the Redis buffer; env/.env.example drift is now fixed. Ideas left: empty ALLOWED_ORIGINS silently blocks all CORS (warn at startup); hocuspocus onChange re-encodes full state per change.
 - 2026-10-28: CronCreate id c50a927d (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. hocuspocus.ts had no tests before; `persistOnDisconnect` is now exported + tested (hocuspocus.persist.test.ts). `createDoc` helper returns `{id,title}`. Idea left: onChange re-encodes full state per change; flush of trashed docs still bumps updated_at.
+- 2026-10-29: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id ab91a22e (no name/email/push); owner must create the real routine in the UI. Tests can mutate `env.ALLOWED_ORIGINS` directly (env is a plain object) and call createApp(). Ideas left: onChange re-encodes full state per change.
