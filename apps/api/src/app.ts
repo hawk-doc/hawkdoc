@@ -16,6 +16,12 @@ export function createApp() {
   // CORS — must be the very first middleware so every response (including
   // errors from body-parser, multer, auth) carries the correct headers.
   const ALLOWED_ORIGINS = new Set(env.ALLOWED_ORIGINS);
+  if (ALLOWED_ORIGINS.size === 0) {
+    // An empty list is valid config but every browser request would be blocked
+    console.warn(
+      'ALLOWED_ORIGINS is empty: no browser origin will pass CORS. Set it to the web app origin, e.g. http://localhost:5173',
+    );
+  }
 
   function setCors(req: Request, res: Response): void {
     const origin = req.headers.origin;
