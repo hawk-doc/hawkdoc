@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /api/auth/login` takes as long to reject an unknown email as a wrong password, so response time no longer reveals which addresses have accounts
 
 ### Changed
+- The API logs a startup warning when `ALLOWED_ORIGINS` is set but empty, since CORS would then silently block every browser request
 - `apps/api/.env.example` now lists `ALLOWED_ORIGINS` (comma-separated CORS origins, default `http://localhost:5173`), so deployments know to set it for their web origin
 - The sign-up form warns as you type when a password exceeds the API's 72-byte limit (multi-byte characters count extra) and blocks submitting it, instead of failing after the request
 - The login/register rate limiter now sends `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds) on every response, not only `Retry-After` on a 429, so clients can back off before they are blocked
