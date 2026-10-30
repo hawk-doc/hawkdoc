@@ -23,6 +23,20 @@ export async function waitForDisconnectWrites(): Promise<void> {
   await Promise.allSettled([...pendingDisconnectWrites]);
 }
 
+/** Periodic flush: write a buffered Redis update to PostgreSQL */
+export async function persistDocState(docId: string, update: Buffer): Promise<void> {
+  // A buffer left over from a session that already saved this exact state
+  // must not bump updated_at and reorder the document list.
+  await query(
+    `UPDATE documents SET yjs_state = $1, updated_at = NOW()
+     WHERE id = $2 AND yjs_state IS DISTINCT FROM $1`,
+    [update, docId],
+  );
+  // Throttled inside recordVersion, so a document saved every 30 seconds
+  // collects a version every few minutes rather than every flush.
+  await tryRecordVersion(docId, update);
+}
+
 export async function persistOnDisconnect(docId: string, document: Y.Doc): Promise<void> {
   let state: Uint8Array | null = null;
   try {

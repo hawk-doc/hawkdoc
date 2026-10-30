@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /api/auth/login` and `/register` are rate limited per client IP (20 requests per 15 minutes each by default; `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_SEC`). Over the limit the API answers 429 with a `Retry-After` header. The counter is in memory, per API process
 
 ### Fixed
+- The 30-second Redis flush no longer bumps a document's `updated_at` when the buffered state is already stored
 - Opening a document and closing it without editing no longer bumps its `updated_at`, so it stops jumping to the top of the document list
 - `POST /api/auth/login` takes as long to reject an unknown email as a wrong password, so response time no longer reveals which addresses have accounts
 
