@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import * as Y from 'yjs';
 import query from './db.js';
-import { persistOnDisconnect } from './hocuspocus.js';
+import { persistOnDisconnect, persistDocState } from './hocuspocus.js';
 import { signUp, createDoc, closeConnections } from './test/helpers.js';
 
 afterAll(closeConnections);
@@ -53,5 +53,41 @@ describe('persistOnDisconnect', () => {
     const stored = new Y.Doc();
     Y.applyUpdate(stored, after.yjs_state!);
     expect(stored.getText('t').toString()).toBe('hello world');
+  });
+});
+
+describe('persistDocState', () => {
+  it('keeps updated_at when the buffered state is already stored', async () => {
+    const user = await signUp();
+    const { id } = await createDoc(user, 'Flushed');
+
+    const doc = new Y.Doc();
+    doc.getText('t').insert(0, 'hello');
+    const update = Buffer.from(Y.encodeStateAsUpdate(doc));
+    await persistDocState(id, update);
+    await query(`UPDATE documents SET updated_at = NOW() - INTERVAL '1 day' WHERE id = $1`, [id]);
+    const before = await readDoc(id);
+
+    await persistDocState(id, update);
+
+    const after = await readDoc(id);
+    expect(after.updated_at.getTime()).toBe(before.updated_at.getTime());
+  });
+
+  it('bumps updated_at when the buffered state is new', async () => {
+    const user = await signUp();
+    const { id } = await createDoc(user, 'Changed');
+
+    const doc = new Y.Doc();
+    doc.getText('t').insert(0, 'hello');
+    await persistDocState(id, Buffer.from(Y.encodeStateAsUpdate(doc)));
+    await query(`UPDATE documents SET updated_at = NOW() - INTERVAL '1 day' WHERE id = $1`, [id]);
+    const before = await readDoc(id);
+
+    doc.getText('t').insert(5, '!');
+    await persistDocState(id, Buffer.from(Y.encodeStateAsUpdate(doc)));
+
+    const after = await readDoc(id);
+    expect(after.updated_at.getTime()).toBeGreaterThan(before.updated_at.getTime());
   });
 });
