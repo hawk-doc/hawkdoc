@@ -63,8 +63,24 @@ export async function persistOnDisconnect(docId: string, document: Y.Doc): Promi
   await tryRecordVersion(docId, Buffer.from(state), { force: true });
 }
 
+/** Write the document's full state to the Redis auto-save buffer */
+export async function bufferDocState(docId: string, document: Y.Doc): Promise<void> {
+  try {
+    const state = Y.encodeStateAsUpdate(document);
+    await redis.set(docBufferKey(docId), Buffer.from(state));
+  } catch (err) {
+    console.error(`Failed to buffer update for ${docId}:`, err);
+  }
+}
+
+// Longest a change can sit only in memory before it reaches the Redis buffer
+export const BUFFER_DEBOUNCE_MS = 500;
+export const BUFFER_MAX_DEBOUNCE_MS = 2000;
+
 export const hocuspocusServer = Server.configure({
   port: env.HOCUSPOCUS_PORT,
+  debounce: BUFFER_DEBOUNCE_MS,
+  maxDebounce: BUFFER_MAX_DEBOUNCE_MS,
   // Hocuspocus's own SIGINT/SIGTERM handler calls process.exit(0) right after
   // destroy(), cutting off our Redis flush and pool shutdown. index.ts owns
   // shutdown instead and calls destroy() itself.
@@ -114,15 +130,10 @@ export const hocuspocusServer = Server.configure({
     }
   },
 
-  async onChange(data) {
-    const docId = data.documentName;
-
-    try {
-      const state = Y.encodeStateAsUpdate(data.document);
-      await redis.set(docBufferKey(docId), Buffer.from(state));
-    } catch (err) {
-      console.error(`Failed to buffer update for ${docId}:`, err);
-    }
+  // Hocuspocus coalesces store calls per document (debounce/maxDebounce), so a
+  // burst of keystrokes costs one encode + one Redis write instead of one each.
+  async onStoreDocument(data) {
+    await bufferDocState(data.documentName, data.document);
   },
 
   async onDisconnect(data) {
