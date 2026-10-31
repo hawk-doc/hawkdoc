@@ -1,7 +1,15 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import * as Y from 'yjs';
 import query from './db.js';
-import { persistOnDisconnect, persistDocState } from './hocuspocus.js';
+import {
+  persistOnDisconnect,
+  persistDocState,
+  bufferDocState,
+  hocuspocusServer,
+  BUFFER_DEBOUNCE_MS,
+  BUFFER_MAX_DEBOUNCE_MS,
+} from './hocuspocus.js';
+import { redis, docBufferKey } from './redis.js';
 import { signUp, createDoc, closeConnections } from './test/helpers.js';
 
 afterAll(closeConnections);
@@ -89,5 +97,27 @@ describe('persistDocState', () => {
 
     const after = await readDoc(id);
     expect(after.updated_at.getTime()).toBeGreaterThan(before.updated_at.getTime());
+  });
+});
+
+describe('bufferDocState', () => {
+  it('writes the full document state to the Redis buffer', async () => {
+    const user = await signUp();
+    const { id } = await createDoc(user, 'Buffered');
+
+    const doc = new Y.Doc();
+    doc.getText('t').insert(0, 'hello');
+    await bufferDocState(id, doc);
+
+    const buffered = await redis.getBuffer(docBufferKey(id));
+    const restored = new Y.Doc();
+    Y.applyUpdate(restored, buffered!);
+    expect(restored.getText('t').toString()).toBe('hello');
+    await redis.del(docBufferKey(id));
+  });
+
+  it('coalesces store calls instead of buffering on every change', () => {
+    expect(hocuspocusServer.configuration.debounce).toBe(BUFFER_DEBOUNCE_MS);
+    expect(hocuspocusServer.configuration.maxDebounce).toBe(BUFFER_MAX_DEBOUNCE_MS);
   });
 });
