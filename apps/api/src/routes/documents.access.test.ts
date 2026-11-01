@@ -75,6 +75,17 @@ describe('document input validation', () => {
     await request(app).patch(`/api/documents/${doc.id}`).set(user.auth).send({ title: 'a'.repeat(500) }).expect(200);
   });
 
+  it('rejects whitespace-only titles and trims surrounding spaces', async () => {
+    const user = await signUp();
+    await request(app).post('/api/documents').set(user.auth).send({ title: '   ' }).expect(400);
+
+    const doc = await createDoc(user, 'Fine');
+    await request(app).patch(`/api/documents/${doc.id}`).set(user.auth).send({ title: ' \t ' }).expect(400);
+
+    const res = await request(app).patch(`/api/documents/${doc.id}`).set(user.auth).send({ title: '  Padded  ' }).expect(200);
+    expect(res.body.title).toBe('Padded');
+  });
+
   it('rejects an update that changes nothing without touching updated_at', async () => {
     const user = await signUp();
     const doc = await createDoc(user, 'Stable');
