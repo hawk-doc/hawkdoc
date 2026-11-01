@@ -42,13 +42,17 @@ documentsRouter.use(requireAuth);
 /** Also enforced in the editor, so a long title fails before it is typed */
 const MAX_TITLE_LENGTH = 500;
 
+// Trimmed first, so a title of only spaces is rejected as empty rather than
+// stored as a document the sidebar can only show as blank.
+const TitleSchema = z.string().trim().min(1).max(MAX_TITLE_LENGTH);
+
 const CreateDocSchema = z.object({
-  title: z.string().min(1).max(MAX_TITLE_LENGTH).default('Untitled'),
+  title: TitleSchema.default('Untitled'),
 });
 
 const UpdateDocSchema = z
   .object({
-    title: z.string().min(1).max(MAX_TITLE_LENGTH).optional(),
+    title: TitleSchema.optional(),
     starred: z.boolean().optional(),
   })
   // An update that changes nothing must not bump updated_at and reorder the list
