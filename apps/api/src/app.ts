@@ -51,8 +51,11 @@ export function createApp() {
   // Static file serving for uploaded images. nosniff stops a browser treating an
   // upload as anything other than its declared image type, and the sandbox CSP
   // keeps scripts from running if a file is opened directly (covers any SVGs
-  // uploaded before the type allowlist existed).
+  // uploaded before the type allowlist existed). Files are named by a random
+  // UUID and never rewritten, so browsers and CDNs may cache them for a year.
   app.use('/uploads', express.static(UPLOADS_DIR, {
+    maxAge: '365d',
+    immutable: true,
     setHeaders: (res) => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");

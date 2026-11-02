@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /api/auth/login` takes as long to reject an unknown email as a wrong password, so response time no longer reveals which addresses have accounts
 
 ### Changed
+- Uploaded images are served with `Cache-Control: public, max-age=31536000, immutable`. Their names are random and never reused, so browsers stop re-requesting every image on each document open
 - Collaborative edits are written to the Redis auto-save buffer at most every 500 ms per document (2 s under continuous typing) instead of once per change, cutting the encode and Redis write work per keystroke. Edits are still flushed on disconnect and shutdown
 - The API logs a startup warning when `ALLOWED_ORIGINS` is set but empty, since CORS would then silently block every browser request
 - `apps/api/.env.example` now lists `ALLOWED_ORIGINS` (comma-separated CORS origins, default `http://localhost:5173`), so deployments know to set it for their web origin
