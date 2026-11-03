@@ -42,6 +42,7 @@
 - 2026-10-31 | enhancement | enhancement/hocuspocus-onchange-delta | https://github.com/hawk-doc/hawkdoc/pull/56 | open, awaiting owner review (onChange -> debounced onStoreDocument + bufferDocState; slug is a misnomer; test run of the schedule)
 - 2026-11-01 | bug | bug/reject-blank-document-title | https://github.com/hawk-doc/hawkdoc/pull/57 | open, awaiting owner review (API rejects whitespace-only titles, trims; test run of the schedule)
 - 2026-11-02 | enhancement | enhancement/cache-uploads | https://github.com/hawk-doc/hawkdoc/pull/58 | open, awaiting owner review (immutable Cache-Control on /uploads; test run of the schedule)
+- 2026-11-03 | bug | bug/client-errors-not-500 | https://github.com/hawk-doc/hawkdoc/pull/59 | open, awaiting owner review (malformed/oversized body now 400/413, not 500; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -72,3 +73,4 @@
 - 2026-10-31: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id b6bd1793 (no name/email/push); owner must create the real routine in the UI. Hocuspocus `debounce`/`maxDebounce` + `onStoreDocument` coalesce Redis writes (done, PR #56). Ideas left: true delta storage is still unimplemented (Redis holds full state).
 - 2026-11-01: CronCreate id 6626502a (`30 3 * * *`, session-only, no name/email/push); owner must create the real routine in the UI. Whitespace-only title bug fixed (PR #57). Ideas left: unique LOWER(email) index; Redis-backed rate limiter.
 - 2026-11-02: CronCreate id 202c1bb8 (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. Static asset headers live in app.ts `express.static` options. Full api run ~2 min incl. pg/redis setup.
+- 2026-11-03: CronCreate id 40a10895 (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. Global error handler in app.ts now honors 4xx from body-parser. `npm ci` takes ~2 min: start it in background right away.
