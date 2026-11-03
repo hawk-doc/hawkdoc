@@ -84,8 +84,17 @@ export function createApp() {
   });
   // Global error handler — CORS headers must also be set here because Express
   // error handlers bypass all previous middleware when called via next(err).
-  app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: Error & { status?: unknown; type?: unknown }, req: Request, res: Response, _next: NextFunction) => {
     setCors(req, res);
+    // body-parser reports client mistakes (malformed JSON, oversized body) as
+    // 4xx errors with an `expose`d message; they are not server faults.
+    if (typeof err.status === 'number' && err.status >= 400 && err.status < 500) {
+      const message = err.type === 'entity.parse.failed' ? 'Malformed JSON body'
+        : err.type === 'entity.too.large' ? 'Request body too large'
+        : 'Bad request';
+      res.status(err.status).json({ error: message });
+      return;
+    }
     console.error(err);
     const message = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
     res.status(500).json({ error: message });
