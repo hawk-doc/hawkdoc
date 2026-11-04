@@ -6,6 +6,7 @@ import { AuthModal } from './components/AuthModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useDocumentStore } from './hooks/useDocumentStore';
 import { useTheme } from './hooks/useTheme';
+import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { ShortcutsDialog } from './components/ShortcutsDialog';
 import { SHORTCUTS, hintFor, matches } from './lib/shortcuts';
 
@@ -39,6 +40,7 @@ function AppShell() {
 
   const activeDoc = docs.find((d) => d.id === activeId);
   const title = activeDoc?.title ?? 'Untitled';
+  useDocumentTitle(activeDoc?.title);
 
   return (
     <div className="h-screen flex flex-col bg-notion-sidebar dark:bg-[#1a1a1a]">
