@@ -256,11 +256,22 @@ documentsRouter.get('/:id', async (req: Request, res) => {
       return;
     }
 
+    // Edits sit in the Redis buffer for up to a flush interval, so the column
+    // can be behind what the author last saw; prefer the buffer, as duplicate
+    // and version saving do.
+    let state = doc.yjs_state;
+    try {
+      state = (await redis.getBuffer(docBufferKey(id))) ?? state;
+    } catch (err) {
+      // The saved state beats failing the request outright
+      console.error(`Failed to read buffered state for ${id}:`, err);
+    }
+
     res.json({
       id: doc.id,
       title: doc.title,
       starred: doc.starred,
-      yjsState: doc.yjs_state ? doc.yjs_state.toString('base64') : null,
+      yjsState: state ? state.toString('base64') : null,
       updatedAt: doc.updated_at,
     });
   } catch (err) {

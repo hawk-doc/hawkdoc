@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /api/auth/login` and `/register` are rate limited per client IP (20 requests per 15 minutes each by default; `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_SEC`). Over the limit the API answers 429 with a `Retry-After` header. The counter is in memory, per API process
 
 ### Fixed
+- `GET /api/documents/:id` now returns the Redis-buffered content when there is one, so it matches what duplicate and version saving use instead of lagging up to 30 seconds behind the author's latest edits
 - A malformed JSON body or an oversized request body now gets a 400/413 response instead of a 500 "Internal server error" that was also logged as a server fault
 - Creating or renaming a document with a whitespace-only title is rejected with 400 instead of storing a blank title; surrounding spaces in titles are trimmed
 - The 30-second Redis flush no longer bumps a document's `updated_at` when the buffered state is already stored
