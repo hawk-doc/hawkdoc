@@ -105,5 +105,13 @@ export function useAutoSave(
   // the editor unmounts.
   useEffect(() => flush, [flush]);
 
+  // Closing or reloading the tab never unmounts React, so an edit typed in the
+  // last DEBOUNCE_MS would be lost. `pagehide` also fires when a mobile browser
+  // discards the page; the write itself is synchronous (localStorage).
+  useEffect(() => {
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  }, [flush]);
+
   return saveMutation.isPending;
 }

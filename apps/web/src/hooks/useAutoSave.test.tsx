@@ -136,6 +136,19 @@ describe('useAutoSave', () => {
     expect(loadDocContent(DOC_ID)?.content).toContain('unsaved');
   });
 
+  it('flushes a waiting edit when the page is hidden, e.g. the tab is closed', async () => {
+    const editor = makeEditor();
+    renderHook(() => useAutoSave(editor, 'Notes', DOC_ID), { wrapper });
+
+    write(editor, 'typed just before closing');
+    expect(loadDocContent(DOC_ID)).toBeNull();
+
+    act(() => { window.dispatchEvent(new Event('pagehide')); });
+    await settle();
+
+    expect(loadDocContent(DOC_ID)?.content).toContain('typed just before closing');
+  });
+
   it('saves nothing for a collaborative document', async () => {
     const editor = makeEditor();
     renderHook(() => useAutoSave(null, 'Notes', DOC_ID), { wrapper });

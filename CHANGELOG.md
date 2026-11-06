@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - `POST /api/auth/login` and `/register` are rate limited per client IP (20 requests per 15 minutes each by default; `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_SEC`). Over the limit the API answers 429 with a `Retry-After` header. The counter is in memory, per API process
 
+### Changed
+- Closing or reloading the tab within a moment of typing now saves the pending edit instead of dropping it (auto-save flushes on `pagehide`)
+
 ### Fixed
 - `GET /api/documents/:id` now returns the Redis-buffered content when there is one, so it matches what duplicate and version saving use instead of lagging up to 30 seconds behind the author's latest edits
 - A malformed JSON body or an oversized request body now gets a 400/413 response instead of a 500 "Internal server error" that was also logged as a server fault
