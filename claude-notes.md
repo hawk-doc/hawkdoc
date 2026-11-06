@@ -45,6 +45,7 @@
 - 2026-11-03 | bug | bug/client-errors-not-500 | https://github.com/hawk-doc/hawkdoc/pull/59 | open, awaiting owner review (malformed/oversized body now 400/413, not 500; test run of the schedule)
 - 2026-11-04 | enhancement | enhancement/tab-title-follows-document | https://github.com/hawk-doc/hawkdoc/pull/60 | open, awaiting owner review (useDocumentTitle hook: tab title = "<doc> — HawkDoc"; test run of the schedule)
 - 2026-11-05 | bug | bug/get-document-buffered-state | https://github.com/hawk-doc/hawkdoc/pull/61 | open, awaiting owner review (GET /documents/:id prefers Redis buffer over stale column; test run of the schedule)
+- 2026-11-06 | enhancement | enhancement/autosave-flush-on-pagehide | https://github.com/hawk-doc/hawkdoc/pull/62 | open, awaiting owner review (useAutoSave flushes on pagehide; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -78,3 +79,4 @@
 - 2026-11-03: CronCreate id 40a10895 (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. Global error handler in app.ts now honors 4xx from body-parser. `npm ci` takes ~2 min: start it in background right away.
 - 2026-11-04: CronCreate id f0e924bc (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. `pgrep -f "npm ci"` matches its own shell; check the log file instead. Web-only run (~4 min) needs no DB. Ideas left: web tab title done; Redis rate limiter; unique LOWER(email) index.
 - 2026-11-05: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id 16eb4bcb (no name/email/push); owner must create the real routine in the UI. Bug source: inconsistency between routes (GET /:id ignored Redis buffer while duplicate/versions used it). Api suite 118 tests ~45s; `npm ci` ~3 min, start in background.
+- 2026-11-06: CronCreate id 958a44e5 (`0 9 * * *` accepted without CRON_TZ, session-only, local tz UTC, no name/email/push); owner must create the real routine in the UI. Save path is localStorage (sync), so unload flush is safe. Ideas left: pagehide-like flush for other debounced writes; toast system.
