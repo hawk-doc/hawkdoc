@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Closing or reloading the tab within a moment of typing now saves the pending edit instead of dropping it (auto-save flushes on `pagehide`)
 
 ### Fixed
+- `POST /api/auth/register` now trims the name and rejects one made only of spaces (400) instead of storing a blank display name
 - `GET /api/documents/:id` now returns the Redis-buffered content when there is one, so it matches what duplicate and version saving use instead of lagging up to 30 seconds behind the author's latest edits
 - A malformed JSON body or an oversized request body now gets a 400/413 response instead of a 500 "Internal server error" that was also logged as a server fault
 - Creating or renaming a document with a whitespace-only title is rejected with 400 instead of storing a blank title; surrounding spaces in titles are trimmed
