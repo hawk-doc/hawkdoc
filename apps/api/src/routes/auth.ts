@@ -43,7 +43,8 @@ const RegisterSchema = z.object({
     .refine((value) => Buffer.byteLength(value, 'utf8') <= BCRYPT_MAX_PASSWORD_BYTES, {
       message: `Password must be at most ${BCRYPT_MAX_PASSWORD_BYTES} bytes`,
     }),
-  name: z.string().min(1).max(100),
+  // Trimmed first, so a name of only spaces is rejected rather than stored
+  name: z.string().trim().min(1).max(100),
 });
 
 const LoginSchema = z.object({
