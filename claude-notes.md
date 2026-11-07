@@ -46,6 +46,7 @@
 - 2026-11-04 | enhancement | enhancement/tab-title-follows-document | https://github.com/hawk-doc/hawkdoc/pull/60 | open, awaiting owner review (useDocumentTitle hook: tab title = "<doc> — HawkDoc"; test run of the schedule)
 - 2026-11-05 | bug | bug/get-document-buffered-state | https://github.com/hawk-doc/hawkdoc/pull/61 | open, awaiting owner review (GET /documents/:id prefers Redis buffer over stale column; test run of the schedule)
 - 2026-11-06 | enhancement | enhancement/autosave-flush-on-pagehide | https://github.com/hawk-doc/hawkdoc/pull/62 | open, awaiting owner review (useAutoSave flushes on pagehide; test run of the schedule)
+- 2026-11-07 | bug | bug/trim-register-name | https://github.com/hawk-doc/hawkdoc/pull/63 | open, awaiting owner review (register trims name, blank name -> 400; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -80,3 +81,4 @@
 - 2026-11-04: CronCreate id f0e924bc (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. `pgrep -f "npm ci"` matches its own shell; check the log file instead. Web-only run (~4 min) needs no DB. Ideas left: web tab title done; Redis rate limiter; unique LOWER(email) index.
 - 2026-11-05: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id 16eb4bcb (no name/email/push); owner must create the real routine in the UI. Bug source: inconsistency between routes (GET /:id ignored Redis buffer while duplicate/versions used it). Api suite 118 tests ~45s; `npm ci` ~3 min, start in background.
 - 2026-11-06: CronCreate id 958a44e5 (`0 9 * * *` accepted without CRON_TZ, session-only, local tz UTC, no name/email/push); owner must create the real routine in the UI. Save path is localStorage (sync), so unload flush is safe. Ideas left: pagehide-like flush for other debounced writes; toast system.
+- 2026-11-07: CronCreate id e25f15e8 (`30 3 * * *`, session-only, no name/email/push); owner must create the real routine in the UI. Bug source: schemas that validate before trimming (check other `z.string().min(1)` fields). `npm ci` (~3 min) finishes after `husky`; wait on node_modules/.bin/vitest, not pgrep. Ideas left: Bearer scheme match is case-sensitive in middleware/auth.ts.
