@@ -10,13 +10,14 @@ export function requireAuth(
   res: Response,
   next: NextFunction,
 ): void {
-  const authHeader = req.header('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
+  // RFC 7235: the auth scheme name is case-insensitive ("bearer" is valid).
+  const match = /^Bearer +(\S+)$/i.exec(req.header('authorization') ?? '');
+  if (!match) {
     res.status(401).json({ error: 'Missing or malformed Authorization header' });
     return;
   }
 
-  const token = authHeader.slice(7);
+  const token = match[1];
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as AuthPayload;
     (req as AuthenticatedRequest).auth = payload;
