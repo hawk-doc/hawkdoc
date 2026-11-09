@@ -156,6 +156,15 @@ describe('POST /api/documents/:id/versions', () => {
     await save(user, docId, { label: 42 }).expect(400);
   });
 
+  it('trims a name before measuring it', async () => {
+    const user = await signUp();
+    const docId = await docWithState(user, 'Padded', 'text');
+    const name = 'x'.repeat(MAX_LABEL_LENGTH);
+
+    const res = await save(user, docId, { label: `  ${name}  ` }).expect(201);
+    expect(res.body).toMatchObject({ label: name });
+  });
+
   it('hides the document from everyone but its owner, and while it is trashed', async () => {
     const owner = await signUp();
     const stranger = await signUp();
