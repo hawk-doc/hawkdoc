@@ -313,7 +313,7 @@ function refuseVersion(res: ExpressResponse, code: RefusalCode): void {
 
 /** A name for a version. Blank clears it, so the client needs no second verb. */
 const VersionLabelSchema = z.object({
-  label: z.string().max(MAX_LABEL_LENGTH).nullish(),
+  label: z.string().trim().max(MAX_LABEL_LENGTH).nullish(),
 });
 
 /**
@@ -374,7 +374,7 @@ documentsRouter.post('/:id/versions', async (req: Request, res) => {
     const { userId } = (req as AuthenticatedRequest).auth;
     const { id } = DocIdSchema.parse(req.params);
     const { label } = VersionLabelSchema.parse(req.body ?? {});
-    const name = label?.trim() ?? '';
+    const name = label ?? '';
 
     if (!(await ownsActiveDocument(id, userId))) {
       res.status(404).json({ error: 'Document not found' });
