@@ -11,6 +11,8 @@ import { checkHealth, isHealthy } from './health.js';
  */
 export function createApp() {
   const app = express();
+  // Don't advertise the framework to anyone scanning for known-vulnerable versions
+  app.disable('x-powered-by');
   if (env.TRUST_PROXY > 0) app.set('trust proxy', env.TRUST_PROXY);
 
   // CORS — must be the very first middleware so every response (including
@@ -38,6 +40,9 @@ export function createApp() {
 
   app.use((req, res, next) => {
     setCors(req, res);
+    // The API only serves JSON (and uploads, which set their own headers);
+    // stop browsers from sniffing a response into another content type.
+    res.header('X-Content-Type-Options', 'nosniff');
     if (req.method === 'OPTIONS') {
       res.sendStatus(204);
       return;

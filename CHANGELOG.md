@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /api/auth/login` and `/register` are rate limited per client IP (20 requests per 15 minutes each by default; `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_SEC`). Over the limit the API answers 429 with a `Retry-After` header. The counter is in memory, per API process
 
 ### Changed
+- API responses carry `X-Content-Type-Options: nosniff` and no longer send the `X-Powered-By: Express` header
 - The API accepts the `Bearer` auth scheme in any letter case (`bearer <token>`), as RFC 7235 requires, instead of answering 401
 - Closing or reloading the tab within a moment of typing now saves the pending edit instead of dropping it (auto-save flushes on `pagehide`)
 
