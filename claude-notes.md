@@ -50,6 +50,7 @@
 - 2026-11-08 | enhancement | enhancement/case-insensitive-bearer-scheme | https://github.com/hawk-doc/hawkdoc/pull/64 | open, awaiting owner review (Bearer scheme matched case-insensitively; test run of the schedule)
 - 2026-11-09 | bug | bug/trim-version-label | https://github.com/hawk-doc/hawkdoc/pull/65 | open, awaiting owner review (version label trimmed before max-length check; test run of the schedule)
 - 2026-11-10 | enhancement | enhancement/api-security-headers | https://github.com/hawk-doc/hawkdoc/pull/66 | open, awaiting owner review (nosniff on all API responses, X-Powered-By disabled; test run of the schedule)
+- 2026-11-11 | bug | bug/find-replace-advance | https://github.com/hawk-doc/hawkdoc/pull/67 | open, awaiting owner review (Replace advances past replaced hit; listener skips selection-only updates instead of NAVIGATE_TAG; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -88,3 +89,4 @@
 - 2026-11-08: CronCreate id a01d0a54 (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. Unused imports in new test files fail api typecheck (TS6133): run it before committing. Ideas left: other `z.string().min(1)` fields validated before trim.
 - 2026-11-09: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id 05d461a9 (no name/email/push); owner must create the real routine in the UI. Don't `git checkout -B` a placeholder branch name then rename: push only once, after naming. validate-before-trim sweep of api zod strings is now complete.
 - 2026-11-10: CronCreate id 5c40da71 (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. Api run (npm ci + pg/redis + 131 tests) ~4 min. Ideas left: other hardening headers (helmet-like) are done except HSTS (belongs at the proxy).
+- 2026-11-11: CronCreate not called (session-only, 7-day expiry, no name/tz/email/push); owner must create the real routine in the UI. Web components with untested logic (FindReplacePlugin, SlashCommandMenu, BubbleMenu) are a good bug source. Component exports other than components fail lint (react-refresh): put helpers in `lib/`. Lexical merges tags of batched updates, so don't use tags to skip updates; jsdom needs `Element.prototype.scrollIntoView` stubbed.
