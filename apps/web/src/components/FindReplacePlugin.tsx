@@ -14,13 +14,7 @@ import { $dfs } from '@lexical/utils';
 import { Search, X, ChevronUp, ChevronDown, CaseSensitive } from 'lucide-react';
 // aliased: this file's own `matches` is the list of search hits
 import { SHORTCUTS, matches as isShortcut } from '../lib/shortcuts';
-
-interface Match {
-  nodeKey: string;
-  start: number;
-  end: number;
-  matchIndex: number;
-}
+import { indexAfterReplace, type Match, type ReplacedAt } from '../lib/findReplace';
 
 function escapeRegex(term: string): string {
   return term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -116,6 +110,7 @@ export function FindReplacePlugin(): null | React.ReactElement {
   const [matches, setMatches] = useState<Match[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const replacedAtRef = useRef<ReplacedAt | null>(null);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -156,16 +151,25 @@ export function FindReplacePlugin(): null | React.ReactElement {
   // Re-collect when editor content changes while panel is open
   useEffect(() => {
     if (!isOpen) return;
-    return editor.registerUpdateListener(({ editorState, tags }) => {
-      if (tags.has(NAVIGATE_TAG)) return;
+    return editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves }) => {
+      // Skip selection-only updates (e.g. moving to a hit). Don't rely on
+      // NAVIGATE_TAG: Lexical batches queued updates and merges their tags,
+      // so a Replace committed together with a navigation would be missed.
+      if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return;
       if (searchTerm === '') {
         setMatches([]);
         setCurrentIndex(0);
         return;
       }
       const found = collectMatches(editorState, searchTerm, caseSensitive);
+      const replacedAt = replacedAtRef.current;
+      replacedAtRef.current = null;
       setMatches(found);
-      setCurrentIndex((prev) => (found.length === 0 ? 0 : Math.min(prev, found.length - 1)));
+      setCurrentIndex((prev) => {
+        if (found.length === 0) return 0;
+        if (replacedAt) return indexAfterReplace(found, replacedAt);
+        return Math.min(prev, found.length - 1);
+      });
     });
   }, [editor, isOpen, searchTerm, caseSensitive]);
 
@@ -185,8 +189,16 @@ export function FindReplacePlugin(): null | React.ReactElement {
   }, [matches.length]);
 
   const handleReplace = useCallback(() => {
-    if (matches.length === 0) return;
-    replaceMatch(editor, matches[currentIndex], replaceTerm);
+    const match = matches[currentIndex];
+    if (!match) return;
+    replacedAtRef.current = {
+      nodeKey: match.nodeKey,
+      offset: match.start + replaceTerm.length,
+      hitsInEarlierNodes: matches.filter(
+        (m) => m.matchIndex < match.matchIndex && m.nodeKey !== match.nodeKey,
+      ).length,
+    };
+    replaceMatch(editor, match, replaceTerm);
   }, [editor, matches, currentIndex, replaceTerm]);
 
   const handleReplaceAll = useCallback(() => {
