@@ -5,7 +5,7 @@
 - API entry: `apps/api/src/index.ts`, app in `app.ts`, routes in `routes/{auth,documents,uploads}.ts`, `versions.ts` (Yjs delta history), `hocuspocus.ts`, `redis.ts`, schema `schema.sql`.
 - Web: `apps/web/src` (components, hooks, lib/{docx,versions}, context/AuthContext).
 - Branches: PR to `dev`, never `main`. Prefixes `enhancement/`, `bug/`, `feature/`. PR template at `.github/PULL_REQUEST_TEMPLATE.md`; update `CHANGELOG.md` [Unreleased] (### Fixed / ### Added).
-- Commands (repo root): `npm ci` | `npm run lint` | `npm run typecheck` | `npm run build` | `npm test --workspaces --if-present` (pipe to `tail`; web = 247 tests, api = 131).
+- Commands (repo root): `npm ci` | `npm run lint` | `npm run typecheck` | `npm run build` | `npm test --workspaces --if-present` (pipe to `tail`; web = 251 tests, api = 131).
 - API tests are integration tests and need PostgreSQL + Redis. In the cloud sandbox (root, no docker) this works:
   `service postgresql start; su postgres -c "psql -c \"CREATE USER hawkdoc PASSWORD 'password' SUPERUSER\" -c 'CREATE DATABASE hawkdoc OWNER hawkdoc'"; PGPASSWORD=password psql -h 127.0.0.1 -U hawkdoc hawkdoc -f apps/api/src/schema.sql; redis-server --daemonize yes`
 - Commit hook (husky + lint-staged) runs typecheck + eslint; commits are slow-ish but fine.
@@ -13,6 +13,8 @@
 - CronCreate in a cloud session is session-only (dies with the session, 7-day expiry) and has no email/push or timezone options; the local tz is UTC (9:00 IST = `30 3 * * *`).
 
 ## Backlog
+- [ ] (enhancement) CodeHeader in CodeBlockPlugin uses inline styles; move to Tailwind (CLAUDE.md rule).
+- [ ] (bug?) SlashCommandMenu has no tests; check keyboard nav/positioning edge cases.
 - [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks). Caveat: auth.email.test.ts inserts legacy case-only duplicates directly, so the index would break those tests; needs a guarded DO block + test rework.
 - [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
@@ -52,6 +54,7 @@
 - 2026-11-10 | enhancement | enhancement/api-security-headers | https://github.com/hawk-doc/hawkdoc/pull/66 | open, awaiting owner review (nosniff on all API responses, X-Powered-By disabled; test run of the schedule)
 - 2026-11-11 | bug | bug/find-replace-advance | https://github.com/hawk-doc/hawkdoc/pull/67 | open, awaiting owner review (Replace advances past replaced hit; listener skips selection-only updates instead of NAVIGATE_TAG; test run of the schedule)
 - 2026-11-12 | enhancement | enhancement/code-block-copy-feedback | https://github.com/hawk-doc/hawkdoc/pull/68 | open, awaiting owner review (code block Copy shows 'Copy failed', single restartable timer, cleanup on unmount; test run of the schedule)
+- 2026-11-13 | bug | bug/bubble-menu-scroll | https://github.com/hawk-doc/hawkdoc/pull/69 | open, awaiting owner review (BubbleMenu repositions on scroll/resize via rAF; first BubbleMenu tests; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -63,15 +66,6 @@
 - The "HawkDoc daily PR" schedule was created via CronCreate (id 454aa911, `30 3 * * *`, session-only, no email/push); owner should still set up the real routine in the UI.
 - CronCreate id bd9be73a (2026-10-04, `30 3 * * *`) again session-only; the owner must still create the real routine in the UI. Run `npm test --workspace=apps/api` separately: `--workspaces` output tails only the web results.
 - Root `npm run lint/typecheck` only cover web; run `npm run typecheck --workspace=apps/api` too (api has no lint script; lint-staged covers it on commit). CronCreate id 1ee59160 (2026-10-05) is again session-only.
-- 2026-10-21: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` (no name/email/push); owner must create the real routine in the UI. VersionHistory save/rename errors are already surfaced via `writeError` (don't re-do). Setting up pg/redis + full api tests takes ~1 min.
-- 2026-10-23: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id 359cc509 (no name/email/push); owner must create the real routine in the UI. Backlog idea: web AuthModal could show a hint for the 72-byte password limit.
-- 2026-10-24: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id edb86f34 (no name/email/push); owner must create the real routine in the UI. AuthModal now has tests (mock useAuth). Web-only run took ~5 min with `npm ci`.
-- 2026-10-26: CronCreate not called (session-only, no CRON_TZ/name/notifications); owner must create the real routine in the UI. Backlog idea: register still 409s on existing emails (enumeration); hocuspocus keeps flushing for trashed docs. Api run (pg+redis, 104 tests) took ~2 min.
-- 2026-10-27: CronCreate not called (session-only, no CRON_TZ/name/notifications); owner must create the real routine in the UI. dev is very hardened: recordVersion already handles deleted docs, permanent delete clears the Redis buffer; env/.env.example drift is now fixed. Ideas left: empty ALLOWED_ORIGINS silently blocks all CORS (warn at startup); hocuspocus onChange re-encodes full state per change.
-- 2026-10-28: CronCreate id c50a927d (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. hocuspocus.ts had no tests before; `persistOnDisconnect` is now exported + tested (hocuspocus.persist.test.ts). `createDoc` helper returns `{id,title}`. Idea left: onChange re-encodes full state per change; flush of trashed docs still bumps updated_at.
-- 2026-10-29: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id ab91a22e (no name/email/push); owner must create the real routine in the UI. Tests can mutate `env.ALLOWED_ORIGINS` directly (env is a plain object) and call createApp(). Ideas left: onChange re-encodes full state per change.
-- 2026-10-30: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id 0d8e8a6f (no name/email/push); owner must create the real routine in the UI. Moving code out of index.ts leaves unused imports: run `npm run typecheck --workspace=apps/api` before committing. Trashing a doc ends collab sessions so the disconnect flush on trashed docs is intentional (keeps unsaved edits); not a bug. Ideas left: onChange re-encodes full state per change.
-- 2026-10-31: CronCreate rejected `CRON_TZ=`; created session-only `30 3 * * *` id b6bd1793 (no name/email/push); owner must create the real routine in the UI. Hocuspocus `debounce`/`maxDebounce` + `onStoreDocument` coalesce Redis writes (done, PR #56). Ideas left: true delta storage is still unimplemented (Redis holds full state).
 - 2026-11-01: CronCreate id 6626502a (`30 3 * * *`, session-only, no name/email/push); owner must create the real routine in the UI. Whitespace-only title bug fixed (PR #57). Ideas left: unique LOWER(email) index; Redis-backed rate limiter.
 - 2026-11-02: CronCreate id 202c1bb8 (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. Static asset headers live in app.ts `express.static` options. Full api run ~2 min incl. pg/redis setup.
 - 2026-11-03: CronCreate id 40a10895 (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. Global error handler in app.ts now honors 4xx from body-parser. `npm ci` takes ~2 min: start it in background right away.
@@ -84,3 +78,4 @@
 - 2026-11-10: CronCreate id 5c40da71 (`30 3 * * *`, session-only, no name/email/push; `CRON_TZ=` not used); owner must create the real routine in the UI. Api run (npm ci + pg/redis + 131 tests) ~4 min. Ideas left: other hardening headers (helmet-like) are done except HSTS (belongs at the proxy).
 - 2026-11-11: CronCreate not called (session-only, 7-day expiry, no name/tz/email/push); owner must create the real routine in the UI. Web components with untested logic (FindReplacePlugin, SlashCommandMenu, BubbleMenu) are a good bug source. Component exports other than components fail lint (react-refresh): put helpers in `lib/`. Lexical merges tags of batched updates, so don't use tags to skip updates; jsdom needs `Element.prototype.scrollIntoView` stubbed.
 - 2026-11-12: Setup prompt fired again; CronCreate not called (session-only, 7-day expiry, no name/tz/email/push); owner must create/fix the real routine in the claude.ai UI. CodeBlockPlugin CopyButton now tested; jsdom has no jest-dom matchers — compare `textContent`. Ideas left: CodeHeader inline styles -> Tailwind; SlashCommandMenu/BubbleMenu untested.
+- 2026-11-13: CronCreate not called (session-only, no CRON_TZ/name/email/push); owner must create the real routine in the claude.ai UI. Lexical components can be tested with a bare `createEditor()` (no root element) + mocked `window.getSelection`; `{ discrete: true }` updates fire listeners synchronously. Verify new tests fail by `git stash push <file>`.
