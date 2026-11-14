@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The API accepts the `Bearer` auth scheme in any letter case (`bearer <token>`), as RFC 7235 requires, instead of answering 401
 - The code block "Copy" button now shows "Copy failed" when the clipboard is unavailable or the write is rejected (instead of silently doing nothing), keeps "Copied!" visible for the full 2 seconds after repeated clicks, and no longer updates state after the block is removed
 - Closing or reloading the tab within a moment of typing now saves the pending edit instead of dropping it (auto-save flushes on `pagehide`)
+- The code block header (language label and Copy button bar) is styled with Tailwind classes instead of inline styles, as the project's style rules require; it looks the same
 
 ### Fixed
 - Naming a version (`POST`/`PATCH /api/documents/:id/versions`) now trims the label before checking its length, so a label that fits once its surrounding spaces are dropped is no longer rejected with 400
