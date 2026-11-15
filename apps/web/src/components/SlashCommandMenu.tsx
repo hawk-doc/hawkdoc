@@ -270,8 +270,11 @@ export function SlashCommandMenu({
     [editor, onClose, removeSlashText],
   );
 
-  // Keyboard navigation
+  // Keyboard navigation. When nothing matches the menu renders nothing, so it
+  // must not intercept keys either — otherwise arrows/Escape silently stop
+  // working in the editor (e.g. after typing "/usr").
   useEffect(() => {
+    if (filtered.length === 0) return;
     const removeDown = editor.registerCommand(
       KEY_ARROW_DOWN_COMMAND,
       () => {
