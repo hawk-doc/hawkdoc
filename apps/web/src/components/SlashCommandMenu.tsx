@@ -277,16 +277,19 @@ export function SlashCommandMenu({
     if (filtered.length === 0) return;
     const removeDown = editor.registerCommand(
       KEY_ARROW_DOWN_COMMAND,
-      () => {
-        setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
+      (event) => {
+        // Keep the caret where it is while navigating the menu.
+        event?.preventDefault();
+        setSelectedIndex((i) => (i + 1) % filtered.length);
         return true;
       },
       COMMAND_PRIORITY_LOW,
     );
     const removeUp = editor.registerCommand(
       KEY_ARROW_UP_COMMAND,
-      () => {
-        setSelectedIndex((i) => Math.max(i - 1, 0));
+      (event) => {
+        event?.preventDefault();
+        setSelectedIndex((i) => (i - 1 + filtered.length) % filtered.length);
         return true;
       },
       COMMAND_PRIORITY_LOW,
@@ -319,11 +322,23 @@ export function SlashCommandMenu({
     };
   }, [editor, filtered, selectedIndex, executeCommand, onClose]);
 
-  // Close on any scroll (capture catches non-bubbling scroll on overflow containers)
+  // Close on any page scroll (capture catches non-bubbling scroll on overflow
+  // containers), but not when the menu's own list scrolls — that happens when
+  // the user wheels through it or keyboard navigation reveals an item.
   useEffect(() => {
-    document.addEventListener('scroll', onClose, { capture: true });
-    return () => document.removeEventListener('scroll', onClose, { capture: true });
+    const handleScroll = (e: Event) => {
+      if (e.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      onClose();
+    };
+    document.addEventListener('scroll', handleScroll, { capture: true });
+    return () => document.removeEventListener('scroll', handleScroll, { capture: true });
   }, [onClose]);
+
+  // Keep the keyboard-selected item visible inside the scrollable menu.
+  useEffect(() => {
+    const item = menuRef.current?.children[selectedIndex];
+    if (item instanceof HTMLElement) item.scrollIntoView({ block: 'nearest' });
+  }, [selectedIndex, filtered]);
 
   // Reset selection when query changes
   useEffect(() => {
