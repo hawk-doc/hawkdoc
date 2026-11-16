@@ -13,7 +13,6 @@
 - CronCreate in a cloud session is session-only (dies with the session, 7-day expiry) and has no email/push or timezone options; the local tz is UTC (9:00 IST = `30 3 * * *`).
 
 ## Backlog
-- [ ] (enhancement) SlashCommandMenu: selected item isn't scrolled into view (menu max-height 320px, overflow); arrows don't wrap around.
 - [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks). Caveat: auth.email.test.ts inserts legacy case-only duplicates directly, so the index would break those tests; needs a guarded DO block + test rework.
 - [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
@@ -56,6 +55,7 @@
 - 2026-11-13 | bug | bug/bubble-menu-scroll | https://github.com/hawk-doc/hawkdoc/pull/69 | open, awaiting owner review (BubbleMenu repositions on scroll/resize via rAF; first BubbleMenu tests; test run of the schedule)
 - 2026-11-14 | enhancement | enhancement/code-header-tailwind | https://github.com/hawk-doc/hawkdoc/pull/70 | open, awaiting owner review (CodeHeader inline styles -> Tailwind arbitrary classes; CodeHeader tests; test run of the schedule)
 - 2026-11-15 | bug | bug/slash-menu-swallows-keys | https://github.com/hawk-doc/hawkdoc/pull/71 | open, awaiting owner review (key handlers registered only while commands match; first SlashCommandMenu tests; test run of the schedule)
+- 2026-11-16 | enhancement | enhancement/slash-menu-scroll-wrap | https://github.com/hawk-doc/hawkdoc/pull/72 | open, awaiting owner review (slash menu: selection scrolls into view, arrows wrap, menu's own scroll no longer closes it, arrows preventDefault; #71 merged; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -82,3 +82,4 @@
 - 2026-11-13: CronCreate not called (session-only, no CRON_TZ/name/email/push); owner must create the real routine in the claude.ai UI. Lexical components can be tested with a bare `createEditor()` (no root element) + mocked `window.getSelection`; `{ discrete: true }` updates fire listeners synchronously. Verify new tests fail by `git stash push <file>`.
 - 2026-11-14: Setup prompt fired again; CronCreate not called (session-only, 7-day expiry, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. Remaining non-Tailwind `style=` uses in web are dynamic (positions, CSS vars, font previews) or react-pdf: leave them. Verify Tailwind arbitrary classes by grepping `apps/web/dist/assets/*.css` after build. Web tests now 253.
 - 2026-11-15: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. `editor.dispatchCommand` returns the handled boolean: an easy way to test Lexical key handlers. dev still shows 253 web tests (open PRs aren't merged).
+- 2026-11-16: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. Web tsconfig lib < ES2022: no `Array.prototype.at` in tests. vitest `mock.contexts` gives `this` of each call. Web tests now 258 on this branch.
