@@ -17,6 +17,10 @@
 - [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
 
+- [ ] (enhancement) useTheme: storage access unguarded (throws in blocked-storage contexts) and doesn't follow OS theme changes when no saved preference.
+- [ ] (enhancement) InputDialog has no dark-mode classes (bg-white, border, input) unlike ConfirmDialog; also no Tab focus trap.
+- [ ] (bug) useDeleteOnSelection: Backspace/Delete handlers don't check `$isNodeSelection` or `preventDefault` the event (Lexical playground ImageComponent does both).
+
 ## History
 - 2026-09-30 | bug | bug/case-insensitive-email | https://github.com/hawk-doc/hawkdoc/pull/27 | open, awaiting owner review (first run with memory; recent history: #23 enhancement/tests, #24-26 features)
 - 2026-10-01 | enhancement | enhancement/reject-empty-document-update | https://github.com/hawk-doc/hawkdoc/pull/28 | open, awaiting owner review (empty PATCH now 400)
@@ -56,6 +60,7 @@
 - 2026-11-14 | enhancement | enhancement/code-header-tailwind | https://github.com/hawk-doc/hawkdoc/pull/70 | open, awaiting owner review (CodeHeader inline styles -> Tailwind arbitrary classes; CodeHeader tests; test run of the schedule)
 - 2026-11-15 | bug | bug/slash-menu-swallows-keys | https://github.com/hawk-doc/hawkdoc/pull/71 | open, awaiting owner review (key handlers registered only while commands match; first SlashCommandMenu tests; test run of the schedule)
 - 2026-11-16 | enhancement | enhancement/slash-menu-scroll-wrap | https://github.com/hawk-doc/hawkdoc/pull/72 | open, awaiting owner review (slash menu: selection scrolls into view, arrows wrap, menu's own scroll no longer closes it, arrows preventDefault; #71 merged; test run of the schedule)
+- 2026-11-17 | bug | bug/ime-enter-submits | https://github.com/hawk-doc/hawkdoc/pull/73 | open, awaiting owner review (Enter/Escape ignored during IME composition in InputDialog, Sidebar rename, Find/Replace; lib/keyboard.ts isComposingKey; #72 merged; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -83,3 +88,4 @@
 - 2026-11-14: Setup prompt fired again; CronCreate not called (session-only, 7-day expiry, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. Remaining non-Tailwind `style=` uses in web are dynamic (positions, CSS vars, font previews) or react-pdf: leave them. Verify Tailwind arbitrary classes by grepping `apps/web/dist/assets/*.css` after build. Web tests now 253.
 - 2026-11-15: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. `editor.dispatchCommand` returns the handled boolean: an easy way to test Lexical key handlers. dev still shows 253 web tests (open PRs aren't merged).
 - 2026-11-16: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. Web tsconfig lib < ES2022: no `Array.prototype.at` in tests. vitest `mock.contexts` gives `this` of each call. Web tests now 258 on this branch.
+- 2026-11-17: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. fireEvent.keyDown accepts `isComposing`/`keyCode` in jsdom. Web tests now 260 on this branch.
