@@ -103,6 +103,22 @@ describe('Sidebar starring', () => {
     expect(within(rows[0] as HTMLElement).getByRole('textbox')).toBeTruthy();
   });
 
+  it('does not commit a rename on the Enter that ends IME composition', () => {
+    const budget = doc('d1', 'Budget');
+    const props = renderSidebar({ docs: [budget] });
+
+    fireEvent.doubleClick(document.querySelector('.sidebar-item')!);
+    const input = document.querySelector('.sidebar-rename-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '予算' } });
+
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(props.onRename).not.toHaveBeenCalled();
+    expect(document.querySelector('.sidebar-rename-input')).toBeTruthy();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(props.onRename).toHaveBeenCalledWith('d1', '予算');
+  });
+
   it('offers more starred documents when there are more to load', () => {
     const starred = doc('d1', 'Budget', true);
     const props = renderSidebar({

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The code block header (language label and Copy button bar) is styled with Tailwind classes instead of inline styles, as the project's style rules require; it looks the same
 
 ### Fixed
+- Typing in Japanese, Chinese or Korean (IME) no longer submits or closes a field on the Enter/Escape that confirms or cancels the composition: InputDialog (links, variables, version names), sidebar rename, and Find/Replace now ignore keys while composing
 - Typing a slash followed by text that matches no command (for example `/usr`) no longer leaves an invisible slash menu that swallows the arrow keys and Escape; they move the cursor in the editor again
 - Naming a version (`POST`/`PATCH /api/documents/:id/versions`) now trims the label before checking its length, so a label that fits once its surrounding spaces are dropped is no longer rejected with 400
 - `POST /api/auth/register` now trims the name and rejects one made only of spaces (400) instead of storing a blank display name
