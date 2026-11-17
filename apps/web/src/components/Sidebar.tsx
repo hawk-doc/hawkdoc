@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CopyPlus, FilePlus, FileText, Search, Star, Trash2, Undo2, X } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { ConfirmDialog } from './ConfirmDialog';
+import { isComposingKey } from '../lib/keyboard';
 
 // Tailwind's `md` — above it the sidebar is a static panel, below it a drawer
 const MD = '(min-width: 768px)';
@@ -172,6 +173,7 @@ export function Sidebar({
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={commitEdit}
             onKeyDown={(e) => {
+              if (isComposingKey(e)) return;
               if (e.key === 'Enter') commitEdit();
               if (e.key === 'Escape') setEditing(null);
             }}

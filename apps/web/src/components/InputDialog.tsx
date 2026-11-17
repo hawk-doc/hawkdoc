@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { isComposingKey } from '../lib/keyboard';
 
 interface InputDialogProps {
   title: string;
@@ -72,6 +73,7 @@ export function InputDialog({
           placeholder={placeholder}
           className="w-full px-3 py-2 text-sm border border-notion-border rounded-lg outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 mb-3"
           onKeyDown={(e) => {
+            if (isComposingKey(e)) return;
             if (e.key === 'Enter') submit();
             if (e.key === 'Escape') onCancel();
           }}

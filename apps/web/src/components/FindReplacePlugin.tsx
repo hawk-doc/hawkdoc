@@ -14,6 +14,7 @@ import { $dfs } from '@lexical/utils';
 import { Search, X, ChevronUp, ChevronDown, CaseSensitive } from 'lucide-react';
 // aliased: this file's own `matches` is the list of search hits
 import { SHORTCUTS, matches as isShortcut } from '../lib/shortcuts';
+import { isComposingKey } from '../lib/keyboard';
 
 interface Match {
   nodeKey: string;
@@ -216,6 +217,7 @@ export function FindReplacePlugin(): null | React.ReactElement {
           spellCheck={false}
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyDown={(e) => {
+            if (isComposingKey(e)) return;
             if (e.key === 'Enter') {
               e.preventDefault();
               if (matches.length > 0) e.shiftKey ? goPrev() : goNext();
@@ -311,6 +313,7 @@ export function FindReplacePlugin(): null | React.ReactElement {
           spellCheck={false}
           onChange={(e) => setReplaceTerm(e.target.value)}
           onKeyDown={(e) => {
+            if (isComposingKey(e)) return;
             if (e.key === 'Escape') {
               e.stopPropagation();
               close();
