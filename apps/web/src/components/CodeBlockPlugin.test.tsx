@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CopyButton } from './CodeBlockPlugin';
+import { CodeHeader, CopyButton } from './CodeBlockPlugin';
 
 const originalClipboard = navigator.clipboard;
 
@@ -76,5 +76,32 @@ describe('CopyButton', () => {
     await click();
     unmount();
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('CodeHeader', () => {
+  function codeEl(lang?: string) {
+    const el = document.createElement('code');
+    if (lang) el.setAttribute('data-highlight-language', lang);
+    el.textContent = 'x = 1';
+    return el;
+  }
+
+  it('shows the code language', () => {
+    const { container } = render(<CodeHeader codeEl={codeEl('python')} />);
+    expect(container.querySelector('span')?.textContent).toBe('python');
+  });
+
+  it('falls back to "plain" when no language is set', () => {
+    const { container } = render(<CodeHeader codeEl={codeEl()} />);
+    expect(container.querySelector('span')?.textContent).toBe('plain');
+  });
+
+  it('is styled with Tailwind classes, not inline styles', () => {
+    const { container } = render(<CodeHeader codeEl={codeEl('js')} />);
+    const header = container.firstElementChild as HTMLElement;
+    expect(header.getAttribute('style')).toBeNull();
+    expect(header.querySelector('span')?.getAttribute('style')).toBeNull();
+    expect(header.className).toContain('flex');
   });
 });

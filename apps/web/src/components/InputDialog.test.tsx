@@ -54,4 +54,23 @@ describe('InputDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Go' }));
     expect(onConfirm).toHaveBeenCalledWith('padded');
   });
+
+  it('ignores Enter and Escape while an IME is composing text', () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(<InputDialog title="Variable name" placeholder="x" onConfirm={onConfirm} onCancel={onCancel} />);
+    const input = screen.getByLabelText('Variable name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'へんすう' } });
+
+    // Enter/Escape here confirm or cancel the composition, not the dialog
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Escape', isComposing: true });
+    // Safari's composition-ending keydown carries only keyCode 229
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onConfirm).toHaveBeenCalledWith('へんすう');
+  });
 });

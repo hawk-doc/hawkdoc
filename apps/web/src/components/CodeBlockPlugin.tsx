@@ -64,31 +64,15 @@ export function CopyButton({ getCode }: { getCode: () => string }) {
   );
 }
 
-function CodeHeader({ codeEl }: { codeEl: HTMLElement }) {
+export function CodeHeader({ codeEl }: { codeEl: HTMLElement }) {
   const lang = codeEl.getAttribute('data-highlight-language') || 'plain';
   const getCode = () => codeEl.textContent ?? '';
 
   return (
     <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0.4em 0.85em',
-        background: '#16161e',
-        borderRadius: '8px 8px 0 0',
-        borderBottom: '1px solid #2a2b3d',
-        fontFamily: 'JetBrains Mono, Fira Code, monospace',
-      }}
+      className="flex items-center justify-between px-[0.85em] py-[0.4em] bg-[#16161e] rounded-t-lg border-b border-[#2a2b3d] font-['JetBrains_Mono','Fira_Code',monospace]"
     >
-      <span
-        style={{
-          fontSize: '11px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          color: '#565f89',
-        }}
-      >
+      <span className="text-[11px] uppercase tracking-[0.08em] text-[#565f89]">
         {lang}
       </span>
       <CopyButton getCode={getCode} />
