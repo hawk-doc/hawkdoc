@@ -27,16 +27,19 @@ export function BubbleMenu({ editor }: BubbleMenuProps) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
   useEffect(() => {
-    return editor.registerUpdateListener(({ editorState }) => {
-      editorState.read(() => {
+    // Reads the current selection and places the menu above it. It runs on
+    // every editor update and again on scroll/resize, because the menu is
+    // `position: fixed` and would otherwise stay put while the text moves.
+    const reposition = () => {
+      editor.getEditorState().read(() => {
         const selection = $getSelection();
         if (!$isRangeSelection(selection) || selection.isCollapsed()) {
           setPos(null);
           return;
         }
 
-        // Both of these run on every editor update, so they hand React back
-        // what it already holds when nothing moved or changed.
+        // Both of these hand React back what it already holds when nothing
+        // moved or changed, so repeated calls do not re-render.
         const nextFormat = $readSelectionFormat(selection);
         setFormat((prev) => (sameFormat(prev, nextFormat) ? prev : nextFormat));
 
@@ -49,7 +52,28 @@ export function BubbleMenu({ editor }: BubbleMenuProps) {
         const next = { top: rect.top - 48, left: rect.left + rect.width / 2 };
         setPos((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next));
       });
-    });
+    };
+
+    // Coalesce bursts of scroll events into one measurement per frame.
+    let frame = 0;
+    const onViewportChange = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        reposition();
+      });
+    };
+
+    const unregister = editor.registerUpdateListener(reposition);
+    // Capture so scrolling any ancestor (e.g. the app's <main>) is seen.
+    document.addEventListener('scroll', onViewportChange, { capture: true, passive: true });
+    window.addEventListener('resize', onViewportChange);
+    return () => {
+      unregister();
+      document.removeEventListener('scroll', onViewportChange, { capture: true });
+      window.removeEventListener('resize', onViewportChange);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, [editor]);
 
   const toggleLink = useCallback(() => {
