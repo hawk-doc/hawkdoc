@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The light/dark theme follows the operating system setting, including live changes, until you pick one with the theme toggle (previously the OS theme at first visit was saved and pinned forever). The editor no longer crashes on load when browser storage is blocked
 
 ### Fixed
+- Pressing Backspace or Delete with several images or page breaks shift-click selected now removes all of them instead of only one, no longer also deletes a character from nearby text, and no longer removes an image after the caret has moved back into text
 - The floating formatting menu that appears over selected text now follows the selection when the page scrolls or the window resizes, instead of staying where it first appeared and covering other text
 - Typing in Japanese, Chinese or Korean (IME) no longer submits or closes a field on the Enter/Escape that confirms or cancels the composition: InputDialog (links, variables, version names), sidebar rename, and Find/Replace now ignore keys while composing
 - Typing a slash followed by text that matches no command (for example `/usr`) no longer leaves an invisible slash menu that swallows the arrow keys and Escape; they move the cursor in the editor again
