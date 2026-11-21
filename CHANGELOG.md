@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Slash `/` menu: arrow keys wrap around at the ends of the list, the selected command scrolls into view when it is below the menu's visible area, scrolling the menu itself no longer closes it, and arrow keys no longer move the editor caret while the menu is open
 - The code block header (language label and Copy button bar) is styled with Tailwind classes instead of inline styles, as the project's style rules require; it looks the same
 - The light/dark theme follows the operating system setting, including live changes, until you pick one with the theme toggle (previously the OS theme at first visit was saved and pinned forever). The editor no longer crashes on load when browser storage is blocked
+- Dark mode is applied before the first paint (inline script in `index.html`), so dark-mode users no longer see a white flash while the app loads
 
 ### Fixed
 - The floating formatting menu that appears over selected text now follows the selection when the page scrolls or the window resizes, instead of staying where it first appeared and covering other text

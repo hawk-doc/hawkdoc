@@ -4,6 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Apply the dark class before first paint so dark-mode users don't see a light
+      flash while the JS bundle loads. Must mirror useTheme (src/hooks/useTheme.ts):
+      saved 'hawkdoc-theme' wins, otherwise follow the OS setting.
+    -->
+    <script>
+      (function () {
+        let theme = null;
+        try {
+          theme = localStorage.getItem('hawkdoc-theme');
+        } catch (e) {
+          // Storage unavailable (private mode, blocked cookies): fall back to the OS.
+        }
+        if (theme !== 'dark' && theme !== 'light') {
+          theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+      })();
+    </script>
     <title>HawkDoc — Zero-lag document editor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
