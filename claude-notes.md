@@ -17,7 +17,6 @@
 - [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
 
-- [ ] (enhancement) No pre-paint theme script in apps/web/index.html: light flash on load for dark users.
 - [ ] (enhancement) InputDialog has no dark-mode classes (bg-white, border, input) unlike ConfirmDialog; also no Tab focus trap.
 - [ ] (bug) ImageNode `onError` mutates `img.style` directly (inline styles); could use state + Tailwind classes.
 
@@ -63,6 +62,7 @@
 - 2026-11-17 | bug | bug/ime-enter-submits | https://github.com/hawk-doc/hawkdoc/pull/73 | open, awaiting owner review (Enter/Escape ignored during IME composition in InputDialog, Sidebar rename, Find/Replace; lib/keyboard.ts isComposingKey; #72 merged; test run of the schedule)
 - 2026-11-18 | enhancement | enhancement/theme-storage-os-sync | https://github.com/hawk-doc/hawkdoc/pull/74 | open, awaiting owner review (useTheme follows OS until toggled, saves only on toggle, storage guarded; test run of the schedule)
 - 2026-11-20 | bug | bug/image-delete-node-selection | https://github.com/hawk-doc/hawkdoc/pull/75 | open, awaiting owner review (useDeleteOnSelection checks NodeSelection, removes all selected nodes, preventDefault; no 11-19 run found; test run of the schedule)
+- 2026-11-21 | enhancement | enhancement/prepaint-theme | https://github.com/hawk-doc/hawkdoc/pull/76 | open, awaiting owner review (inline pre-paint theme script in index.html mirrors useTheme; test runs the script; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -93,3 +93,4 @@
 - 2026-11-17: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. fireEvent.keyDown accepts `isComposing`/`keyCode` in jsdom. Web tests now 260 on this branch.
 - 2026-11-18: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. Test setup's matchMedia stub is static: override `window.matchMedia` per test and restore it. Web tests now 265 on this branch.
 - 2026-11-20: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. Hooks using `useLexicalComposerContext` can be tested with `vi.mock('@lexical/react/LexicalComposerContext')` + `renderHook`; dispatch key commands inside `editor.update(..., {discrete:true})`. Web tests now 273 on this branch.
+- 2026-11-21: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. index.html inline scripts can be tested by reading the file with node:fs and running the script via `new Function`. Web tests now 274 on this branch.
