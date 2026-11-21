@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 
 type Theme = 'light' | 'dark';
 
-const THEME_STORAGE_KEY = 'hawkdoc-theme';
-const DARK_QUERY = '(prefers-color-scheme: dark)';
+export const THEME_STORAGE_KEY = 'hawkdoc-theme';
+export const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 /** Saved choice, or null when none is saved or storage is unavailable (private mode, blocked cookies). */
 function readSavedTheme(): Theme | null {
