@@ -73,4 +73,52 @@ describe('InputDialog', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onConfirm).toHaveBeenCalledWith('へんすう');
   });
+
+  it('keeps Tab inside the dialog, wrapping both ways', () => {
+    render(<InputDialog title="Insert link" placeholder="x" confirmLabel="Insert" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    const input = screen.getByLabelText('Insert link');
+    const insert = screen.getByRole('button', { name: 'Insert' });
+    const close = screen.getByRole('button', { name: 'Close' });
+    expect(document.activeElement).toBe(input);
+
+    // Shift+Tab from the first focusable (Close) goes to the last button
+    close.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(insert);
+
+    // Tab from the last button comes back to Close
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(close);
+  });
+
+  it('pulls focus back in when Tab is pressed from outside the dialog', () => {
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    render(<InputDialog title="Name" placeholder="x" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+
+    outside.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }));
+    outside.remove();
+  });
+
+  it('hands focus back to what had it when the dialog closes', () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+
+    const { unmount } = render(<InputDialog title="Name" placeholder="x" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    expect(document.activeElement).toBe(screen.getByLabelText('Name'));
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it('is marked as a modal dialog with dark-mode styles', () => {
+    render(<InputDialog title="Name" placeholder="x" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.className).toContain('dark:bg-[#2d2f31]');
+    expect(screen.getByLabelText('Name').className).toContain('dark:bg-[#202124]');
+  });
 });

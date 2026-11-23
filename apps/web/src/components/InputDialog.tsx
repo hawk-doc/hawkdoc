@@ -32,11 +32,43 @@ export function InputDialog({
   onCancel,
 }: InputDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Hand focus back on close, so dismissing the dialog doesn't drop the user
+  // at the top of the page (matches ConfirmDialog). Declared before the focus
+  // effect so it records the opener, not the input.
+  useEffect(() => {
+    const returnTo = document.activeElement as HTMLElement | null;
+    return () => returnTo?.focus();
+  }, []);
 
   useEffect(() => {
     inputRef.current?.focus();
     if (defaultValue) inputRef.current?.select();
   }, [defaultValue]);
+
+  // Keep Tab inside the dialog while it is open
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const items = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'input:not([disabled]), button:not([disabled])',
+      );
+      if (!items?.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !dialogRef.current?.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !dialogRef.current?.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   /** Confirm the trimmed input when it satisfies the empty-value policy. */
   const submit = () => {
@@ -46,14 +78,20 @@ export function InputDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" onClick={onCancel} />
-      <div className="relative bg-white rounded-xl shadow-2xl border border-notion-border w-80 p-4 z-10">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" onClick={onCancel} aria-hidden="true" />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        className="relative bg-white dark:bg-[#2d2f31] rounded-xl shadow-2xl border border-notion-border dark:border-[#3c4043] w-80 p-4 z-10"
+      >
         <div className="flex items-center justify-between mb-3">
-          <span className="font-medium text-notion-text text-sm">{title}</span>
+          <span className="font-medium text-notion-text dark:text-[#e8eaed] text-sm">{title}</span>
           <button
             type="button"
             onClick={onCancel}
-            className="text-notion-muted hover:text-notion-text transition-colors"
+            aria-label="Close"
+            className="text-notion-muted dark:text-[#9aa0a6] hover:text-notion-text dark:hover:text-[#e8eaed] transition-colors"
           >
             <X size={14} />
           </button>
@@ -71,7 +109,7 @@ export function InputDialog({
           aria-label={title}
           defaultValue={defaultValue}
           placeholder={placeholder}
-          className="w-full px-3 py-2 text-sm border border-notion-border rounded-lg outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 mb-3"
+          className="w-full px-3 py-2 text-sm bg-white dark:bg-[#202124] text-notion-text dark:text-[#e8eaed] placeholder:text-notion-muted dark:placeholder:text-[#80868b] border border-notion-border dark:border-[#3c4043] rounded-lg outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 mb-3"
           onKeyDown={(e) => {
             if (isComposingKey(e)) return;
             if (e.key === 'Enter') submit();
@@ -82,14 +120,14 @@ export function InputDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm text-notion-muted hover:text-notion-text rounded-lg hover:bg-notion-hover transition-colors"
+            className="px-3 py-1.5 text-sm text-notion-muted dark:text-[#9aa0a6] hover:text-notion-text dark:hover:text-[#e8eaed] rounded-lg hover:bg-notion-hover dark:hover:bg-[#3c4043] transition-colors"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={submit}
-            className="px-3 py-1.5 text-sm bg-notion-text text-white rounded-lg hover:opacity-80 transition-opacity"
+            className="px-3 py-1.5 text-sm bg-notion-text text-white dark:bg-[#e8eaed] dark:text-[#202020] rounded-lg hover:opacity-80 transition-opacity"
           >
             {confirmLabel}
           </button>
