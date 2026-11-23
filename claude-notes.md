@@ -17,7 +17,7 @@
 - [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
 
-- [ ] (enhancement) InputDialog has no dark-mode classes (bg-white, border, input) unlike ConfirmDialog; also no Tab focus trap.
+- [ ] (enhancement) InputDialog panel has no accessible name (input owns aria-label={title}); switching tests to getByRole('textbox',{name}) would allow aria-labelledby on the dialog.
 
 ## History
 - 2026-09-30 | bug | bug/case-insensitive-email | https://github.com/hawk-doc/hawkdoc/pull/27 | open, awaiting owner review (first run with memory; recent history: #23 enhancement/tests, #24-26 features)
@@ -63,6 +63,7 @@
 - 2026-11-20 | bug | bug/image-delete-node-selection | https://github.com/hawk-doc/hawkdoc/pull/75 | open, awaiting owner review (useDeleteOnSelection checks NodeSelection, removes all selected nodes, preventDefault; no 11-19 run found; test run of the schedule)
 - 2026-11-21 | enhancement | enhancement/prepaint-theme | https://github.com/hawk-doc/hawkdoc/pull/76 | open, awaiting owner review (inline pre-paint theme script in index.html mirrors useTheme; test runs the script; test run of the schedule)
 - 2026-11-22 | bug | bug/image-error-state | https://github.com/hawk-doc/hawkdoc/pull/77 | open, awaiting owner review (ImageNode broken state via React state + Tailwind, clears on load; first ImageNode tests; test run of the schedule)
+- 2026-11-23 | enhancement | enhancement/input-dialog-dark-mode | https://github.com/hawk-doc/hawkdoc/pull/78 | open, awaiting owner review (InputDialog dark: classes, Tab trap, focus return, role=dialog; #76 merged; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -95,3 +96,4 @@
 - 2026-11-20: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. Hooks using `useLexicalComposerContext` can be tested with `vi.mock('@lexical/react/LexicalComposerContext')` + `renderHook`; dispatch key commands inside `editor.update(..., {discrete:true})`. Web tests now 273 on this branch.
 - 2026-11-21: Setup prompt fired again; CronCreate not called (session-only, no name/CRON_TZ/email/push); owner must create the real routine in the claude.ai UI. index.html inline scripts can be tested by reading the file with node:fs and running the script via `new Function`. Web tests now 274 on this branch.
 - 2026-11-22: Setup prompt fired again; no durable routine tool (only session-only CronCreate), so not created; owner must create the real routine in the claude.ai UI. DecoratorNode components test well via `editor.update(() => $createXNode().decorate(editor), {discrete:true})` + render, mocking `useLexicalNodeSelection`. Web tests now 276 on this branch.
+- 2026-11-23: Setup prompt fired again; no durable routine tool (only session-only CronCreate), so not created; owner must create the real routine in the claude.ai UI. Focus-restore effects must be declared before autofocus effects (effects run in order). Close button precedes the input in tab order. Web tests now 278 on this branch.
