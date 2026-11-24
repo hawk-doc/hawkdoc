@@ -113,7 +113,12 @@ export function InputDialog({
           onKeyDown={(e) => {
             if (isComposingKey(e)) return;
             if (e.key === 'Enter') submit();
-            if (e.key === 'Escape') onCancel();
+            if (e.key === 'Escape') {
+              // Keep the panel underneath (e.g. version history) from also
+              // closing on the same press
+              e.stopPropagation();
+              onCancel();
+            }
           }}
         />
         <div className="flex gap-2 justify-end">
