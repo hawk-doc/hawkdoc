@@ -5,6 +5,7 @@ import {
   type NodeKey,
   type SerializedLexicalNode,
 } from 'lexical';
+import { useEffect, useState } from 'react';
 import { useLexicalNodeSelection } from '@lexical/react/useLexicalNodeSelection';
 import { useDeleteOnSelection } from '../hooks/useDeleteOnSelection';
 
@@ -17,25 +18,28 @@ interface SerializedImageNode extends SerializedLexicalNode {
 function ImageComponent({ src, alt, nodeKey }: { src: string; alt: string; nodeKey: string }) {
   const [isSelected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
   useDeleteOnSelection(nodeKey, isSelected);
+  // Failed state lives in React rather than being written onto the DOM node,
+  // so it renders through Tailwind classes and is cleared when `src` changes.
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
 
   return (
     <img
       src={src}
       alt={alt}
       draggable={false}
+      title={failed ? 'Image failed to load' : undefined}
+      data-failed={failed || undefined}
       className={`max-w-full h-auto block my-3 rounded-md cursor-pointer transition-all
+        ${failed ? 'opacity-40 grayscale' : ''}
         ${isSelected ? 'ring-2 ring-violet-500 ring-offset-2' : 'hover:ring-1 hover:ring-notion-border'}`}
       onClick={(e) => {
         e.stopPropagation();
         if (!e.shiftKey) clearSelection();
         setSelected(true);
       }}
-      onError={(e) => {
-        const img = e.currentTarget;
-        img.style.opacity = '0.4';
-        img.style.filter = 'grayscale(1)';
-        img.title = 'Image failed to load';
-      }}
+      onError={() => setFailed(true)}
+      onLoad={() => setFailed(false)}
     />
   );
 }
