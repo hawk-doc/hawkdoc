@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dark mode is applied before the first paint (inline script in `index.html`), so dark-mode users no longer see a white flash while the app loads
 
 ### Fixed
+- Pressing Escape in a confirm or input dialog closes only the dialog. Before, the same press also closed the panel it opened over (version history, the sidebar drawer) and left focus mode
 - The floating formatting menu that appears over selected text now follows the selection when the page scrolls or the window resizes, instead of staying where it first appeared and covering other text
 - Typing in Japanese, Chinese or Korean (IME) no longer submits or closes a field on the Enter/Escape that confirms or cancels the composition: InputDialog (links, variables, version names), sidebar rename, and Find/Replace now ignore keys while composing
 - Typing a slash followed by text that matches no command (for example `/usr`) no longer leaves an invisible slash menu that swallows the arrow keys and Escape; they move the cursor in the editor again

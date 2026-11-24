@@ -121,4 +121,19 @@ describe('InputDialog', () => {
     expect(dialog.className).toContain('dark:bg-[#2d2f31]');
     expect(screen.getByLabelText('Name').className).toContain('dark:bg-[#202124]');
   });
+
+  it('cancels on Escape without also closing the panel it opened over', () => {
+    const panelClose = vi.fn();
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') panelClose(); };
+    document.addEventListener('keydown', handler);
+    try {
+      const onCancel = vi.fn();
+      render(<InputDialog title="Name this version" placeholder="x" onConfirm={vi.fn()} onCancel={onCancel} />);
+      fireEvent.keyDown(screen.getByLabelText('Name this version'), { key: 'Escape' });
+      expect(onCancel).toHaveBeenCalledTimes(1);
+      expect(panelClose).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener('keydown', handler);
+    }
+  });
 });

@@ -37,10 +37,14 @@ export function ConfirmDialog({
     return () => returnTo?.focus();
   }, []);
 
-  // ARIA marks this modal; it doesn't keep Tab inside it
+  // Escape cancels only this dialog, and Tab stays inside it while it is open
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // The dialog opens over panels (version history, the sidebar drawer)
+        // that close on Escape too; one press should only dismiss the dialog.
+        e.preventDefault();
+        e.stopImmediatePropagation();
         onCancel();
         return;
       }
@@ -58,8 +62,9 @@ export function ConfirmDialog({
         first.focus();
       }
     };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    // Window capture runs before the document listeners of what is underneath
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, [onCancel]);
 
   return createPortal(
