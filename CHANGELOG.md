@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The code block header (language label and Copy button bar) is styled with Tailwind classes instead of inline styles, as the project's style rules require; it looks the same
 - The light/dark theme follows the operating system setting, including live changes, until you pick one with the theme toggle (previously the OS theme at first visit was saved and pinned forever). The editor no longer crashes on load when browser storage is blocked
 - Dark mode is applied before the first paint (inline script in `index.html`), so dark-mode users no longer see a white flash while the app loads
+- The input dialog has an accessible name: screen readers announce its title (and its explanatory message, when it has one) when it opens, instead of an unnamed "dialog"
 
 ### Fixed
 - Pressing Escape in a confirm or input dialog closes only the dialog. Before, the same press also closed the panel it opened over (version history, the sidebar drawer) and left focus mode
