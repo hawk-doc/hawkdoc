@@ -5,7 +5,7 @@ import { InputDialog } from './InputDialog';
 describe('InputDialog', () => {
   it('names the field after the dialog, so it is not just "edit text"', () => {
     render(<InputDialog title="Insert link" placeholder="https://…" onConfirm={vi.fn()} onCancel={vi.fn()} />);
-    expect(screen.getByLabelText('Insert link')).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'Insert link' })).toBeTruthy();
   });
 
   it('shows a message when one is given, and none when not', () => {
@@ -17,6 +17,20 @@ describe('InputDialog', () => {
 
     render(<InputDialog title="Name it" placeholder="x" onConfirm={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.queryByText('A named version is kept.')).toBeNull();
+  });
+
+  it('names the dialog after its title and describes it with the message', () => {
+    const { unmount } = render(
+      <InputDialog title="Name it" message="A named version is kept." placeholder="x" onConfirm={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Name it' });
+    const describedBy = dialog.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)?.textContent).toBe('A named version is kept.');
+    unmount();
+
+    render(<InputDialog title="Name it" placeholder="x" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByRole('dialog', { name: 'Name it' }).hasAttribute('aria-describedby')).toBe(false);
   });
 
   it('refuses an empty value by default', () => {
@@ -41,7 +55,7 @@ describe('InputDialog', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Name this version'), { target: { value: '' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name this version' }), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
     expect(onConfirm).toHaveBeenCalledWith('');
   });
@@ -50,7 +64,7 @@ describe('InputDialog', () => {
     const onConfirm = vi.fn();
     render(<InputDialog title="Name" placeholder="x" confirmLabel="Go" onConfirm={onConfirm} onCancel={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: '  padded  ' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: '  padded  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Go' }));
     expect(onConfirm).toHaveBeenCalledWith('padded');
   });
@@ -59,7 +73,7 @@ describe('InputDialog', () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
     render(<InputDialog title="Variable name" placeholder="x" onConfirm={onConfirm} onCancel={onCancel} />);
-    const input = screen.getByLabelText('Variable name') as HTMLInputElement;
+    const input = screen.getByRole('textbox', { name: 'Variable name' }) as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'へんすう' } });
 
     // Enter/Escape here confirm or cancel the composition, not the dialog
@@ -76,7 +90,7 @@ describe('InputDialog', () => {
 
   it('keeps Tab inside the dialog, wrapping both ways', () => {
     render(<InputDialog title="Insert link" placeholder="x" confirmLabel="Insert" onConfirm={vi.fn()} onCancel={vi.fn()} />);
-    const input = screen.getByLabelText('Insert link');
+    const input = screen.getByRole('textbox', { name: 'Insert link' });
     const insert = screen.getByRole('button', { name: 'Insert' });
     const close = screen.getByRole('button', { name: 'Close' });
     expect(document.activeElement).toBe(input);
@@ -108,7 +122,7 @@ describe('InputDialog', () => {
     opener.focus();
 
     const { unmount } = render(<InputDialog title="Name" placeholder="x" onConfirm={vi.fn()} onCancel={vi.fn()} />);
-    expect(document.activeElement).toBe(screen.getByLabelText('Name'));
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Name' }));
     unmount();
     expect(document.activeElement).toBe(opener);
     opener.remove();
@@ -119,7 +133,7 @@ describe('InputDialog', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(dialog.className).toContain('dark:bg-[#2d2f31]');
-    expect(screen.getByLabelText('Name').className).toContain('dark:bg-[#202124]');
+    expect(screen.getByRole('textbox', { name: 'Name' }).className).toContain('dark:bg-[#202124]');
   });
 
   it('cancels on Escape without also closing the panel it opened over', () => {
@@ -129,7 +143,7 @@ describe('InputDialog', () => {
     try {
       const onCancel = vi.fn();
       render(<InputDialog title="Name this version" placeholder="x" onConfirm={vi.fn()} onCancel={onCancel} />);
-      fireEvent.keyDown(screen.getByLabelText('Name this version'), { key: 'Escape' });
+      fireEvent.keyDown(screen.getByRole('textbox', { name: 'Name this version' }), { key: 'Escape' });
       expect(onCancel).toHaveBeenCalledTimes(1);
       expect(panelClose).not.toHaveBeenCalled();
     } finally {

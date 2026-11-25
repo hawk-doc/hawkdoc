@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { isComposingKey } from '../lib/keyboard';
@@ -33,6 +33,8 @@ export function InputDialog({
 }: InputDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const messageId = useId();
 
   // Hand focus back on close, so dismissing the dialog doesn't drop the user
   // at the top of the page (matches ConfirmDialog). Declared before the focus
@@ -83,10 +85,14 @@ export function InputDialog({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        // Name the dialog after its title (and describe it with the message),
+        // so screen readers announce what is being asked on open
+        aria-labelledby={titleId}
+        aria-describedby={message ? messageId : undefined}
         className="relative bg-white dark:bg-[#2d2f31] rounded-xl shadow-2xl border border-notion-border dark:border-[#3c4043] w-80 p-4 z-10"
       >
         <div className="flex items-center justify-between mb-3">
-          <span className="font-medium text-notion-text dark:text-[#e8eaed] text-sm">{title}</span>
+          <span id={titleId} className="font-medium text-notion-text dark:text-[#e8eaed] text-sm">{title}</span>
           <button
             type="button"
             onClick={onCancel}
@@ -97,7 +103,7 @@ export function InputDialog({
           </button>
         </div>
         {message && (
-          <p className="mb-3 -mt-1 text-[12px] leading-snug text-notion-muted dark:text-[#9aa0a6]">
+          <p id={messageId} className="mb-3 -mt-1 text-[12px] leading-snug text-notion-muted dark:text-[#9aa0a6]">
             {message}
           </p>
         )}
@@ -106,7 +112,7 @@ export function InputDialog({
           type="text"
           // The dialog's title is the only name this field has; without it the
           // input is announced as just "edit text"
-          aria-label={title}
+          aria-labelledby={titleId}
           defaultValue={defaultValue}
           placeholder={placeholder}
           className="w-full px-3 py-2 text-sm bg-white dark:bg-[#202124] text-notion-text dark:text-[#e8eaed] placeholder:text-notion-muted dark:placeholder:text-[#80868b] border border-notion-border dark:border-[#3c4043] rounded-lg outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 mb-3"
