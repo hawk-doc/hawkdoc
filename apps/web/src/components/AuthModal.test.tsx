@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthModal } from './AuthModal';
 
@@ -30,5 +30,40 @@ describe('AuthModal password length', () => {
     openRegister();
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a'.repeat(72) } });
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('AuthModal Escape', () => {
+  const listeners: Array<(e: KeyboardEvent) => void> = [];
+  afterEach(() => {
+    listeners.splice(0).forEach((l) => document.removeEventListener('keydown', l));
+  });
+
+  /** A panel underneath that closes on Escape, the way VersionHistoryPanel and Sidebar do */
+  const panelUnderneath = () => {
+    const onClose = vi.fn();
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    listeners.push(handler);
+    return onClose;
+  };
+
+  it('closes on Escape without also closing the panel it opened over', () => {
+    const panelClose = panelUnderneath();
+    const onClose = vi.fn();
+    render(<AuthModal onClose={onClose} />);
+
+    fireEvent.keyDown(screen.getByLabelText('Email'), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(panelClose).not.toHaveBeenCalled();
+  });
+
+  it('stops intercepting Escape once it is closed', () => {
+    const panelClose = panelUnderneath();
+    const { unmount } = render(<AuthModal onClose={vi.fn()} />);
+    unmount();
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(panelClose).toHaveBeenCalledTimes(1);
   });
 });
