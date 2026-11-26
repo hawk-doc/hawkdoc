@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The input dialog has an accessible name: screen readers announce its title (and its explanatory message, when it has one) when it opens, instead of an unnamed "dialog"
 
 ### Fixed
+- Pressing Escape in the sign-in dialog (including the "session expired" prompt) closes only the dialog. Before, the same press also closed the version history panel or sidebar drawer underneath, or left focus mode
 - Pressing Escape in a confirm or input dialog closes only the dialog. Before, the same press also closed the panel it opened over (version history, the sidebar drawer) and left focus mode
 - The floating formatting menu that appears over selected text now follows the selection when the page scrolls or the window resizes, instead of staying where it first appeared and covering other text
 - Typing in Japanese, Chinese or Korean (IME) no longer submits or closes a field on the Enter/Escape that confirms or cancels the composition: InputDialog (links, variables, version names), sidebar rename, and Find/Replace now ignore keys while composing
