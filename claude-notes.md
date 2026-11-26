@@ -16,7 +16,7 @@
 - [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks). Caveat: auth.email.test.ts inserts legacy case-only duplicates directly, so the index would break those tests; needs a guarded DO block + test rework.
 - [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
-- [ ] (bug) AuthModal Escape listener uses document bubble phase (see 2026-11-24 lesson); modals should use window capture + stopImmediatePropagation like ShortcutsDialog.
+- [ ] (bug) FindReplacePlugin Escape handlers (lines ~135/225/317) may also leak Escape to document-level panel listeners; check before fixing.
 
 ## History
 - 2026-09-30 | bug | bug/case-insensitive-email | https://github.com/hawk-doc/hawkdoc/pull/27 | open, awaiting owner review (first run with memory; recent history: #23 enhancement/tests, #24-26 features)
@@ -65,6 +65,7 @@
 - 2026-11-23 | enhancement | enhancement/input-dialog-dark-mode | https://github.com/hawk-doc/hawkdoc/pull/78 | open, awaiting owner review (InputDialog dark: classes, Tab trap, focus return, role=dialog; #76 merged; test run of the schedule)
 - 2026-11-24 | bug | bug/escape-closes-dialog-only | https://github.com/hawk-doc/hawkdoc/pull/79 | open, awaiting owner review (Escape in ConfirmDialog/InputDialog no longer also closes VersionHistoryPanel/Sidebar/focus mode; first ConfirmDialog tests; test run of the schedule)
 - 2026-11-25 | enhancement | enhancement/input-dialog-accessible-name | https://github.com/hawk-doc/hawkdoc/pull/80 | open, awaiting owner review (dialog aria-labelledby title + aria-describedby message via useId; #78/#79 merged; test run of the schedule)
+- 2026-11-26 | bug | bug/auth-modal-escape | https://github.com/hawk-doc/hawkdoc/pull/81 | open, awaiting owner review (AuthModal Escape via window capture + stopImmediatePropagation; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -101,3 +102,4 @@
 - Setup prompt keeps firing daily: there is no durable routine tool here (CronCreate is session-only, no name/CRON_TZ/email/push), so don't create one; tell the owner to create/fix the real routine in the claude.ai UI.
 - 2026-11-24: Document-level Escape listeners (VersionHistoryPanel, Sidebar, Editor focus mode) fire under modals; modals should use window capture + stopImmediatePropagation (ShortcutsDialog pattern). Ideas left: AuthModal Escape uses document bubble too. Web tests now 282 on this branch.
 - 2026-11-25: getByLabelText matches every element labelled by an id (dialog + input) — use getByRole(role,{name}). Web-only change: lint+typecheck+build+web tests ~3 min after `npm ci` (~40s today). Web tests now 283 on this branch.
+- 2026-11-26: Setup prompt fired again; CronCreate not called (session-only). AuthModal tests mock useAuth; Escape test copies ConfirmDialog's panelUnderneath helper. Web tests now 285 on this branch.
