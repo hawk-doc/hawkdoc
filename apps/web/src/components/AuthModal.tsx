@@ -27,10 +27,19 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
     emailRef.current?.focus();
   }, [tab]);
 
+  // Escape closes only this modal. It can open over panels that close on
+  // Escape too (the session-expired prompt appears over version history, the
+  // sidebar drawer or focus mode), so one press must not dismiss both.
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onClose();
+    };
+    // Window capture runs before the document listeners of what is underneath
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, [onClose]);
 
   const switchTab = (t: Tab) => {
