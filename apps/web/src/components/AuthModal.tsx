@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,6 +22,15 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
+  // Hand focus back to whatever opened the modal once it closes. Declared
+  // before the autofocus effect so it captures the opener, not the email field.
+  useEffect(() => {
+    const returnTo = document.activeElement as HTMLElement | null;
+    return () => returnTo?.focus();
+  }, []);
 
   useEffect(() => {
     emailRef.current?.focus();
@@ -32,10 +41,28 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
   // sidebar drawer or focus mode), so one press must not dismiss both.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onClose();
+        return;
+      }
+      // Keep Tab inside the modal while it covers the page
+      if (e.key !== 'Tab') return;
+      const items = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled])',
+      );
+      if (!items?.length) return;
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !dialogRef.current?.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !dialogRef.current?.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     // Window capture runs before the document listeners of what is underneath
     window.addEventListener('keydown', handler, true);
@@ -79,18 +106,26 @@ export function AuthModal({ onClose, notice }: AuthModalProps) {
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Card */}
-      <div className="relative w-full max-w-[380px] mx-4 bg-white dark:bg-[#2d2f31] rounded-2xl shadow-2xl overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative w-full max-w-[380px] mx-4 bg-white dark:bg-[#2d2f31] rounded-2xl shadow-2xl overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-notion-border dark:border-[#3c4043]">
-          <h2 className="font-semibold text-[15px] text-notion-text dark:text-[#e8eaed]">
+          <h2 id={titleId} className="font-semibold text-[15px] text-notion-text dark:text-[#e8eaed]">
             {tab === 'login' ? 'Sign in to HawkDoc' : 'Create an account'}
           </h2>
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close"
             className="flex items-center justify-center w-6 h-6 rounded-md text-notion-muted dark:text-[#9aa0a6] hover:bg-notion-hover dark:hover:bg-[#3c4043] transition-colors"
           >
             <X size={14} />
