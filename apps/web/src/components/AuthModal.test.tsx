@@ -67,3 +67,39 @@ describe('AuthModal Escape', () => {
     expect(panelClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('AuthModal dialog semantics and focus', () => {
+  it('is a modal dialog named by its heading', () => {
+    render(<AuthModal onClose={vi.fn()} />);
+    const dialog = screen.getByRole('dialog', { name: 'Sign in to HawkDoc' });
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+  });
+
+  it('wraps Tab and Shift+Tab inside the modal', () => {
+    render(<AuthModal onClose={vi.fn()} />);
+    const dialog = screen.getByRole('dialog');
+    const items = dialog.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])');
+    const first = items[0]!;
+    const last = items[items.length - 1]!;
+
+    last.focus();
+    fireEvent.keyDown(last, { key: 'Tab' });
+    expect(document.activeElement).toBe(first);
+
+    fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+
+  it('returns focus to the element that opened it', () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const { unmount } = render(<AuthModal onClose={vi.fn()} />);
+    expect(document.activeElement).toBe(screen.getByLabelText('Email'));
+
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+});
