@@ -125,9 +125,12 @@ export function FindReplacePlugin(): null | React.ReactElement {
     editor.focus();
   }, [editor]);
 
-  // The find shortcut opens the panel; Escape closes it
+  // The find shortcut opens the panel; Escape closes it. This listener runs in
+  // the capture phase, before the inputs' own handlers, so it must skip IME
+  // composition itself: Escape there only cancels the composition.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (isComposingKey(e)) return;
       if (isShortcut(e, SHORTCUTS.find)) {
         e.preventDefault();
         setIsOpen(true);
