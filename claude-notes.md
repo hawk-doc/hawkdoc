@@ -16,7 +16,8 @@
 - [ ] (bug/hardening) Add unique index on `LOWER(email)` in schema.sql once safe (see PR #27 risks). Caveat: auth.email.test.ts inserts legacy case-only duplicates directly, so the index would break those tests; needs a guarded DO block + test rework.
 - [ ] (enhancement) Web: no toast system exists; PR #35 added an inline alert in EditorToolbar for upload errors. Consider a shared toast for other silent `console.error` paths.
 - [ ] (enhancement) Consider a Redis-backed rate limiter for multi-instance deployments (`TRUST_PROXY` env now exists, PR #32).
-- [ ] (bug) FindReplacePlugin Escape handlers (lines ~135/225/317) may also leak Escape to document-level panel listeners; check before fixing.
+- [ ] (enhancement) Sidebar drawer / VersionHistoryPanel: focus handling (move focus in on open, return on close).
+- [ ] (bug) Sidebar rename input Escape (Sidebar.tsx ~178) bubbles to the drawer's document Escape listener, likely closing the drawer too; verify.
 
 ## History
 - 2026-09-30 | bug | bug/case-insensitive-email | https://github.com/hawk-doc/hawkdoc/pull/27 | open, awaiting owner review (first run with memory; recent history: #23 enhancement/tests, #24-26 features)
@@ -67,6 +68,7 @@
 - 2026-11-25 | enhancement | enhancement/input-dialog-accessible-name | https://github.com/hawk-doc/hawkdoc/pull/80 | open, awaiting owner review (dialog aria-labelledby title + aria-describedby message via useId; #78/#79 merged; test run of the schedule)
 - 2026-11-26 | bug | bug/auth-modal-escape | https://github.com/hawk-doc/hawkdoc/pull/81 | merged (AuthModal Escape via window capture + stopImmediatePropagation; test run of the schedule)
 - 2026-11-27 | enhancement | enhancement/auth-modal-dialog-a11y | https://github.com/hawk-doc/hawkdoc/pull/82 | open, awaiting owner review (AuthModal role=dialog + aria-labelledby, Tab trap, focus return, close aria-label; test run of the schedule)
+- 2026-11-28 | bug | bug/find-replace-ime-escape | https://github.com/hawk-doc/hawkdoc/pull/83 | open, awaiting owner review (find panel capture-phase listener skips IME composing keys; isComposingKey accepts native events; first FindReplacePlugin tests; #82 merged; test run of the schedule)
 
 ## Lessons
 - `git ls-remote --heads origin` first: the local clone only knows main; `dev` and all other branches must be fetched.
@@ -105,3 +107,4 @@
 - 2026-11-25: getByLabelText matches every element labelled by an id (dialog + input) — use getByRole(role,{name}). Web-only change: lint+typecheck+build+web tests ~3 min after `npm ci` (~40s today). Web tests now 283 on this branch.
 - 2026-11-26: Setup prompt fired again; CronCreate not called (session-only). AuthModal tests mock useAuth; Escape test copies ConfirmDialog's panelUnderneath helper. Web tests now 285 on this branch.
 - 2026-11-27: Setup prompt fired again; CronCreate not called. All modals now have dialog a11y; next a11y candidates: Sidebar drawer / VersionHistoryPanel focus handling. Web tests now 288 on this branch.
+- 2026-11-28: Setup prompt fired again; CronCreate not called. FindReplacePlugin's document capture listener stopPropagation()s Escape while open, so doc-bubble listeners never see it (no leak) but input handlers don't run either. Plugin tests: mock composer context with bare createEditor(); open via keyDown(document,{key:'f',ctrlKey:true}). Web tests now 291 on this branch.
