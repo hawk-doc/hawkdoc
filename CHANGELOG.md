@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The sign-in / sign-up modal is announced as a modal dialog named by its heading, keeps Tab focus inside itself while open, returns focus to what was focused before it opened, and its close button has an accessible name
 
 ### Fixed
+- Find and replace: pressing Escape to cancel an IME composition (Japanese, Chinese, Korean input) in the Find or Replace field no longer closes the panel. The panel's document-level Escape listener runs before the fields' own handlers, so their composition check never took effect
 - Pressing Escape in the sign-in dialog (including the "session expired" prompt) closes only the dialog. Before, the same press also closed the version history panel or sidebar drawer underneath, or left focus mode
 - Pressing Escape in a confirm or input dialog closes only the dialog. Before, the same press also closed the panel it opened over (version history, the sidebar drawer) and left focus mode
 - The floating formatting menu that appears over selected text now follows the selection when the page scrolls or the window resizes, instead of staying where it first appeared and covering other text
